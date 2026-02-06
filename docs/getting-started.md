@@ -5,35 +5,27 @@ This guide walks you through installing, configuring, and using open-mem with Op
 ## Prerequisites
 
 - [OpenCode](https://opencode.ai) installed and configured
-- [Bun](https://bun.sh) >= 1.0 (or npm)
+- [Bun](https://bun.sh) >= 1.0
 
 ## Installation
 
-### Using Bun (recommended)
-
 ```bash
-bun add open-mem
-```
-
-### Using npm
-
-```bash
-npm install open-mem
+bun add github:clopca/open-mem
 ```
 
 ## Configuration
 
 ### 1. Register the Plugin
 
-Add open-mem to your OpenCode configuration file at `~/.config/opencode/config.json`:
+Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencode/opencode.json`):
 
 ```json
 {
-  "plugins": {
-    "open-mem": "open-mem"
-  }
+  "plugin": ["open-mem"]
 }
 ```
+
+> **Note**: If you already have plugins, just append `"open-mem"` to the existing array.
 
 ### 2. Enable AI Compression (Optional)
 

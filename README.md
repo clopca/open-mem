@@ -1,7 +1,7 @@
 # open-mem
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://www.npmjs.com/package/open-mem)
+[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/clopca/open-mem)
 [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.0-pink.svg)](https://bun.sh)
 
 Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, and recalls context across coding sessions.
@@ -16,26 +16,20 @@ Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, 
 ### Install
 
 ```bash
-bun add open-mem
-```
-
-Or with npm:
-
-```bash
-npm install open-mem
+bun add github:clopca/open-mem
 ```
 
 ### Configure OpenCode
 
-Add to your OpenCode config (`~/.config/opencode/config.json`):
+Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencode/opencode.json`):
 
 ```json
 {
-  "plugins": {
-    "open-mem": "open-mem"
-  }
+  "plugin": ["open-mem"]
 }
 ```
+
+> **Note**: If you already have plugins, just append `"open-mem"` to the existing array.
 
 That's it. open-mem starts capturing from your next OpenCode session.
 
@@ -285,12 +279,7 @@ export OPEN_MEM_MAX_CONTEXT_TOKENS=2000
 
 ## Uninstalling
 
-1. Remove the plugin from your OpenCode config (`~/.config/opencode/config.json`):
-   ```json
-   {
-     "plugins": {}
-   }
-   ```
+1. Remove `"open-mem"` from the `plugin` array in your OpenCode config (`~/.config/opencode/opencode.json`).
 
 2. Remove the package:
    ```bash
