@@ -52,6 +52,13 @@ const DEFAULT_CONFIG: OpenMemConfig = {
   
   // Privacy
   sensitivePatterns: [],
+  
+  // Data retention
+  retentionDays: 90,              // Keep 90 days by default
+  maxDatabaseSizeMb: 500,         // 500MB max by default
+  
+  // Logging
+  logLevel: "warn" as const,
 };
 ```
 
@@ -68,6 +75,8 @@ function loadFromEnv(): Partial<OpenMemConfig> {
   if (process.env.OPEN_MEM_CONTEXT_INJECTION === "false") env.contextInjectionEnabled = false;
   if (process.env.OPEN_MEM_IGNORED_TOOLS) env.ignoredTools = process.env.OPEN_MEM_IGNORED_TOOLS.split(",").map(s => s.trim());
   if (process.env.OPEN_MEM_BATCH_SIZE) env.batchSize = parseInt(process.env.OPEN_MEM_BATCH_SIZE, 10);
+  if (process.env.OPEN_MEM_RETENTION_DAYS) env.retentionDays = parseInt(process.env.OPEN_MEM_RETENTION_DAYS, 10);
+  if (process.env.OPEN_MEM_LOG_LEVEL) env.logLevel = process.env.OPEN_MEM_LOG_LEVEL as any;
   
   return env;
 }

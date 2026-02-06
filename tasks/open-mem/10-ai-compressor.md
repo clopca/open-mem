@@ -69,32 +69,43 @@ async compress(
   
   const prompt = buildCompressionPrompt(toolName, truncatedOutput, sessionContext);
   
-  try {
-    const response = await this.client.messages.create({
-      model: this.config.model,
-      max_tokens: this.config.maxTokensPerCompression,
-      messages: [
-        { role: "user", content: prompt },
-      ],
-    });
-    
-    // Extract text from response
-    const text = response.content
-      .filter(block => block.type === "text")
-      .map(block => block.text)
-      .join("");
-    
-    const parsed = parseObservationResponse(text);
-    if (!parsed) {
-      console.warn("[open-mem] Failed to parse compression response for tool:", toolName);
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await this.client.messages.create({
+        model: this.config.model,
+        max_tokens: this.config.maxTokensPerCompression,
+        messages: [
+          { role: "user", content: prompt },
+        ],
+      });
+      
+      // Extract text from response
+      const text = response.content
+        .filter(block => block.type === "text")
+        .map(block => block.text)
+        .join("");
+      
+      const parsed = parseObservationResponse(text);
+      if (!parsed) {
+        console.warn("[open-mem] Failed to parse compression response for tool:", toolName);
+        return null;
+      }
+      
+      return parsed;
+    } catch (error: any) {
+      const isRetryable = error?.status === 429 || error?.status === 500 || error?.status === 503 || error?.error?.type === 'overloaded_error';
+      if (isRetryable && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s
+        console.warn(`[open-mem] Retryable API error (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      console.error("[open-mem] Compression API error:", error);
       return null;
     }
-    
-    return parsed;
-  } catch (error) {
-    console.error("[open-mem] Compression API error:", error);
-    return null;
   }
+  return null;
 }
 ```
 
@@ -204,6 +215,7 @@ async isAvailable(): Promise<boolean> {
 - [ ] `compress()` returns null for outputs shorter than minOutputLength
 - [ ] `compress()` truncates very long outputs to prevent excessive API costs
 - [ ] `compress()` handles API errors gracefully (returns null, logs error)
+- [ ] `compress()` retries on transient API errors (429, 500, 503) with exponential backoff
 - [ ] `compressBatch()` processes multiple items sequentially with delay
 - [ ] `createFallbackObservation()` creates basic observation without AI
 - [ ] Fallback extracts file paths from output using regex heuristics
@@ -237,6 +249,6 @@ cd /Users/clopca/dev/github/open-mem && bun -e "
 - The Anthropic SDK handles API key from constructor or `ANTHROPIC_API_KEY` env var
 - Rate limiting is handled simply with sequential processing + delay — for v1 this is sufficient
 - The fallback mechanism ensures observations are still captured even without AI compression
-- Consider adding retry logic with exponential backoff for transient API errors
+- Retry logic with exponential backoff is included for transient errors (429, 500, 503).
 - The `maxInputLength` of 50K chars (~12.5K tokens) prevents excessive API costs for very large tool outputs
 - In production, consider using Anthropic's batch API for cost savings

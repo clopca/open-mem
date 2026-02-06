@@ -48,7 +48,7 @@ open-mem needs to be published as a standalone npm package that OpenCode users c
   ],
   "scripts": {
     "build": "bun run build:bundle && bun run build:types",
-    "build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify",
+    "build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite",
     "build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
     "dev": "bun run --watch src/index.ts",
     "test": "bun test",
@@ -80,17 +80,14 @@ open-mem needs to be published as a standalone npm package that OpenCode users c
   "engines": {
     "bun": ">=1.0.0"
   },
-  "peerDependencies": {
-    "zod": "^3.0.0"
-  },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
+    "@anthropic-ai/sdk": "^0.39.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.7.0",
-    "@biomejs/biome": "^1.9.0",
-    "zod": "^3.24.0"
+    "@biomejs/biome": "^1.9.0"
   }
 }
 ```
@@ -172,7 +169,7 @@ npm pack --dry-run
 - [ ] `bun run typecheck` passes
 - [ ] `bun run lint` passes (or has only warnings)
 - [ ] `prepublishOnly` script runs build and tests
-- [ ] `zod` is a peerDependency (not bundled)
+- [ ] `zod` is a regular dependency (always available at runtime)
 - [ ] `biome.json` exists with reasonable defaults
 - [ ] All validation commands pass
 
@@ -199,9 +196,10 @@ cd /Users/clopca/dev/github/open-mem && npm pack --dry-run 2>&1 | tail -1
 ```
 
 ## Notes
-- `zod` is a peerDependency because OpenCode already provides it — no need to bundle
+- `zod` is a regular dependency to ensure it's always available regardless of the host environment
 - `@anthropic-ai/sdk` is a regular dependency because it's not provided by OpenCode
 - `bun:sqlite` is a Bun built-in — no dependency needed
+- The `--external bun:sqlite` flag ensures the bundler doesn't try to bundle the Bun built-in SQLite module
 - The build uses `--target bun` to ensure Bun-specific APIs (like `bun:sqlite`) are preserved
 - Consider adding a `postinstall` script that warns if not running in Bun
 - The `--minify` flag reduces bundle size for npm distribution

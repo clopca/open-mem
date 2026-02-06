@@ -36,7 +36,8 @@ export const MIGRATIONS: Migration[] = [
     up: `
       -- Sessions table
       CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
+        _rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT UNIQUE NOT NULL,
         project_path TEXT NOT NULL,
         started_at TEXT NOT NULL DEFAULT (datetime('now')),
         ended_at TEXT,
@@ -52,7 +53,8 @@ export const MIGRATIONS: Migration[] = [
       
       -- Observations table
       CREATE TABLE IF NOT EXISTS observations (
-        id TEXT PRIMARY KEY,
+        _rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT UNIQUE NOT NULL,
         session_id TEXT NOT NULL,
         type TEXT NOT NULL CHECK (type IN ('decision', 'bugfix', 'feature', 'refactor', 'discovery', 'change')),
         title TEXT NOT NULL,
@@ -75,7 +77,8 @@ export const MIGRATIONS: Migration[] = [
       
       -- Session summaries table
       CREATE TABLE IF NOT EXISTS session_summaries (
-        id TEXT PRIMARY KEY,
+        _rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT UNIQUE NOT NULL,
         session_id TEXT NOT NULL UNIQUE,
         summary TEXT NOT NULL,
         key_decisions TEXT NOT NULL DEFAULT '[]',
@@ -88,7 +91,8 @@ export const MIGRATIONS: Migration[] = [
       
       -- Pending messages (queue persistence)
       CREATE TABLE IF NOT EXISTS pending_messages (
-        id TEXT PRIMARY KEY,
+        _rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT UNIQUE NOT NULL,
         session_id TEXT NOT NULL,
         tool_name TEXT NOT NULL,
         tool_output TEXT NOT NULL,
@@ -123,26 +127,26 @@ export const MIGRATIONS: Migration[] = [
       files_read,
       files_modified,
       content=observations,
-      content_rowid=rowid,
+      content_rowid=_rowid,
       tokenize='porter unicode61'
     );
     
     -- Triggers to keep FTS5 in sync with observations table
     CREATE TRIGGER IF NOT EXISTS observations_ai AFTER INSERT ON observations BEGIN
       INSERT INTO observations_fts(rowid, title, subtitle, narrative, facts, concepts, files_read, files_modified)
-      VALUES (new.rowid, new.title, new.subtitle, new.narrative, new.facts, new.concepts, new.files_read, new.files_modified);
+      VALUES (new._rowid, new.title, new.subtitle, new.narrative, new.facts, new.concepts, new.files_read, new.files_modified);
     END;
     
     CREATE TRIGGER IF NOT EXISTS observations_ad AFTER DELETE ON observations BEGIN
       INSERT INTO observations_fts(observations_fts, rowid, title, subtitle, narrative, facts, concepts, files_read, files_modified)
-      VALUES ('delete', old.rowid, old.title, old.subtitle, old.narrative, old.facts, old.concepts, old.files_read, old.files_modified);
+      VALUES ('delete', old._rowid, old.title, old.subtitle, old.narrative, old.facts, old.concepts, old.files_read, old.files_modified);
     END;
     
     CREATE TRIGGER IF NOT EXISTS observations_au AFTER UPDATE ON observations BEGIN
       INSERT INTO observations_fts(observations_fts, rowid, title, subtitle, narrative, facts, concepts, files_read, files_modified)
-      VALUES ('delete', old.rowid, old.title, old.subtitle, old.narrative, old.facts, old.concepts, old.files_read, old.files_modified);
+      VALUES ('delete', old._rowid, old.title, old.subtitle, old.narrative, old.facts, old.concepts, old.files_read, old.files_modified);
       INSERT INTO observations_fts(rowid, title, subtitle, narrative, facts, concepts, files_read, files_modified)
-      VALUES (new.rowid, new.title, new.subtitle, new.narrative, new.facts, new.concepts, new.files_read, new.files_modified);
+      VALUES (new._rowid, new.title, new.subtitle, new.narrative, new.facts, new.concepts, new.files_read, new.files_modified);
     END;
     
     -- FTS5 for session summaries
@@ -151,18 +155,18 @@ export const MIGRATIONS: Migration[] = [
       key_decisions,
       concepts,
       content=session_summaries,
-      content_rowid=rowid,
+      content_rowid=_rowid,
       tokenize='porter unicode61'
     );
     
     CREATE TRIGGER IF NOT EXISTS summaries_ai AFTER INSERT ON session_summaries BEGIN
       INSERT INTO summaries_fts(rowid, summary, key_decisions, concepts)
-      VALUES (new.rowid, new.summary, new.key_decisions, new.concepts);
+      VALUES (new._rowid, new.summary, new.key_decisions, new.concepts);
     END;
     
     CREATE TRIGGER IF NOT EXISTS summaries_ad AFTER DELETE ON session_summaries BEGIN
       INSERT INTO summaries_fts(summaries_fts, rowid, summary, key_decisions, concepts)
-      VALUES ('delete', old.rowid, old.summary, old.key_decisions, old.concepts);
+      VALUES ('delete', old._rowid, old.summary, old.key_decisions, old.concepts);
     END;
   `,
 },
@@ -231,4 +235,5 @@ cd /Users/clopca/dev/github/open-mem && bun -e "
 - FTS5 `content=observations` creates a "content table" FTS5 — it doesn't store its own copy of the data, just the index. This saves disk space.
 - The `porter` tokenizer handles English stemming (e.g., "running" matches "run"). `unicode61` handles Unicode normalization.
 - FTS5 triggers must handle the special `'delete'` command syntax for content tables.
+- All tables use an explicit `_rowid INTEGER PRIMARY KEY AUTOINCREMENT` column instead of relying on SQLite's implicit rowid. This ensures FTS5 `content_rowid=_rowid` works reliably with TEXT-based `id` columns (which are `UNIQUE NOT NULL` instead of `PRIMARY KEY`). Without this, FTS5 content sync triggers would reference the implicit rowid, which is fragile when the primary key is TEXT.
 - Consider adding a migration v3 later for any schema changes needed during development.

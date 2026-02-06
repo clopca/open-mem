@@ -32,12 +32,13 @@ import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { ObservationRepository } from "./db/observations";
 import { SummaryRepository } from "./db/summaries";
-import { PendingMessageRepository } from "./db/observations"; // or separate file
+import { PendingMessageRepository } from "./db/pending";
 import { ObservationCompressor } from "./ai/compressor";
 import { SessionSummarizer } from "./ai/summarizer";
 import { QueueProcessor } from "./queue/processor";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { createEventHandler } from "./hooks/session-events";
+import { createChatMessageHook } from "./hooks/chat-message";
 import { createContextInjectionHook } from "./hooks/context-inject";
 import { createCompactionHook } from "./hooks/compaction";
 import { createSearchTool } from "./tools/search";
@@ -98,6 +99,7 @@ export default async function plugin(
   // 7. Create hooks
   const toolCaptureHook = createToolCaptureHook(config, queue, sessionRepo, directory);
   const eventHandler = createEventHandler(config, queue, sessionRepo, directory);
+  const chatMessageHook = createChatMessageHook(sessionRepo, directory);
   const contextInjectionHook = createContextInjectionHook(
     config, observationRepo, sessionRepo, summaryRepo, directory
   );
@@ -117,6 +119,7 @@ export default async function plugin(
   // 9. Return hooks object
   return {
     "tool.execute.after": toolCaptureHook,
+    "chat.message": chatMessageHook,
     "event": eventHandler,
     "experimental.chat.system.transform": contextInjectionHook,
     "experimental.session.compacting": compactionHook,
@@ -163,6 +166,7 @@ export { resolveConfig, getDefaultConfig } from "./config";
 - [ ] Plugin creates AI services (compressor, summarizer)
 - [ ] Plugin creates and starts queue processor
 - [ ] Plugin registers `tool.execute.after` hook
+- [ ] Plugin registers `chat.message` hook
 - [ ] Plugin registers `event` hook
 - [ ] Plugin registers `experimental.chat.system.transform` hook
 - [ ] Plugin registers `experimental.session.compacting` hook

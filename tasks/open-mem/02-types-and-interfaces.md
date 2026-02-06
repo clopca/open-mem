@@ -140,6 +140,13 @@ export interface OpenMemConfig {
   
   // Privacy
   sensitivePatterns: string[];       // Regex patterns to redact from observations
+  
+  // Data retention
+  retentionDays: number;           // Delete observations older than N days (0 = keep forever)
+  maxDatabaseSizeMb: number;       // Max database size in MB (0 = unlimited)
+  
+  // Logging
+  logLevel: "debug" | "info" | "warn" | "error";  // Log verbosity
 }
 ```
 

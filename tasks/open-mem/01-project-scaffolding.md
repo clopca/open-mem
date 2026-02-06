@@ -38,7 +38,9 @@ The repo at `/Users/clopca/dev/github/open-mem` is freshly created with only a L
   "types": "dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --format esm",
+    "build": "bun run build:bundle && bun run build:types",
+    "build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --external bun:sqlite",
+    "build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
     "dev": "bun run --watch src/index.ts",
     "test": "bun test",
     "typecheck": "bun x tsc --noEmit",
@@ -118,17 +120,10 @@ tests/
 // open-mem: Persistent memory plugin for OpenCode
 // This is the plugin entry point — will be fully wired in task 18
 
-import type { Plugin } from "./types";
-
-const plugin: Plugin = async ({ client, project, directory }) => {
-  console.log("[open-mem] Plugin loaded for project:", project);
-
-  return {
-    // Hooks will be registered here
-  };
-};
-
-export default plugin;
+export default async function plugin(input: { project: unknown; directory: string; worktree: string }) {
+  console.log("[open-mem] Plugin loaded for project at:", input.directory);
+  return {};
+}
 ```
 
 ### Step 6: Install dependencies
@@ -193,5 +188,5 @@ cd /Users/clopca/dev/github/open-mem && node -e "const p = require('./package.js
 - The `@anthropic-ai/sdk` version should match what's current at implementation time
 - `zod` is needed for custom tool argument validation (OpenCode plugin API uses it)
 - Bun's built-in SQLite (`bun:sqlite`) doesn't need a separate dependency
-- The stub `src/index.ts` will reference a `Plugin` type that doesn't exist yet — that's OK, task 02 creates it. Use a local type alias or `any` for the stub.
+- The stub `src/index.ts` uses an inline type for the plugin input — task 02 creates the full `Plugin` type, and task 18 will wire everything together.
 - Consider adding a `biome.json` for linter configuration

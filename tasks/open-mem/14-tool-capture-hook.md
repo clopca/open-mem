@@ -54,14 +54,12 @@ export function createToolCaptureHook(
         return;
       }
       
-      // Filter: apply sensitive patterns (redact or skip)
+      // Filter: redact sensitive patterns (replace matches, don't skip entire output)
+      let processedOutput = toolOutput;
       if (config.sensitivePatterns.length > 0) {
         for (const pattern of config.sensitivePatterns) {
           try {
-            if (new RegExp(pattern).test(toolOutput)) {
-              console.log(`[open-mem] Skipping tool output matching sensitive pattern`);
-              return;
-            }
+            processedOutput = processedOutput.replace(new RegExp(pattern, 'g'), '[REDACTED]');
           } catch {
             // Invalid regex pattern, skip it
           }
@@ -72,9 +70,9 @@ export function createToolCaptureHook(
       sessions.getOrCreate(sessionID, projectPath);
       
       // Enqueue for processing
-      queue.enqueue(sessionID, tool, toolOutput, callID);
+      queue.enqueue(sessionID, tool, processedOutput, callID);
       
-      console.log(`[open-mem] Captured ${tool} output (${toolOutput.length} chars) for session ${sessionID}`);
+      console.log(`[open-mem] Captured ${tool} output (${processedOutput.length} chars) for session ${sessionID}`);
       
     } catch (error) {
       // Never let hook errors propagate to OpenCode
@@ -187,7 +185,7 @@ export function createChatMessageHook(
 - [ ] `src/hooks/tool-capture.ts` exports `createToolCaptureHook` factory function
 - [ ] Tool capture hook filters out ignored tools
 - [ ] Tool capture hook filters out outputs shorter than minOutputLength
-- [ ] Tool capture hook filters out outputs matching sensitive patterns
+- [ ] Tool capture hook redacts content matching sensitive patterns with [REDACTED]
 - [ ] Tool capture hook ensures session exists before enqueuing
 - [ ] Tool capture hook enqueues valid outputs to the queue processor
 - [ ] Tool capture hook never throws (errors are caught and logged)

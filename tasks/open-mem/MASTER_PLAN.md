@@ -45,8 +45,7 @@ Build bottom-up: foundation and types first, then the data layer (SQLite), then 
 
 ### Parallel Opportunities
 - Tasks 01 and 02 can run in parallel (scaffolding and types are independent)
-- Tasks 05 and 06 can run in parallel (schema definition and session CRUD are somewhat independent)
-- Tasks 09 and 10 can run in parallel (prompts/parser and compressor are somewhat independent)
+- Within Phase 4, tasks 14 and 15 have the same dependencies and could overlap
 
 ### Critical Path
 01 → 03 → 05 → 07 → 09 → 11 → 13 → 15 → 17 → 19 → 21 (longest dependency chain through all phases)
@@ -59,6 +58,7 @@ Build bottom-up: foundation and types first, then the data layer (SQLite), then 
 5. **`experimental.chat.system.transform`** — best hook for context injection
 6. **In-memory queue with SQLite persistence** — simpler than HTTP-based queue
 7. **Batch processing on `session.idle`** — compress observations in bulk
+8. **`experimental.session.compacting`** — inject memory context during session compaction
 
 ---
 
@@ -102,6 +102,7 @@ Build bottom-up: foundation and types first, then the data layer (SQLite), then 
 - `src/db/sessions.ts` — session CRUD operations
 - `src/db/observations.ts` — observation CRUD + FTS5 queries
 - `src/db/summaries.ts` — summary CRUD operations
+- `src/db/pending.ts` — pending message queue operations
 
 ---
 
@@ -241,6 +242,7 @@ Phase 6 (Polish):
 | `src/db/sessions.ts` | 07 | Session CRUD |
 | `src/db/observations.ts` | 07 | Observation CRUD + FTS5 queries |
 | `src/db/summaries.ts` | 07 | Summary CRUD |
+| `src/db/pending.ts` | 07 | Pending message queue operations |
 | `src/ai/prompts.ts` | 09 | XML prompt templates |
 | `src/ai/parser.ts` | 09 | XML response parser |
 | `src/ai/compressor.ts` | 10 | AI observation compression |

@@ -22,6 +22,7 @@ This task builds the data access layer on top of the Database class (task 05) an
 - `src/db/sessions.ts` — Session CRUD operations
 - `src/db/observations.ts` — Observation CRUD + FTS5 search queries
 - `src/db/summaries.ts` — Summary CRUD operations
+- `src/db/pending.ts` — PendingMessageRepository with queue operations
 
 ## Implementation Steps
 
@@ -325,9 +326,9 @@ export class SummaryRepository {
 }
 ```
 
-### Step 4: Implement pending message operations (add to observations.ts or separate file)
+### Step 4: Implement pending message operations (`src/db/pending.ts`)
 ```typescript
-// Can be in src/db/observations.ts or src/db/pending.ts
+// src/db/pending.ts
 
 export class PendingMessageRepository {
   constructor(private db: Database) {}
@@ -399,6 +400,7 @@ export class PendingMessageRepository {
 | `src/db/sessions.ts` | Create | SessionRepository class with CRUD operations |
 | `src/db/observations.ts` | Create | ObservationRepository class with CRUD + FTS5 search |
 | `src/db/summaries.ts` | Create | SummaryRepository class with CRUD + FTS5 search |
+| `src/db/pending.ts` | Create | PendingMessageRepository class with queue operations |
 
 ## Acceptance Criteria
 - [ ] `src/db/sessions.ts` exports `SessionRepository` with create, getById, getOrCreate, updateStatus, markCompleted, getRecent, getActive
