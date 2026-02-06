@@ -53,25 +53,15 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.ANTHROPIC_API_KEY) env.apiKey = process.env.ANTHROPIC_API_KEY;
 	if (process.env.OPEN_MEM_MODEL) env.model = process.env.OPEN_MEM_MODEL;
 	if (process.env.OPEN_MEM_MAX_CONTEXT_TOKENS)
-		env.maxContextTokens = Number.parseInt(
-			process.env.OPEN_MEM_MAX_CONTEXT_TOKENS,
-			10,
-		);
-	if (process.env.OPEN_MEM_COMPRESSION === "false")
-		env.compressionEnabled = false;
-	if (process.env.OPEN_MEM_CONTEXT_INJECTION === "false")
-		env.contextInjectionEnabled = false;
+		env.maxContextTokens = Number.parseInt(process.env.OPEN_MEM_MAX_CONTEXT_TOKENS, 10);
+	if (process.env.OPEN_MEM_COMPRESSION === "false") env.compressionEnabled = false;
+	if (process.env.OPEN_MEM_CONTEXT_INJECTION === "false") env.contextInjectionEnabled = false;
 	if (process.env.OPEN_MEM_IGNORED_TOOLS)
-		env.ignoredTools = process.env.OPEN_MEM_IGNORED_TOOLS.split(",").map((s) =>
-			s.trim(),
-		);
+		env.ignoredTools = process.env.OPEN_MEM_IGNORED_TOOLS.split(",").map((s) => s.trim());
 	if (process.env.OPEN_MEM_BATCH_SIZE)
 		env.batchSize = Number.parseInt(process.env.OPEN_MEM_BATCH_SIZE, 10);
 	if (process.env.OPEN_MEM_RETENTION_DAYS)
-		env.retentionDays = Number.parseInt(
-			process.env.OPEN_MEM_RETENTION_DAYS,
-			10,
-		);
+		env.retentionDays = Number.parseInt(process.env.OPEN_MEM_RETENTION_DAYS, 10);
 	if (process.env.OPEN_MEM_LOG_LEVEL)
 		env.logLevel = process.env.OPEN_MEM_LOG_LEVEL as OpenMemConfig["logLevel"];
 

@@ -82,9 +82,9 @@ export class Database {
 	public migrate(migrations: Migration[]): void {
 		this.ensureMigrationTable();
 
-		const applied = this.db
-			.query("SELECT version FROM _migrations ORDER BY version")
-			.all() as { version: number }[];
+		const applied = this.db.query("SELECT version FROM _migrations ORDER BY version").all() as {
+			version: number;
+		}[];
 		const appliedVersions = new Set(applied.map((m) => m.version));
 
 		const pending = migrations
@@ -95,9 +95,7 @@ export class Database {
 			this.db.transaction(() => {
 				this.db.exec(migration.up);
 				this.db
-					.query(
-						"INSERT INTO _migrations (version, name) VALUES ($version, $name)",
-					)
+					.query("INSERT INTO _migrations (version, name) VALUES ($version, $name)")
 					.run({ $version: migration.version, $name: migration.name });
 			})();
 		}

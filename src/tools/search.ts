@@ -23,28 +23,12 @@ Use this tool to find relevant context from previous sessions, including:
 
 Supports full-text search with FTS5.`,
 		args: {
-			query: z
-				.string()
-				.describe(
-					"Search query (supports keywords, phrases, file paths)",
-				),
+			query: z.string().describe("Search query (supports keywords, phrases, file paths)"),
 			type: z
-				.enum([
-					"decision",
-					"bugfix",
-					"feature",
-					"refactor",
-					"discovery",
-					"change",
-				])
+				.enum(["decision", "bugfix", "feature", "refactor", "discovery", "change"])
 				.optional()
 				.describe("Filter by observation type"),
-			limit: z
-				.number()
-				.min(1)
-				.max(50)
-				.default(10)
-				.describe("Maximum number of results"),
+			limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
 		},
 		execute: async (args) => {
 			try {
@@ -108,9 +92,7 @@ function formatSearchResults(results: SearchResult[]): string {
 }
 
 function formatSummaryResults(results: SessionSummary[]): string {
-	const lines: string[] = [
-		`Found ${results.length} session summary(ies):\n`,
-	];
+	const lines: string[] = [`Found ${results.length} session summary(ies):\n`];
 
 	for (const summary of results) {
 		lines.push(`## Session: ${summary.sessionId}`);

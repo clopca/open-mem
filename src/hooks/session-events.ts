@@ -2,9 +2,9 @@
 // open-mem — Session Event Handler
 // =============================================================================
 
-import type { OpenCodeEvent } from "../types";
-import type { QueueProcessor } from "../queue/processor";
 import type { SessionRepository } from "../db/sessions";
+import type { QueueProcessor } from "../queue/processor";
+import type { OpenCodeEvent } from "../types";
 
 /**
  * Factory for the `event` hook.

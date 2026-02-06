@@ -2,12 +2,12 @@
 // open-mem — Compaction Hook (experimental.session.compacting)
 // =============================================================================
 
-import type { OpenMemConfig } from "../types";
+import { buildCompactContext } from "../context/builder";
+import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
-import { buildProgressiveContext } from "../context/progressive";
-import { buildCompactContext } from "../context/builder";
+import type { OpenMemConfig } from "../types";
 
 /**
  * Factory for the `experimental.session.compacting` hook.
@@ -33,12 +33,8 @@ export function createCompactionHook(
 
 			const recentSessions = sessions.getRecent(projectPath, 3);
 			const recentSummaries = recentSessions
-				.map((s) =>
-					s.summaryId ? summaries.getBySessionId(s.id) : null,
-				)
-				.filter(
-					(s): s is NonNullable<typeof s> => s !== null,
-				);
+				.map((s) => (s.summaryId ? summaries.getBySessionId(s.id) : null))
+				.filter((s): s is NonNullable<typeof s> => s !== null);
 
 			const observationIndex = observations.getIndex(projectPath, 10);
 

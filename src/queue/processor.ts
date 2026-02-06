@@ -51,12 +51,7 @@ export class QueueProcessor {
 	// ---------------------------------------------------------------------------
 
 	/** Add a new pending message to the queue */
-	enqueue(
-		sessionId: string,
-		toolName: string,
-		toolOutput: string,
-		callId: string,
-	): void {
+	enqueue(sessionId: string, toolName: string, toolOutput: string, callId: string): void {
 		this.pendingRepo.create({ sessionId, toolName, toolOutput, callId });
 	}
 
@@ -86,17 +81,10 @@ export class QueueProcessor {
 				try {
 					this.pendingRepo.markProcessing(item.id);
 
-					const parsed = await this.compressor.compress(
-						item.toolName,
-						item.toolOutput,
-					);
+					const parsed = await this.compressor.compress(item.toolName, item.toolOutput);
 
 					const observation =
-						parsed ??
-						this.compressor.createFallbackObservation(
-							item.toolName,
-							item.toolOutput,
-						);
+						parsed ?? this.compressor.createFallbackObservation(item.toolName, item.toolOutput);
 
 					this.observationRepo.create({
 						sessionId: item.sessionId,

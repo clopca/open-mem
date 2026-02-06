@@ -195,10 +195,7 @@ export interface ToolDefinition {
 	name: string;
 	description: string;
 	args: Record<string, unknown>; // Zod schema
-	execute: (
-		args: Record<string, unknown>,
-		context: ToolContext,
-	) => Promise<string>;
+	execute: (args: Record<string, unknown>, context: ToolContext) => Promise<string>;
 }
 
 export interface ToolContext {

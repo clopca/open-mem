@@ -2,12 +2,12 @@
 // open-mem — Context Injection Hook (experimental.chat.system.transform)
 // =============================================================================
 
-import type { OpenMemConfig } from "../types";
+import { buildContextString } from "../context/builder";
+import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
-import { buildProgressiveContext } from "../context/progressive";
-import { buildContextString } from "../context/builder";
+import type { OpenMemConfig } from "../types";
 
 /**
  * Factory for the `experimental.chat.system.transform` hook.
@@ -35,17 +35,10 @@ export function createContextInjectionHook(
 			if (recentSessions.length === 0) return;
 
 			const recentSummaries = recentSessions
-				.map((s) =>
-					s.summaryId ? summaries.getBySessionId(s.id) : null,
-				)
-				.filter(
-					(s): s is NonNullable<typeof s> => s !== null,
-				);
+				.map((s) => (s.summaryId ? summaries.getBySessionId(s.id) : null))
+				.filter((s): s is NonNullable<typeof s> => s !== null);
 
-			const observationIndex = observations.getIndex(
-				projectPath,
-				config.maxIndexEntries,
-			);
+			const observationIndex = observations.getIndex(projectPath, config.maxIndexEntries);
 
 			if (recentSummaries.length === 0 && observationIndex.length === 0) {
 				return;

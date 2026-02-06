@@ -19,26 +19,12 @@ export function createSaveTool(
 Use this to explicitly record important decisions, discoveries, or context
 that should be remembered across sessions.`,
 		args: {
-			title: z
-				.string()
-				.describe("Brief title for the observation (max 80 chars)"),
+			title: z.string().describe("Brief title for the observation (max 80 chars)"),
 			type: z
-				.enum([
-					"decision",
-					"bugfix",
-					"feature",
-					"refactor",
-					"discovery",
-					"change",
-				])
+				.enum(["decision", "bugfix", "feature", "refactor", "discovery", "change"])
 				.describe("Type of observation"),
-			narrative: z
-				.string()
-				.describe("Detailed description of what to remember"),
-			concepts: z
-				.array(z.string())
-				.optional()
-				.describe("Related concepts/tags"),
+			narrative: z.string().describe("Detailed description of what to remember"),
+			concepts: z.array(z.string()).optional().describe("Related concepts/tags"),
 			files: z.array(z.string()).optional().describe("Related file paths"),
 		},
 		execute: async (args, context) => {

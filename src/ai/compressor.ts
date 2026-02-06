@@ -4,11 +4,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { OpenMemConfig } from "../types";
+import { type ParsedObservation, parseObservationResponse } from "./parser";
 import { buildCompressionPrompt } from "./prompts";
-import {
-	parseObservationResponse,
-	type ParsedObservation,
-} from "./parser";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -38,9 +35,7 @@ export class ObservationCompressor {
 	constructor(config: CompressorConfig) {
 		this.config = config;
 		this.client =
-			config.apiKey && config.compressionEnabled
-				? new Anthropic({ apiKey: config.apiKey })
-				: null;
+			config.apiKey && config.compressionEnabled ? new Anthropic({ apiKey: config.apiKey }) : null;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -124,11 +119,7 @@ export class ObservationCompressor {
 
 		for (let i = 0; i < items.length; i++) {
 			const item = items[i];
-			const result = await this.compress(
-				item.toolName,
-				item.toolOutput,
-				item.sessionContext,
-			);
+			const result = await this.compress(item.toolName, item.toolOutput, item.sessionContext);
 			results.set(item.callId, result);
 
 			// Small inter-request delay to stay under rate limits
@@ -148,10 +139,7 @@ export class ObservationCompressor {
 	 * Produce a basic observation from tool metadata when AI compression
 	 * is unavailable.
 	 */
-	createFallbackObservation(
-		toolName: string,
-		toolOutput: string,
-	): ParsedObservation {
+	createFallbackObservation(toolName: string, toolOutput: string): ParsedObservation {
 		const filePaths = extractFilePaths(toolOutput);
 
 		const type = TOOL_TYPE_MAP[toolName] ?? "discovery";

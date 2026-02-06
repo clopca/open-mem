@@ -16,7 +16,7 @@ export function buildContextString(context: ProgressiveContext): string {
 
 	parts.push("<open_mem_context>");
 	parts.push(
-		'  <description>Past session memory from open-mem plugin. Use mem-search tool to retrieve full observation details.</description>',
+		"  <description>Past session memory from open-mem plugin. Use mem-search tool to retrieve full observation details.</description>",
 	);
 
 	// Recent session summaries
@@ -26,14 +26,10 @@ export function buildContextString(context: ProgressiveContext): string {
 			parts.push(`    <session id="${summary.sessionId}">`);
 			parts.push(`      <summary>${summary.summary}</summary>`);
 			if (summary.keyDecisions.length > 0) {
-				parts.push(
-					`      <decisions>${summary.keyDecisions.join("; ")}</decisions>`,
-				);
+				parts.push(`      <decisions>${summary.keyDecisions.join("; ")}</decisions>`);
 			}
 			if (summary.concepts.length > 0) {
-				parts.push(
-					`      <concepts>${summary.concepts.join(", ")}</concepts>`,
-				);
+				parts.push(`      <concepts>${summary.concepts.join(", ")}</concepts>`);
 			}
 			parts.push("    </session>");
 		}
@@ -78,9 +74,7 @@ export function buildCompactContext(context: ProgressiveContext): string {
 	}
 
 	if (context.observationIndex.length > 0) {
-		parts.push(
-			`\nRecent observations (${context.observationIndex.length} entries):`,
-		);
+		parts.push(`\nRecent observations (${context.observationIndex.length} entries):`);
 		for (const entry of context.observationIndex) {
 			parts.push(`- [${entry.type}] ${entry.title}`);
 		}

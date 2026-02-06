@@ -3,8 +3,8 @@
 // =============================================================================
 
 import { randomUUID } from "node:crypto";
-import type { Database } from "./database";
 import type { PendingMessage } from "../types";
+import type { Database } from "./database";
 
 export class PendingMessageRepository {
 	constructor(private db: Database) {}
@@ -14,10 +14,7 @@ export class PendingMessageRepository {
 	// ---------------------------------------------------------------------------
 
 	create(
-		data: Omit<
-			PendingMessage,
-			"id" | "createdAt" | "status" | "retryCount" | "error"
-		>,
+		data: Omit<PendingMessage, "id" | "createdAt" | "status" | "retryCount" | "error">,
 	): PendingMessage {
 		const id = randomUUID();
 		const now = new Date().toISOString();
@@ -64,17 +61,11 @@ export class PendingMessageRepository {
 	// ---------------------------------------------------------------------------
 
 	markProcessing(id: string): void {
-		this.db.run(
-			"UPDATE pending_messages SET status = 'processing' WHERE id = ?",
-			[id],
-		);
+		this.db.run("UPDATE pending_messages SET status = 'processing' WHERE id = ?", [id]);
 	}
 
 	markCompleted(id: string): void {
-		this.db.run(
-			"UPDATE pending_messages SET status = 'completed' WHERE id = ?",
-			[id],
-		);
+		this.db.run("UPDATE pending_messages SET status = 'completed' WHERE id = ?", [id]);
 	}
 
 	markFailed(id: string, error: string): void {

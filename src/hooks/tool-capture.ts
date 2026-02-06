@@ -2,9 +2,9 @@
 // open-mem — Tool Capture Hook (tool.execute.after)
 // =============================================================================
 
-import type { OpenMemConfig } from "../types";
-import type { QueueProcessor } from "../queue/processor";
 import type { SessionRepository } from "../db/sessions";
+import type { QueueProcessor } from "../queue/processor";
+import type { OpenMemConfig } from "../types";
 
 /**
  * Factory for the `tool.execute.after` hook.
@@ -45,10 +45,7 @@ export function createToolCaptureHook(
 			let processedOutput = toolOutput;
 			for (const pattern of config.sensitivePatterns) {
 				try {
-					processedOutput = processedOutput.replace(
-						new RegExp(pattern, "g"),
-						"[REDACTED]",
-					);
+					processedOutput = processedOutput.replace(new RegExp(pattern, "g"), "[REDACTED]");
 				} catch {
 					// Invalid regex — skip this pattern
 				}

@@ -4,8 +4,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Observation } from "../types";
+import { type ParsedSummary, parseSummaryResponse } from "./parser";
 import { buildSummarizationPrompt } from "./prompts";
-import { parseSummaryResponse, type ParsedSummary } from "./parser";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -33,9 +33,7 @@ export class SessionSummarizer {
 	constructor(config: SummarizerConfig) {
 		this.config = config;
 		this.client =
-			config.apiKey && config.compressionEnabled
-				? new Anthropic({ apiKey: config.apiKey })
-				: null;
+			config.apiKey && config.compressionEnabled ? new Anthropic({ apiKey: config.apiKey }) : null;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -96,9 +94,7 @@ export class SessionSummarizer {
 	/**
 	 * Build a summary by aggregating observation metadata — no AI required.
 	 */
-	createFallbackSummary(
-		observations: ReadonlyArray<Observation>,
-	): ParsedSummary {
+	createFallbackSummary(observations: ReadonlyArray<Observation>): ParsedSummary {
 		const allFiles = new Set<string>();
 		const allConcepts = new Set<string>();
 		const decisions: string[] = [];

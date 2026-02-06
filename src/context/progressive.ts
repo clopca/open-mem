@@ -2,8 +2,8 @@
 // open-mem — Progressive Disclosure Logic
 // =============================================================================
 
-import type { ObservationIndex, Session, SessionSummary } from "../types";
 import { estimateTokens } from "../ai/parser";
+import type { ObservationIndex, Session, SessionSummary } from "../types";
 
 // -----------------------------------------------------------------------------
 // Types

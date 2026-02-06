@@ -2,24 +2,24 @@
 // open-mem — Plugin Entry Point
 // =============================================================================
 
-import type { Hooks, PluginInput } from "./types";
-import { resolveConfig, validateConfig, ensureDbDirectory } from "./config";
-import { createDatabase } from "./db/database";
-import { initializeSchema } from "./db/schema";
-import { SessionRepository } from "./db/sessions";
-import { ObservationRepository } from "./db/observations";
-import { SummaryRepository } from "./db/summaries";
-import { PendingMessageRepository } from "./db/pending";
 import { ObservationCompressor } from "./ai/compressor";
 import { SessionSummarizer } from "./ai/summarizer";
-import { QueueProcessor } from "./queue/processor";
-import { createToolCaptureHook } from "./hooks/tool-capture";
-import { createEventHandler } from "./hooks/session-events";
-import { createContextInjectionHook } from "./hooks/context-inject";
+import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
+import { createDatabase } from "./db/database";
+import { ObservationRepository } from "./db/observations";
+import { PendingMessageRepository } from "./db/pending";
+import { initializeSchema } from "./db/schema";
+import { SessionRepository } from "./db/sessions";
+import { SummaryRepository } from "./db/summaries";
 import { createCompactionHook } from "./hooks/compaction";
-import { createSearchTool } from "./tools/search";
+import { createContextInjectionHook } from "./hooks/context-inject";
+import { createEventHandler } from "./hooks/session-events";
+import { createToolCaptureHook } from "./hooks/tool-capture";
+import { QueueProcessor } from "./queue/processor";
 import { createSaveTool } from "./tools/save";
+import { createSearchTool } from "./tools/search";
 import { createTimelineTool } from "./tools/timeline";
+import type { Hooks, PluginInput } from "./types";
 
 // -----------------------------------------------------------------------------
 // Plugin Factory
@@ -71,12 +71,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 
 	// 7. Build hooks
 	return {
-		"tool.execute.after": createToolCaptureHook(
-			config,
-			queue,
-			sessionRepo,
-			directory,
-		),
+		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, directory),
 		event: createEventHandler(queue, sessionRepo, directory),
 		"experimental.chat.system.transform": createContextInjectionHook(
 			config,
@@ -95,12 +90,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		tools: [
 			createSearchTool(observationRepo, summaryRepo),
 			createSaveTool(observationRepo, sessionRepo, directory),
-			createTimelineTool(
-				sessionRepo,
-				summaryRepo,
-				observationRepo,
-				directory,
-			),
+			createTimelineTool(sessionRepo, summaryRepo, observationRepo, directory),
 		],
 	};
 }

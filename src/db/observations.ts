@@ -3,7 +3,6 @@
 // =============================================================================
 
 import { randomUUID } from "node:crypto";
-import type { Database } from "./database";
 import type {
 	Observation,
 	ObservationIndex,
@@ -11,6 +10,7 @@ import type {
 	SearchQuery,
 	SearchResult,
 } from "../types";
+import type { Database } from "./database";
 
 export class ObservationRepository {
 	constructor(private db: Database) {}
@@ -19,9 +19,7 @@ export class ObservationRepository {
 	// Create
 	// ---------------------------------------------------------------------------
 
-	create(
-		data: Omit<Observation, "id" | "createdAt">,
-	): Observation {
+	create(data: Omit<Observation, "id" | "createdAt">): Observation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		this.db.run(
@@ -55,10 +53,9 @@ export class ObservationRepository {
 	// ---------------------------------------------------------------------------
 
 	getById(id: string): Observation | null {
-		const row = this.db.get<Record<string, unknown>>(
-			"SELECT * FROM observations WHERE id = ?",
-			[id],
-		);
+		const row = this.db.get<Record<string, unknown>>("SELECT * FROM observations WHERE id = ?", [
+			id,
+		]);
 		return row ? this.mapRow(row) : null;
 	}
 
@@ -79,9 +76,7 @@ export class ObservationRepository {
 			);
 			return row?.count ?? 0;
 		}
-		const row = this.db.get<{ count: number }>(
-			"SELECT COUNT(*) as count FROM observations",
-		);
+		const row = this.db.get<{ count: number }>("SELECT COUNT(*) as count FROM observations");
 		return row?.count ?? 0;
 	}
 

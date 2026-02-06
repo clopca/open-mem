@@ -19,16 +19,8 @@ export function createTimelineTool(
 		description: `View a timeline of past coding sessions for this project.
 Shows recent sessions with summaries, observation counts, and key decisions.`,
 		args: {
-			limit: z
-				.number()
-				.min(1)
-				.max(20)
-				.default(5)
-				.describe("Number of recent sessions to show"),
-			sessionId: z
-				.string()
-				.optional()
-				.describe("Show details for a specific session ID"),
+			limit: z.number().min(1).max(20).default(5).describe("Number of recent sessions to show"),
+			sessionId: z.string().optional().describe("Show details for a specific session ID"),
 		},
 		execute: async (args) => {
 			try {
@@ -36,12 +28,7 @@ Shows recent sessions with summaries, observation counts, and key decisions.`,
 				const sessionId = args.sessionId as string | undefined;
 
 				if (sessionId) {
-					return formatSessionDetail(
-						sessionId,
-						sessions,
-						summaries,
-						observations,
-					);
+					return formatSessionDetail(sessionId, sessions, summaries, observations);
 				}
 
 				const recent = sessions.getRecent(projectPath, limit);
@@ -49,28 +36,20 @@ Shows recent sessions with summaries, observation counts, and key decisions.`,
 					return "No past sessions found for this project.";
 				}
 
-				const lines: string[] = [
-					`# Session Timeline (${recent.length} sessions)\n`,
-				];
+				const lines: string[] = [`# Session Timeline (${recent.length} sessions)\n`];
 
 				for (const session of recent) {
-					const summary = session.summaryId
-						? summaries.getBySessionId(session.id)
-						: null;
+					const summary = session.summaryId ? summaries.getBySessionId(session.id) : null;
 
 					lines.push(`## Session: ${session.id}`);
 					lines.push(`- **Started**: ${session.startedAt}`);
 					lines.push(`- **Status**: ${session.status}`);
-					lines.push(
-						`- **Observations**: ${session.observationCount}`,
-					);
+					lines.push(`- **Observations**: ${session.observationCount}`);
 
 					if (summary) {
 						lines.push(`- **Summary**: ${summary.summary}`);
 						if (summary.keyDecisions.length > 0) {
-							lines.push(
-								`- **Key decisions**: ${summary.keyDecisions.join("; ")}`,
-							);
+							lines.push(`- **Key decisions**: ${summary.keyDecisions.join("; ")}`);
 						}
 					}
 
@@ -98,9 +77,7 @@ function formatSessionDetail(
 	const session = sessions.getById(sessionId);
 	if (!session) return `Session ${sessionId} not found.`;
 
-	const summary = session.summaryId
-		? summaries.getBySessionId(sessionId)
-		: null;
+	const summary = session.summaryId ? summaries.getBySessionId(sessionId) : null;
 	const obs = observations.getBySession(sessionId);
 
 	const lines: string[] = [`# Session Detail: ${sessionId}\n`];

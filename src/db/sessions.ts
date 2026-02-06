@@ -2,8 +2,8 @@
 // open-mem — Session Repository
 // =============================================================================
 
-import type { Database } from "./database";
 import type { Session } from "../types";
+import type { Database } from "./database";
 
 export class SessionRepository {
 	constructor(private db: Database) {}
@@ -34,10 +34,7 @@ export class SessionRepository {
 	// ---------------------------------------------------------------------------
 
 	getById(id: string): Session | null {
-		const row = this.db.get<Record<string, unknown>>(
-			"SELECT * FROM sessions WHERE id = ?",
-			[id],
-		);
+		const row = this.db.get<Record<string, unknown>>("SELECT * FROM sessions WHERE id = ?", [id]);
 		return row ? this.mapRow(row) : null;
 	}
 
@@ -74,17 +71,11 @@ export class SessionRepository {
 	}
 
 	incrementObservationCount(id: string): void {
-		this.db.run(
-			"UPDATE sessions SET observation_count = observation_count + 1 WHERE id = ?",
-			[id],
-		);
+		this.db.run("UPDATE sessions SET observation_count = observation_count + 1 WHERE id = ?", [id]);
 	}
 
 	setSummary(sessionId: string, summaryId: string): void {
-		this.db.run("UPDATE sessions SET summary_id = ? WHERE id = ?", [
-			summaryId,
-			sessionId,
-		]);
+		this.db.run("UPDATE sessions SET summary_id = ? WHERE id = ?", [summaryId, sessionId]);
 	}
 
 	// ---------------------------------------------------------------------------

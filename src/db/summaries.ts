@@ -3,8 +3,8 @@
 // =============================================================================
 
 import { randomUUID } from "node:crypto";
-import type { Database } from "./database";
 import type { SessionSummary } from "../types";
+import type { Database } from "./database";
 
 export class SummaryRepository {
 	constructor(private db: Database) {}
@@ -13,9 +13,7 @@ export class SummaryRepository {
 	// Create
 	// ---------------------------------------------------------------------------
 
-	create(
-		data: Omit<SessionSummary, "id" | "createdAt">,
-	): SessionSummary {
+	create(data: Omit<SessionSummary, "id" | "createdAt">): SessionSummary {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		this.db.run(
