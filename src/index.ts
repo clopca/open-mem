@@ -16,6 +16,7 @@ import { createContextInjectionHook } from "./hooks/context-inject";
 import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
+import { createRecallTool } from "./tools/recall";
 import { createSaveTool } from "./tools/save";
 import { createSearchTool } from "./tools/search";
 import { createTimelineTool } from "./tools/timeline";
@@ -91,6 +92,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			createSearchTool(observationRepo, summaryRepo),
 			createSaveTool(observationRepo, sessionRepo, directory),
 			createTimelineTool(sessionRepo, summaryRepo, observationRepo, directory),
+			createRecallTool(observationRepo),
 		],
 	};
 }

@@ -2,15 +2,16 @@
 // open-mem — Custom Tools Tests (Task 17)
 // =============================================================================
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "../../src/db/database";
-import { createTestDb, cleanupTestDb } from "../db/helpers";
-import { SessionRepository } from "../../src/db/sessions";
 import { ObservationRepository } from "../../src/db/observations";
+import { SessionRepository } from "../../src/db/sessions";
 import { SummaryRepository } from "../../src/db/summaries";
-import { createSearchTool } from "../../src/tools/search";
+import { createRecallTool } from "../../src/tools/recall";
 import { createSaveTool } from "../../src/tools/save";
+import { createSearchTool } from "../../src/tools/search";
 import { createTimelineTool } from "../../src/tools/timeline";
+import { cleanupTestDb, createTestDb } from "../db/helpers";
 
 let db: Database;
 let dbPath: string;
@@ -86,10 +87,7 @@ describe("mem-search", () => {
 	test("returns formatted results", async () => {
 		seedData();
 		const tool = createSearchTool(observations, summaries);
-		const result = await tool.execute(
-			{ query: "JWT", limit: 10 },
-			{ sessionID: "s", abort },
-		);
+		const result = await tool.execute({ query: "JWT", limit: 10 }, { sessionID: "s", abort });
 		expect(typeof result).toBe("string");
 		expect(result).toContain("Found");
 		expect(result).toContain("JWT authentication pattern");
@@ -126,10 +124,7 @@ describe("mem-search", () => {
 			tokenCount: 10,
 		});
 		const tool = createSearchTool(observations, summaries);
-		const result = await tool.execute(
-			{ query: "GraphQL", limit: 10 },
-			{ sessionID: "s", abort },
-		);
+		const result = await tool.execute({ query: "GraphQL", limit: 10 }, { sessionID: "s", abort });
 		expect(result).toContain("session summary");
 		expect(result).toContain("GraphQL");
 	});
@@ -198,16 +193,8 @@ describe("mem-save", () => {
 describe("mem-timeline", () => {
 	test("shows recent sessions", async () => {
 		seedData();
-		const tool = createTimelineTool(
-			sessions,
-			summaries,
-			observations,
-			"/tmp/proj",
-		);
-		const result = await tool.execute(
-			{ limit: 5 },
-			{ sessionID: "s", abort },
-		);
+		const tool = createTimelineTool(sessions, summaries, observations, "/tmp/proj");
+		const result = await tool.execute({ limit: 5 }, { sessionID: "s", abort });
 		expect(typeof result).toBe("string");
 		expect(result).toContain("Session Timeline");
 		expect(result).toContain("sess-1");
@@ -215,32 +202,57 @@ describe("mem-timeline", () => {
 
 	test("shows session detail", async () => {
 		seedData();
-		const tool = createTimelineTool(
-			sessions,
-			summaries,
-			observations,
-			"/tmp/proj",
-		);
-		const result = await tool.execute(
-			{ sessionId: "sess-1" },
-			{ sessionID: "s", abort },
-		);
+		const tool = createTimelineTool(sessions, summaries, observations, "/tmp/proj");
+		const result = await tool.execute({ sessionId: "sess-1" }, { sessionID: "s", abort });
 		expect(result).toContain("Session Detail");
 		expect(result).toContain("JWT authentication pattern");
 	});
 
 	test("returns empty message when no sessions", async () => {
-		const tool = createTimelineTool(
-			sessions,
-			summaries,
-			observations,
-			"/tmp/proj",
-		);
-		const result = await tool.execute(
-			{ limit: 5 },
-			{ sessionID: "s", abort },
-		);
+		const tool = createTimelineTool(sessions, summaries, observations, "/tmp/proj");
+		const result = await tool.execute({ limit: 5 }, { sessionID: "s", abort });
 		expect(result).toContain("No past sessions");
+	});
+});
+
+// =============================================================================
+// mem-recall
+// =============================================================================
+
+describe("mem-recall", () => {
+	test("returns full details for valid ID", async () => {
+		seedData();
+		const allObs = observations.getBySession("sess-1");
+		const targetId = allObs[0].id;
+
+		const tool = createRecallTool(observations);
+		const result = await tool.execute({ ids: [targetId] }, { sessionID: "s", abort });
+		expect(result).toContain("Recalled 1 observation(s)");
+		expect(result).toContain("JWT authentication pattern");
+		expect(result).toContain("The auth module uses JWT tokens.");
+		expect(result).toContain("Uses RS256");
+		expect(result).toContain("JWT, authentication");
+		expect(result).toContain("src/auth.ts");
+	});
+
+	test("handles invalid ID", async () => {
+		const tool = createRecallTool(observations);
+		const result = await tool.execute({ ids: ["nonexistent-id"] }, { sessionID: "s", abort });
+		expect(result).toContain("nonexistent-id");
+		expect(result).toContain("Not found");
+	});
+
+	test("handles multiple IDs", async () => {
+		seedData();
+		const allObs = observations.getBySession("sess-1");
+		const id1 = allObs[0].id;
+		const id2 = allObs[1].id;
+
+		const tool = createRecallTool(observations);
+		const result = await tool.execute({ ids: [id1, id2] }, { sessionID: "s", abort });
+		expect(result).toContain("Recalled 2 observation(s)");
+		expect(result).toContain("JWT authentication pattern");
+		expect(result).toContain("Decided to use refresh tokens");
 	});
 });
 
@@ -252,14 +264,10 @@ describe("Tool contract", () => {
 	test("all tools have required fields", () => {
 		const search = createSearchTool(observations, summaries);
 		const save = createSaveTool(observations, sessions, "/tmp");
-		const timeline = createTimelineTool(
-			sessions,
-			summaries,
-			observations,
-			"/tmp",
-		);
+		const timeline = createTimelineTool(sessions, summaries, observations, "/tmp");
+		const recall = createRecallTool(observations);
 
-		for (const tool of [search, save, timeline]) {
+		for (const tool of [search, save, timeline, recall]) {
 			expect(typeof tool.name).toBe("string");
 			expect(typeof tool.description).toBe("string");
 			expect(typeof tool.args).toBe("object");
