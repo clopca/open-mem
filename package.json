@@ -22,6 +22,7 @@
 		"typecheck": "bun x tsc --noEmit",
 		"lint": "bun x biome check src/",
 		"clean": "rm -rf dist",
+		"prepare": "test -d src && bun run build || true",
 		"prepublishOnly": "bun run build && bun test"
 	},
 	"keywords": [

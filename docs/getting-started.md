@@ -10,6 +10,12 @@ This guide walks you through installing, configuring, and using open-mem with Op
 ## Installation
 
 ```bash
+bun add open-mem
+```
+
+Or install directly from GitHub:
+
+```bash
 bun add github:clopca/open-mem
 ```
 

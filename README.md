@@ -1,7 +1,7 @@
 # open-mem
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/clopca/open-mem)
+[![npm version](https://img.shields.io/npm/v/open-mem.svg)](https://www.npmjs.com/package/open-mem)
 [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.0-pink.svg)](https://bun.sh)
 
 Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, and recalls context across coding sessions.
@@ -14,6 +14,12 @@ Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, 
 ## Quick Start
 
 ### Install
+
+```bash
+bun add open-mem
+```
+
+Or install directly from GitHub:
 
 ```bash
 bun add github:clopca/open-mem
