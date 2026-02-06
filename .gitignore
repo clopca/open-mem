@@ -28,3 +28,10 @@ bun.lockb
 
 # Coverage
 coverage/
+
+# open-mem data
+.open-mem/
+
+# Orchestrator/Sisyphus state
+.sisyphus/
+.orchestrator/

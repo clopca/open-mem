@@ -1,63 +1,59 @@
 {
-  "name": "open-mem",
-  "version": "0.1.0",
-  "description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
-  "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build": "bun run build:bundle && bun run build:types",
-    "build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite",
-    "build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
-    "dev": "bun run --watch src/index.ts",
-    "test": "bun test",
-    "typecheck": "bun x tsc --noEmit",
-    "lint": "bun x biome check src/",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "bun run build && bun test"
-  },
-  "keywords": [
-    "opencode",
-    "plugin",
-    "memory",
-    "ai",
-    "sqlite",
-    "fts5",
-    "context",
-    "persistent-memory",
-    "coding-assistant"
-  ],
-  "license": "AGPL-3.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/clopca/open-mem"
-  },
-  "bugs": {
-    "url": "https://github.com/clopca/open-mem/issues"
-  },
-  "homepage": "https://github.com/clopca/open-mem#readme",
-  "engines": {
-    "bun": ">=1.0.0"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "zod": "^3.24.0"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.7.0",
-    "@biomejs/biome": "^1.9.0"
-  }
+	"name": "open-mem",
+	"version": "0.2.0",
+	"description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
+	"type": "module",
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+	"scripts": {
+		"build": "bun run build:bundle && bun run build:types",
+		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite",
+		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
+		"dev": "bun run --watch src/index.ts",
+		"test": "bun test",
+		"typecheck": "bun x tsc --noEmit",
+		"lint": "bun x biome check src/",
+		"clean": "rm -rf dist",
+		"prepublishOnly": "bun run build && bun test"
+	},
+	"keywords": [
+		"opencode",
+		"plugin",
+		"memory",
+		"ai",
+		"sqlite",
+		"fts5",
+		"context",
+		"persistent-memory",
+		"coding-assistant"
+	],
+	"license": "AGPL-3.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clopca/open-mem"
+	},
+	"bugs": {
+		"url": "https://github.com/clopca/open-mem/issues"
+	},
+	"homepage": "https://github.com/clopca/open-mem#readme",
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.39.0",
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.7.0",
+		"@biomejs/biome": "^1.9.0"
+	}
 }
