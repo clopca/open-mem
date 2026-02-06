@@ -19,12 +19,6 @@ Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, 
 bun add open-mem
 ```
 
-Or install directly from GitHub:
-
-```bash
-bun add github:clopca/open-mem
-```
-
 ### Configure OpenCode
 
 Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencode/opencode.json`):
