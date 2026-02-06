@@ -7,6 +7,7 @@ import type { OpenMemConfig } from "../types";
 import { type ParsedObservation, parseObservationResponse } from "./parser";
 import { buildCompressionPrompt } from "./prompts";
 import { createModel } from "./provider";
+import { enforceRateLimit } from "./rate-limiter";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -19,6 +20,7 @@ export interface CompressorConfig {
 	maxTokensPerCompression: number;
 	compressionEnabled: boolean;
 	minOutputLength: number;
+	rateLimitingEnabled: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -91,6 +93,9 @@ export class ObservationCompressor {
 		const maxRetries = 2;
 		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			try {
+				if (this.config.provider === "google") {
+					await enforceRateLimit(this.config.model, this.config.rateLimitingEnabled);
+				}
 				const { text } = await this._generate({
 					model: this.model,
 					maxOutputTokens: this.config.maxTokensPerCompression,

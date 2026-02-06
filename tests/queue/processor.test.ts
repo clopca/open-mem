@@ -67,6 +67,7 @@ beforeEach(() => {
 		maxTokensPerCompression: 1024,
 		compressionEnabled: true,
 		minOutputLength: 10,
+		rateLimitingEnabled: false,
 	});
 	summarizer = new SessionSummarizer({
 		provider: "anthropic",
@@ -74,6 +75,7 @@ beforeEach(() => {
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
 		compressionEnabled: false, // use fallback by default
+		rateLimitingEnabled: false,
 	});
 });
 

@@ -147,6 +147,9 @@ export interface OpenMemConfig {
 	contextFullObservationCount: number; // How many recent observations show full details
 	maxObservations: number; // Total observations to include in context
 	contextShowLastSummary: boolean; // Show last session summary
+
+	// Rate limiting
+	rateLimitingEnabled: boolean; // Enable rate limiting for Gemini free tier
 }
 
 // -----------------------------------------------------------------------------

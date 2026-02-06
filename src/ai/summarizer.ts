@@ -7,6 +7,7 @@ import type { Observation } from "../types";
 import { type ParsedSummary, parseSummaryResponse } from "./parser";
 import { buildSummarizationPrompt } from "./prompts";
 import { createModel } from "./provider";
+import { enforceRateLimit } from "./rate-limiter";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -18,6 +19,7 @@ export interface SummarizerConfig {
 	model: string;
 	maxTokensPerCompression: number;
 	compressionEnabled: boolean;
+	rateLimitingEnabled: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -82,6 +84,9 @@ export class SessionSummarizer {
 		);
 
 		try {
+			if (this.config.provider === "google") {
+				await enforceRateLimit(this.config.model, this.config.rateLimitingEnabled);
+			}
 			const { text } = await this._generate({
 				model: this.model,
 				maxOutputTokens: this.config.maxTokensPerCompression,

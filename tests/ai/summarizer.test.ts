@@ -17,6 +17,7 @@ function makeConfig(overrides?: Partial<ConstructorParameters<typeof SessionSumm
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
 		compressionEnabled: true,
+		rateLimitingEnabled: false,
 		...overrides,
 	};
 }

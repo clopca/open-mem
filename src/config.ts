@@ -48,6 +48,9 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	contextFullObservationCount: 3,
 	maxObservations: 50,
 	contextShowLastSummary: true,
+
+	// Rate limiting
+	rateLimitingEnabled: true,
 };
 
 // -----------------------------------------------------------------------------
@@ -85,6 +88,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		env.maxObservations = Number.parseInt(process.env.OPEN_MEM_MAX_OBSERVATIONS, 10);
 	if (process.env.OPEN_MEM_CONTEXT_SHOW_LAST_SUMMARY === "false")
 		env.contextShowLastSummary = false;
+	if (process.env.OPEN_MEM_RATE_LIMITING === "false") env.rateLimitingEnabled = false;
 
 	return env;
 }

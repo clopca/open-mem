@@ -1,22 +1,22 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type {
-	ObservationType,
+	Hooks,
 	Observation,
 	ObservationIndex,
-	Session,
-	SessionSummary,
-	PendingMessage,
-	QueueItem,
+	ObservationType,
+	OpenCodeEvent,
 	OpenMemConfig,
+	PendingMessage,
 	Plugin,
-	Hooks,
 	PluginInput,
+	QueueItem,
 	SearchQuery,
 	SearchResult,
+	Session,
+	SessionSummary,
 	TimelineEntry,
-	OpenCodeEvent,
-	ToolDefinition,
 	ToolContext,
+	ToolDefinition,
 } from "../src/types";
 
 describe("Types and Interfaces", () => {
@@ -52,6 +52,7 @@ describe("Types and Interfaces", () => {
 
 		const config: OpenMemConfig = {
 			dbPath: ".open-mem/memory.db",
+			provider: "google",
 			apiKey: undefined,
 			model: "claude-sonnet-4-20250514",
 			maxTokensPerCompression: 1024,
@@ -67,6 +68,12 @@ describe("Types and Interfaces", () => {
 			retentionDays: 90,
 			maxDatabaseSizeMb: 500,
 			logLevel: "warn",
+			contextShowTokenCosts: true,
+			contextObservationTypes: "all",
+			contextFullObservationCount: 3,
+			maxObservations: 50,
+			contextShowLastSummary: true,
+			rateLimitingEnabled: true,
 		};
 
 		// If we reach here, all types compiled successfully

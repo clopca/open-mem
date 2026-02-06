@@ -17,6 +17,7 @@ function makeConfig(overrides?: Partial<ConstructorParameters<typeof Observation
 		maxTokensPerCompression: 1024,
 		compressionEnabled: true,
 		minOutputLength: 50,
+		rateLimitingEnabled: false,
 		...overrides,
 	};
 }
