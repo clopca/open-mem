@@ -10,10 +10,11 @@ import type { OpenMemConfig } from "../types";
  * Factory for the `tool.execute.after` hook.
  *
  * On every tool execution the hook:
- * 1. Filters out ignored tools and short/empty outputs
- * 2. Redacts content matching sensitive patterns
- * 3. Ensures the session exists in the DB
- * 4. Enqueues the output for async AI compression
+ *  1. Filters out ignored tools and short/empty outputs
+ *  2. Redacts content matching sensitive patterns
+ *  3. Strips `<private>...</private>` blocks
+ *  4. Ensures the session exists in the DB
+ *  5. Enqueues the output for async AI compression
  *
  * The handler NEVER throws — errors are caught and logged.
  */
@@ -50,6 +51,9 @@ export function createToolCaptureHook(
 					// Invalid regex — skip this pattern
 				}
 			}
+
+			// Strip <private>...</private> blocks
+			processedOutput = processedOutput.replace(/<private>[\s\S]*?<\/private>/g, "[PRIVATE]");
 
 			// Ensure session record exists
 			sessions.getOrCreate(sessionID, projectPath);
