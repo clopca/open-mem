@@ -52,6 +52,7 @@ describe("Configuration", () => {
 		// Arrange: clear env vars that could interfere
 		delete process.env.OPEN_MEM_DB_PATH;
 		delete process.env.ANTHROPIC_API_KEY;
+		delete process.env.OPEN_MEM_PROVIDER;
 		delete process.env.OPEN_MEM_MODEL;
 		delete process.env.OPEN_MEM_MAX_CONTEXT_TOKENS;
 		delete process.env.OPEN_MEM_COMPRESSION;
@@ -60,6 +61,8 @@ describe("Configuration", () => {
 		delete process.env.OPEN_MEM_BATCH_SIZE;
 		delete process.env.OPEN_MEM_RETENTION_DAYS;
 		delete process.env.OPEN_MEM_LOG_LEVEL;
+		delete process.env.AWS_ACCESS_KEY_ID;
+		delete process.env.AWS_PROFILE;
 
 		// Act
 		const config = resolveConfig("/tmp/proj");

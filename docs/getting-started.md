@@ -29,13 +29,22 @@ Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencod
 
 ### 2. Enable AI Compression (Optional)
 
-For intelligent compression using Claude, set your Anthropic API key:
+For intelligent compression, configure an AI provider. Anthropic is the default:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+Or use AWS Bedrock (no API key needed — uses AWS credentials):
+
+```bash
+export OPEN_MEM_PROVIDER=bedrock
+export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+```
+
 Without this, open-mem still captures observations but uses a basic metadata extractor instead of AI compression.
+
+> **Auto-detection:** If no API key or provider is set but AWS credentials are present (`AWS_ACCESS_KEY_ID` or `AWS_PROFILE`), open-mem automatically uses Bedrock.
 
 ### 3. Start OpenCode
 
@@ -109,7 +118,7 @@ DB_PASSWORD=hunter2
 </private>
 ```
 
-Private blocks are stripped before any processing — they never reach the database or the Anthropic API.
+Private blocks are stripped before any processing — they never reach the database or the AI provider.
 
 ### Automatic Redaction
 

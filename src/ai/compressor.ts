@@ -2,16 +2,18 @@
 // open-mem — AI Observation Compressor
 // =============================================================================
 
-import Anthropic from "@anthropic-ai/sdk";
+import { type LanguageModel, generateText } from "ai";
 import type { OpenMemConfig } from "../types";
 import { type ParsedObservation, parseObservationResponse } from "./parser";
 import { buildCompressionPrompt } from "./prompts";
+import { createModel } from "./provider";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 export interface CompressorConfig {
+	provider: string;
 	apiKey: string | undefined;
 	model: string;
 	maxTokensPerCompression: number;
@@ -25,17 +27,32 @@ export interface CompressorConfig {
 
 /**
  * Compresses raw tool output into structured observations using the
- * Anthropic Messages API. Falls back to a heuristic-based observation
- * when the API is unavailable or disabled.
+ * Vercel AI SDK. Falls back to a heuristic-based observation
+ * when the AI provider is unavailable or disabled.
  */
 export class ObservationCompressor {
-	private client: Anthropic | null;
+	private model: LanguageModel | null;
 	private config: CompressorConfig;
+
+	// Overridable for tests
+	_generate = generateText;
 
 	constructor(config: CompressorConfig) {
 		this.config = config;
-		this.client =
-			config.apiKey && config.compressionEnabled ? new Anthropic({ apiKey: config.apiKey }) : null;
+		this.model = null;
+
+		const providerRequiresKey = config.provider !== "bedrock";
+		if (config.compressionEnabled && (!providerRequiresKey || config.apiKey)) {
+			try {
+				this.model = createModel({
+					provider: config.provider,
+					model: config.model,
+					apiKey: config.apiKey,
+				});
+			} catch {
+				// Provider package not installed — fall back to no-AI mode
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------------------
@@ -55,7 +72,7 @@ export class ObservationCompressor {
 		toolOutput: string,
 		sessionContext?: string,
 	): Promise<ParsedObservation | null> {
-		if (!this.config.compressionEnabled || !this.client) {
+		if (!this.config.compressionEnabled || !this.model) {
 			return null;
 		}
 
@@ -74,16 +91,11 @@ export class ObservationCompressor {
 		const maxRetries = 2;
 		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			try {
-				const response = await this.client.messages.create({
-					model: this.config.model,
-					max_tokens: this.config.maxTokensPerCompression,
-					messages: [{ role: "user", content: prompt }],
+				const { text } = await this._generate({
+					model: this.model,
+					maxOutputTokens: this.config.maxTokensPerCompression,
+					prompt,
 				});
-
-				const text = response.content
-					.filter((b): b is Anthropic.TextBlock => b.type === "text")
-					.map((b) => b.text)
-					.join("");
 
 				return parseObservationResponse(text);
 			} catch (error: unknown) {
@@ -161,12 +173,12 @@ export class ObservationCompressor {
 	// ---------------------------------------------------------------------------
 
 	async isAvailable(): Promise<boolean> {
-		if (!this.client) return false;
+		if (!this.model) return false;
 		try {
-			await this.client.messages.create({
-				model: this.config.model,
-				max_tokens: 10,
-				messages: [{ role: "user", content: "ping" }],
+			await this._generate({
+				model: this.model,
+				maxOutputTokens: 10,
+				prompt: "ping",
 			});
 			return true;
 		} catch {

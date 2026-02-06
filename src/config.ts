@@ -13,7 +13,8 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	dbPath: ".open-mem/memory.db",
 
 	// AI
-	apiKey: undefined, // Falls back to ANTHROPIC_API_KEY env var
+	provider: "anthropic",
+	apiKey: undefined, // Falls back to provider-specific env var
 	model: "claude-sonnet-4-20250514",
 	maxTokensPerCompression: 1024,
 
@@ -57,6 +58,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	const env: Partial<OpenMemConfig> = {};
 
 	if (process.env.OPEN_MEM_DB_PATH) env.dbPath = process.env.OPEN_MEM_DB_PATH;
+	if (process.env.OPEN_MEM_PROVIDER) env.provider = process.env.OPEN_MEM_PROVIDER;
 	if (process.env.ANTHROPIC_API_KEY) env.apiKey = process.env.ANTHROPIC_API_KEY;
 	if (process.env.OPEN_MEM_MODEL) env.model = process.env.OPEN_MEM_MODEL;
 	if (process.env.OPEN_MEM_MAX_CONTEXT_TOKENS)
@@ -112,9 +114,30 @@ export function resolveConfig(
 		config.dbPath = `${projectDir}/${config.dbPath}`;
 	}
 
-	// Ensure API key is available (from config or env)
+	// Resolve API key from provider-specific env vars
 	if (!config.apiKey) {
-		config.apiKey = process.env.ANTHROPIC_API_KEY;
+		switch (config.provider) {
+			case "anthropic":
+				config.apiKey = process.env.ANTHROPIC_API_KEY;
+				break;
+			case "openai":
+				config.apiKey = process.env.OPENAI_API_KEY;
+				break;
+			case "google":
+				config.apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+				break;
+			case "bedrock":
+				// Bedrock uses AWS credentials, no API key needed
+				break;
+		}
+	}
+
+	// Auto-detect provider if using defaults and no API key is set
+	if (config.provider === "anthropic" && !config.apiKey) {
+		if (process.env.AWS_ACCESS_KEY_ID || process.env.AWS_PROFILE) {
+			config.provider = "bedrock";
+			config.model = `us.anthropic.${config.model}-v1:0`;
+		}
 	}
 
 	return config;
@@ -131,9 +154,10 @@ export function resolveConfig(
 export function validateConfig(config: OpenMemConfig): string[] {
 	const errors: string[] = [];
 
-	if (config.compressionEnabled && !config.apiKey) {
+	const providerRequiresKey = config.provider !== "bedrock";
+	if (config.compressionEnabled && providerRequiresKey && !config.apiKey) {
 		errors.push(
-			"AI compression enabled but no ANTHROPIC_API_KEY found. Set ANTHROPIC_API_KEY env var or disable compression.",
+			`AI compression enabled but no API key found for provider "${config.provider}". Set the appropriate API key env var or disable compression with OPEN_MEM_COMPRESSION=false.`,
 		);
 	}
 

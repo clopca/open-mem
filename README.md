@@ -35,18 +35,35 @@ That's it. open-mem starts capturing from your next OpenCode session.
 
 ### Enable AI Compression (Optional)
 
-For intelligent compression of observations using Claude:
+For intelligent compression of observations, configure an AI provider:
 
+**Anthropic (default):**
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Without an API key, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
+**AWS Bedrock:**
+```bash
+export OPEN_MEM_PROVIDER=bedrock
+export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+# Uses AWS credentials from environment (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or AWS_PROFILE)
+```
+
+**OpenAI** (requires `bun add @ai-sdk/openai`):
+```bash
+export OPEN_MEM_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+export OPEN_MEM_MODEL=gpt-4o
+```
+
+**Auto-detection:** If no API key or provider is set but AWS credentials are present, open-mem automatically uses Bedrock.
+
+Without any provider configured, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
 
 ## Key Features
 
 - 🧠 **Automatic observation capture** from tool executions
-- 🤖 **AI-powered compression** using Claude (optional — works without API key)
+- 🤖 **AI-powered compression** via Vercel AI SDK — supports Anthropic, AWS Bedrock, OpenAI, Google (optional — works without API key)
 - 🔍 **SQLite + FTS5** full-text search for fast retrieval
 - 💡 **Progressive disclosure** with token-cost-aware context injection
 - 🔒 **Privacy controls** with `<private>` tag support
@@ -70,7 +87,7 @@ open-mem runs in the background as an OpenCode plugin. When you use tools (readi
 │  session.idle ─────────> [Queue Processor]          │
 │                                │                    │
 │                                v                    │
-│                      [AI Compressor] ───> Anthropic │
+│                      [AI Compressor] ───> AI Provider │
 │                                │                    │
 │                                v                    │
 │                      [SQLite + FTS5]                │
@@ -90,7 +107,7 @@ When you use tools in OpenCode (reading files, running commands, editing code), 
 
 ### AI Compression
 
-On `session.idle`, the queue processor batches pending observations and sends them to Claude for semantic compression. Each raw tool output is distilled into a structured observation with:
+On `session.idle`, the queue processor batches pending observations and sends them to the configured AI provider for semantic compression. Each raw tool output is distilled into a structured observation with:
 
 - Type classification (decision, bugfix, feature, refactor, discovery, change)
 - Title and narrative summary
@@ -98,7 +115,7 @@ On `session.idle`, the queue processor batches pending observations and sends th
 - Concepts/tags for search
 - Files involved
 
-If no Anthropic API key is set, a fallback compressor extracts basic metadata without AI.
+If no API key is set, a fallback compressor extracts basic metadata without AI.
 
 ### Progressive Disclosure
 
@@ -165,7 +182,9 @@ open-mem works out of the box with zero configuration. All settings can be custo
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | — | API key for AI compression (optional) |
+| `OPEN_MEM_PROVIDER` | `anthropic` | AI provider: `anthropic`, `bedrock`, `openai`, `google` |
+| `ANTHROPIC_API_KEY` | — | API key for Anthropic provider |
+| `OPENAI_API_KEY` | — | API key for OpenAI provider |
 | `OPEN_MEM_DB_PATH` | `.open-mem/memory.db` | Path to SQLite database |
 | `OPEN_MEM_MODEL` | `claude-sonnet-4-20250514` | Model for AI compression |
 | `OPEN_MEM_MAX_CONTEXT_TOKENS` | `4000` | Token budget for injected context |
@@ -188,8 +207,9 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `dbPath` | string | `.open-mem/memory.db` | SQLite database file path |
-| `apiKey` | string | `undefined` | Anthropic API key |
-| `model` | string | `claude-sonnet-4-20250514` | Claude model for compression |
+| `provider` | string | `anthropic` | AI provider: `anthropic`, `bedrock`, `openai`, `google` |
+| `apiKey` | string | `undefined` | Provider API key |
+| `model` | string | `claude-sonnet-4-20250514` | Model for compression |
 | `maxTokensPerCompression` | number | `1024` | Max tokens per compression response |
 | `compressionEnabled` | boolean | `true` | Enable AI compression |
 | `contextInjectionEnabled` | boolean | `true` | Enable context injection |
@@ -212,9 +232,9 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 
 All data is stored locally in your project's `.open-mem/` directory. No data leaves your machine except when AI compression is enabled.
 
-### Anthropic API
+### AI Provider
 
-When AI compression is enabled, tool outputs are sent to Claude for compression. Disable with `OPEN_MEM_COMPRESSION=false` to keep everything fully local.
+When AI compression is enabled, tool outputs are sent to the configured AI provider for compression. Disable with `OPEN_MEM_COMPRESSION=false` to keep everything fully local.
 
 ### Automatic Redaction
 
@@ -227,7 +247,7 @@ open-mem automatically redacts common sensitive patterns before storage:
 
 ### `<private>` Tags
 
-Wrap any content in `<private>...</private>` tags to exclude it from memory entirely. Private blocks are stripped before observation capture — they never reach the database or the Anthropic API.
+Wrap any content in `<private>...</private>` tags to exclude it from memory entirely. Private blocks are stripped before observation capture — they never reach the database or the AI provider.
 
 ```
 <private>
@@ -245,12 +265,17 @@ echo '.open-mem/' >> .gitignore
 
 ## Troubleshooting
 
-### "AI compression enabled but no ANTHROPIC_API_KEY found"
+### "AI compression enabled but no API key found"
 
-This is a warning, not an error. open-mem works without an API key — it falls back to a basic metadata extractor. To enable AI compression:
+This is a warning, not an error. open-mem works without an API key — it falls back to a basic metadata extractor. To enable AI compression, configure a provider:
 
 ```bash
+# Anthropic (default)
 export ANTHROPIC_API_KEY=sk-ant-...
+
+# Or use AWS Bedrock (no API key needed, uses AWS credentials)
+export OPEN_MEM_PROVIDER=bedrock
+export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
 ### Database errors

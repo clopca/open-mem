@@ -2,17 +2,16 @@
 // open-mem — AI Compressor Tests (Task 10)
 // =============================================================================
 
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { ObservationCompressor } from "../../src/ai/compressor";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeConfig(
-	overrides?: Partial<ConstructorParameters<typeof ObservationCompressor>[0]>,
-) {
+function makeConfig(overrides?: Partial<ConstructorParameters<typeof ObservationCompressor>[0]>) {
 	return {
+		provider: "anthropic",
 		apiKey: "test-key",
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
@@ -22,15 +21,12 @@ function makeConfig(
 	};
 }
 
-/** Inject a fake Anthropic client into the compressor */
-function withMockClient(
+/** Inject a fake _generate function into the compressor */
+function withMockGenerate(
 	compressor: ObservationCompressor,
-	createFn: (...args: unknown[]) => unknown,
+	fn: (...args: unknown[]) => unknown,
 ): void {
-	// Access private field — acceptable in tests
-	(compressor as unknown as Record<string, unknown>).client = {
-		messages: { create: createFn },
-	};
+	(compressor as unknown as Record<string, unknown>)._generate = fn;
 }
 
 const VALID_OBSERVATION_XML = `<observation>
@@ -50,16 +46,14 @@ const VALID_OBSERVATION_XML = `<observation>
 
 describe("ObservationCompressor", () => {
 	test("compress returns null when disabled", async () => {
-		const compressor = new ObservationCompressor(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const compressor = new ObservationCompressor(makeConfig({ compressionEnabled: false }));
 		const result = await compressor.compress("Read", "a".repeat(100));
 		expect(result).toBeNull();
 	});
 
 	test("compress returns null for short output", async () => {
 		const compressor = new ObservationCompressor(makeConfig());
-		withMockClient(compressor, () => {
+		withMockGenerate(compressor, () => {
 			throw new Error("should not be called");
 		});
 		const result = await compressor.compress("Read", "short");
@@ -69,16 +63,10 @@ describe("ObservationCompressor", () => {
 	test("compress truncates very long output", async () => {
 		let capturedPrompt = "";
 		const compressor = new ObservationCompressor(makeConfig());
-		withMockClient(compressor, (...args: unknown[]) => {
+		withMockGenerate(compressor, (...args: unknown[]) => {
 			const opts = args[0] as Record<string, unknown>;
-			const messages = opts.messages as Array<{
-				role: string;
-				content: string;
-			}>;
-			capturedPrompt = messages[0].content;
-			return Promise.resolve({
-				content: [{ type: "text", text: VALID_OBSERVATION_XML }],
-			});
+			capturedPrompt = opts.prompt as string;
+			return Promise.resolve({ text: VALID_OBSERVATION_XML });
 		});
 
 		const longOutput = "x".repeat(60_000);
@@ -89,16 +77,9 @@ describe("ObservationCompressor", () => {
 
 	test("compress calls API and parses response", async () => {
 		const compressor = new ObservationCompressor(makeConfig());
-		withMockClient(compressor, () =>
-			Promise.resolve({
-				content: [{ type: "text", text: VALID_OBSERVATION_XML }],
-			}),
-		);
+		withMockGenerate(compressor, () => Promise.resolve({ text: VALID_OBSERVATION_XML }));
 
-		const result = await compressor.compress(
-			"Read",
-			"a".repeat(100),
-		);
+		const result = await compressor.compress("Read", "a".repeat(100));
 		expect(result).not.toBeNull();
 		expect(result?.type).toBe("discovery");
 		expect(result?.title).toBe("Found auth pattern");
@@ -106,36 +87,22 @@ describe("ObservationCompressor", () => {
 
 	test("compress handles API error gracefully", async () => {
 		const compressor = new ObservationCompressor(makeConfig());
-		withMockClient(compressor, () =>
-			Promise.reject(new Error("network error")),
-		);
+		withMockGenerate(compressor, () => Promise.reject(new Error("network error")));
 
-		const result = await compressor.compress(
-			"Read",
-			"a".repeat(100),
-		);
+		const result = await compressor.compress("Read", "a".repeat(100));
 		expect(result).toBeNull();
 	});
 
 	test("compress handles unparseable response", async () => {
 		const compressor = new ObservationCompressor(makeConfig());
-		withMockClient(compressor, () =>
-			Promise.resolve({
-				content: [{ type: "text", text: "not valid xml at all" }],
-			}),
-		);
+		withMockGenerate(compressor, () => Promise.resolve({ text: "not valid xml at all" }));
 
-		const result = await compressor.compress(
-			"Read",
-			"a".repeat(100),
-		);
+		const result = await compressor.compress("Read", "a".repeat(100));
 		expect(result).toBeNull();
 	});
 
 	test("createFallbackObservation for Read tool", () => {
-		const compressor = new ObservationCompressor(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const compressor = new ObservationCompressor(makeConfig({ compressionEnabled: false }));
 		const fallback = compressor.createFallbackObservation(
 			"Read",
 			"Contents of src/auth.ts:\nexport function login() {}",
@@ -145,20 +112,13 @@ describe("ObservationCompressor", () => {
 	});
 
 	test("createFallbackObservation for Write tool", () => {
-		const compressor = new ObservationCompressor(
-			makeConfig({ compressionEnabled: false }),
-		);
-		const fallback = compressor.createFallbackObservation(
-			"Write",
-			"Wrote to src/auth.ts",
-		);
+		const compressor = new ObservationCompressor(makeConfig({ compressionEnabled: false }));
+		const fallback = compressor.createFallbackObservation("Write", "Wrote to src/auth.ts");
 		expect(fallback.type).toBe("change");
 	});
 
 	test("createFallbackObservation extracts file paths", () => {
-		const compressor = new ObservationCompressor(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const compressor = new ObservationCompressor(makeConfig({ compressionEnabled: false }));
 		const fallback = compressor.createFallbackObservation(
 			"Read",
 			"Reading src/auth.ts and src/middleware.ts for analysis",
@@ -170,11 +130,9 @@ describe("ObservationCompressor", () => {
 	test("compressBatch processes items and returns map", async () => {
 		const compressor = new ObservationCompressor(makeConfig());
 		let callCount = 0;
-		withMockClient(compressor, () => {
+		withMockGenerate(compressor, () => {
 			callCount++;
-			return Promise.resolve({
-				content: [{ type: "text", text: VALID_OBSERVATION_XML }],
-			});
+			return Promise.resolve({ text: VALID_OBSERVATION_XML });
 		});
 
 		const results = await compressor.compressBatch([

@@ -2,16 +2,16 @@
 // open-mem — Queue Processor Tests (Task 13)
 // =============================================================================
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { QueueProcessor } from "../../src/queue/processor";
-import { SessionRepository } from "../../src/db/sessions";
-import { ObservationRepository } from "../../src/db/observations";
-import { SummaryRepository } from "../../src/db/summaries";
-import { PendingMessageRepository } from "../../src/db/pending";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { ObservationCompressor } from "../../src/ai/compressor";
 import { SessionSummarizer } from "../../src/ai/summarizer";
 import type { Database } from "../../src/db/database";
-import { createTestDb, cleanupTestDb } from "../db/helpers";
+import { ObservationRepository } from "../../src/db/observations";
+import { PendingMessageRepository } from "../../src/db/pending";
+import { SessionRepository } from "../../src/db/sessions";
+import { SummaryRepository } from "../../src/db/summaries";
+import { QueueProcessor } from "../../src/queue/processor";
+import { cleanupTestDb, createTestDb } from "../db/helpers";
 
 let db: Database;
 let dbPath: string;
@@ -34,34 +34,22 @@ function buildProcessor(configOverrides?: Record<string, unknown>) {
 	);
 }
 
-/** Inject a mock Anthropic client that returns valid observation XML */
+/** Inject a mock _generate that returns valid observation XML */
 function mockCompressorSuccess() {
-	(compressor as unknown as Record<string, unknown>).client = {
-		messages: {
-			create: () =>
-				Promise.resolve({
-					content: [
-						{
-							type: "text",
-							text: `<observation>
+	(compressor as unknown as Record<string, unknown>)._generate = () =>
+		Promise.resolve({
+			text: `<observation>
   <type>discovery</type><title>Mock observation</title>
   <subtitle>sub</subtitle><facts><fact>f1</fact></facts>
   <narrative>narrative</narrative><concepts><concept>c1</concept></concepts>
   <files_read><file>a.ts</file></files_read><files_modified></files_modified>
 </observation>`,
-						},
-					],
-				}),
-		},
-	};
+		});
 }
 
 function mockCompressorFailure() {
-	(compressor as unknown as Record<string, unknown>).client = {
-		messages: {
-			create: () => Promise.reject(new Error("API down")),
-		},
-	};
+	(compressor as unknown as Record<string, unknown>)._generate = () =>
+		Promise.reject(new Error("API down"));
 }
 
 beforeEach(() => {
@@ -73,6 +61,7 @@ beforeEach(() => {
 	sessionRepo = new SessionRepository(db);
 	summaryRepo = new SummaryRepository(db);
 	compressor = new ObservationCompressor({
+		provider: "anthropic",
 		apiKey: "test",
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
@@ -80,6 +69,7 @@ beforeEach(() => {
 		minOutputLength: 10,
 	});
 	summarizer = new SessionSummarizer({
+		provider: "anthropic",
 		apiKey: "test",
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
@@ -151,9 +141,8 @@ describe("QueueProcessor", () => {
 			callId: "c1",
 		});
 		// Break the compressor entirely so even fallback fails
-		(compressor as unknown as Record<string, unknown>).client = {
-			messages: { create: () => Promise.reject(new Error("boom")) },
-		};
+		(compressor as unknown as Record<string, unknown>)._generate = () =>
+			Promise.reject(new Error("boom"));
 		// Also break createFallbackObservation
 		compressor.createFallbackObservation = () => {
 			throw new Error("fallback broken");

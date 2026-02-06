@@ -29,9 +29,13 @@ async function createTestPlugin(): Promise<{ hooks: Hooks; dir: string }> {
 	const dir = `/tmp/open-mem-e2e-${randomUUID()}`;
 	cleanupDirs.push(dir);
 
-	// Remove API key to force fallback compressor
+	// Remove API key and AWS credentials to force fallback compressor
 	const saved = process.env.ANTHROPIC_API_KEY;
+	const savedAwsKey = process.env.AWS_ACCESS_KEY_ID;
+	const savedAwsProfile = process.env.AWS_PROFILE;
 	delete process.env.ANTHROPIC_API_KEY;
+	delete process.env.AWS_ACCESS_KEY_ID;
+	delete process.env.AWS_PROFILE;
 
 	const hooks = await plugin({
 		client: {},
@@ -43,6 +47,8 @@ async function createTestPlugin(): Promise<{ hooks: Hooks; dir: string }> {
 	});
 
 	process.env.ANTHROPIC_API_KEY = saved;
+	process.env.AWS_ACCESS_KEY_ID = savedAwsKey;
+	process.env.AWS_PROFILE = savedAwsProfile;
 	return { hooks, dir };
 }
 

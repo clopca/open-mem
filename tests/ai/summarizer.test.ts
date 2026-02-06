@@ -2,7 +2,7 @@
 // open-mem — AI Summarizer Tests (Task 11)
 // =============================================================================
 
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { SessionSummarizer } from "../../src/ai/summarizer";
 import type { Observation } from "../../src/types";
 
@@ -10,10 +10,9 @@ import type { Observation } from "../../src/types";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeConfig(
-	overrides?: Partial<ConstructorParameters<typeof SessionSummarizer>[0]>,
-) {
+function makeConfig(overrides?: Partial<ConstructorParameters<typeof SessionSummarizer>[0]>) {
 	return {
+		provider: "anthropic",
 		apiKey: "test-key",
 		model: "claude-sonnet-4-20250514",
 		maxTokensPerCompression: 1024,
@@ -22,13 +21,11 @@ function makeConfig(
 	};
 }
 
-function withMockClient(
+function withMockGenerate(
 	summarizer: SessionSummarizer,
-	createFn: (...args: unknown[]) => unknown,
+	fn: (...args: unknown[]) => unknown,
 ): void {
-	(summarizer as unknown as Record<string, unknown>).client = {
-		messages: { create: createFn },
-	};
+	(summarizer as unknown as Record<string, unknown>)._generate = fn;
 }
 
 function makeObservation(overrides?: Partial<Observation>): Observation {
@@ -70,9 +67,7 @@ describe("SessionSummarizer", () => {
 	});
 
 	test("summarize falls back when disabled", async () => {
-		const summarizer = new SessionSummarizer(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const summarizer = new SessionSummarizer(makeConfig({ compressionEnabled: false }));
 		const result = await summarizer.summarize("sess-1", [
 			makeObservation(),
 			makeObservation({ id: "obs-2", type: "change", title: "Updated login" }),
@@ -83,15 +78,9 @@ describe("SessionSummarizer", () => {
 
 	test("summarize calls API and parses response", async () => {
 		const summarizer = new SessionSummarizer(makeConfig());
-		withMockClient(summarizer, () =>
-			Promise.resolve({
-				content: [{ type: "text", text: VALID_SUMMARY_XML }],
-			}),
-		);
+		withMockGenerate(summarizer, () => Promise.resolve({ text: VALID_SUMMARY_XML }));
 
-		const result = await summarizer.summarize("sess-1", [
-			makeObservation(),
-		]);
+		const result = await summarizer.summarize("sess-1", [makeObservation()]);
 		expect(result).not.toBeNull();
 		expect(result?.summary).toContain("JWT");
 		expect(result?.keyDecisions).toContain("Use RS256 algorithm");
@@ -99,22 +88,16 @@ describe("SessionSummarizer", () => {
 
 	test("summarize falls back on API error", async () => {
 		const summarizer = new SessionSummarizer(makeConfig());
-		withMockClient(summarizer, () =>
-			Promise.reject(new Error("API down")),
-		);
+		withMockGenerate(summarizer, () => Promise.reject(new Error("API down")));
 
-		const result = await summarizer.summarize("sess-1", [
-			makeObservation(),
-		]);
+		const result = await summarizer.summarize("sess-1", [makeObservation()]);
 		// Should get a fallback summary, not null
 		expect(result).not.toBeNull();
 		expect(result?.summary).toContain("1 observations");
 	});
 
 	test("createFallbackSummary aggregates files", () => {
-		const summarizer = new SessionSummarizer(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const summarizer = new SessionSummarizer(makeConfig({ compressionEnabled: false }));
 		const result = summarizer.createFallbackSummary([
 			makeObservation({ filesModified: ["a.ts"] }),
 			makeObservation({ filesModified: ["b.ts", "a.ts"] }),
@@ -122,15 +105,11 @@ describe("SessionSummarizer", () => {
 		expect(result.filesModified).toContain("a.ts");
 		expect(result.filesModified).toContain("b.ts");
 		// Deduplication
-		expect(
-			result.filesModified.filter((f) => f === "a.ts"),
-		).toHaveLength(1);
+		expect(result.filesModified.filter((f) => f === "a.ts")).toHaveLength(1);
 	});
 
 	test("createFallbackSummary aggregates concepts", () => {
-		const summarizer = new SessionSummarizer(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const summarizer = new SessionSummarizer(makeConfig({ compressionEnabled: false }));
 		const result = summarizer.createFallbackSummary([
 			makeObservation({ concepts: ["JWT", "auth"] }),
 			makeObservation({ concepts: ["auth", "security"] }),
@@ -141,9 +120,7 @@ describe("SessionSummarizer", () => {
 	});
 
 	test("createFallbackSummary collects decisions", () => {
-		const summarizer = new SessionSummarizer(
-			makeConfig({ compressionEnabled: false }),
-		);
+		const summarizer = new SessionSummarizer(makeConfig({ compressionEnabled: false }));
 		const result = summarizer.createFallbackSummary([
 			makeObservation({ type: "decision", title: "Use RS256" }),
 			makeObservation({ type: "discovery", title: "Found bug" }),

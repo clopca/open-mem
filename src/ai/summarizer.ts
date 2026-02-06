@@ -2,16 +2,18 @@
 // open-mem — AI Session Summarizer
 // =============================================================================
 
-import Anthropic from "@anthropic-ai/sdk";
+import { type LanguageModel, generateText } from "ai";
 import type { Observation } from "../types";
 import { type ParsedSummary, parseSummaryResponse } from "./parser";
 import { buildSummarizationPrompt } from "./prompts";
+import { createModel } from "./provider";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 export interface SummarizerConfig {
+	provider: string;
 	apiKey: string | undefined;
 	model: string;
 	maxTokensPerCompression: number;
@@ -27,13 +29,28 @@ export interface SummarizerConfig {
  * Falls back to a heuristic aggregation when the API is unavailable.
  */
 export class SessionSummarizer {
-	private client: Anthropic | null;
+	private model: LanguageModel | null;
 	private config: SummarizerConfig;
+
+	// Overridable for tests
+	_generate = generateText;
 
 	constructor(config: SummarizerConfig) {
 		this.config = config;
-		this.client =
-			config.apiKey && config.compressionEnabled ? new Anthropic({ apiKey: config.apiKey }) : null;
+		this.model = null;
+
+		const providerRequiresKey = config.provider !== "bedrock";
+		if (config.compressionEnabled && (!providerRequiresKey || config.apiKey)) {
+			try {
+				this.model = createModel({
+					provider: config.provider,
+					model: config.model,
+					apiKey: config.apiKey,
+				});
+			} catch {
+				// Provider package not installed — fall back to no-AI mode
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------------------
@@ -41,7 +58,7 @@ export class SessionSummarizer {
 	// ---------------------------------------------------------------------------
 
 	/**
-	 * Summarize a session's observations via the Anthropic API.
+	 * Summarize a session's observations via the AI provider.
 	 * Returns `null` for empty observation lists, falls back to heuristic
 	 * summary when the API is disabled or errors out.
 	 */
@@ -51,7 +68,7 @@ export class SessionSummarizer {
 	): Promise<ParsedSummary | null> {
 		if (observations.length === 0) return null;
 
-		if (!this.config.compressionEnabled || !this.client) {
+		if (!this.config.compressionEnabled || !this.model) {
 			return this.createFallbackSummary(observations);
 		}
 
@@ -65,16 +82,11 @@ export class SessionSummarizer {
 		);
 
 		try {
-			const response = await this.client.messages.create({
-				model: this.config.model,
-				max_tokens: this.config.maxTokensPerCompression,
-				messages: [{ role: "user", content: prompt }],
+			const { text } = await this._generate({
+				model: this.model,
+				maxOutputTokens: this.config.maxTokensPerCompression,
+				prompt,
 			});
-
-			const text = response.content
-				.filter((b): b is Anthropic.TextBlock => b.type === "text")
-				.map((b) => b.text)
-				.join("");
 
 			const parsed = parseSummaryResponse(text);
 			if (!parsed) {
