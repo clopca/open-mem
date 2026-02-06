@@ -28,6 +28,16 @@ ${toolOutput}
 ${contextBlock}<instructions>
 Extract a structured observation from the tool output. Determine the most appropriate type and provide a concise but informative summary.
 
+When extracting concepts, prefer established vocabulary where appropriate:
+- how-it-works: Technical mechanisms and behaviors
+- why-it-exists: Rationale and motivations
+- what-changed: Modifications and their effects
+- problem-solution: Issues encountered and how they were resolved
+- gotcha: Surprising behaviors, edge cases, or pitfalls
+- pattern: Recurring design patterns or approaches
+- trade-off: Deliberate compromises between competing concerns
+You may also use any domain-specific concepts relevant to the observation.
+
 Respond with EXACTLY this XML format:
 <observation>
   <type>decision|bugfix|feature|refactor|discovery|change</type>
@@ -86,6 +96,11 @@ Create a concise session summary. Focus on key decisions, outcomes, and patterns
 
 Respond with EXACTLY this XML format:
 <session_summary>
+  <request>What the user asked for (1-2 sentences)</request>
+  <investigated>What was explored or researched</investigated>
+  <learned>Key discoveries and insights</learned>
+  <completed>What was accomplished</completed>
+  <next_steps>What to do next (if any)</next_steps>
   <summary>2-4 sentence summary of the entire session</summary>
   <key_decisions>
     <decision>Important decision made during session</decision>

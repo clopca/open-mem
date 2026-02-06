@@ -66,6 +66,11 @@ export interface SessionSummary {
 	concepts: string[];
 	createdAt: string;
 	tokenCount: number;
+	request?: string;
+	investigated?: string;
+	learned?: string;
+	completed?: string;
+	nextSteps?: string;
 }
 
 // -----------------------------------------------------------------------------

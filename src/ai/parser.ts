@@ -28,6 +28,12 @@ export interface ParsedSummary {
 	keyDecisions: string[];
 	filesModified: string[];
 	concepts: string[];
+	// Structured session fields (new format)
+	request?: string;
+	investigated?: string;
+	learned?: string;
+	completed?: string;
+	nextSteps?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -120,7 +126,23 @@ export function parseSummaryResponse(response: string): ParsedSummary | null {
 	const filesModified = extractAllTags(extractTag(block, "files_modified"), "file");
 	const concepts = extractAllTags(extractTag(block, "concepts"), "concept");
 
-	return { summary, keyDecisions, filesModified, concepts };
+	const request = extractTag(block, "request") || undefined;
+	const investigated = extractTag(block, "investigated") || undefined;
+	const learned = extractTag(block, "learned") || undefined;
+	const completed = extractTag(block, "completed") || undefined;
+	const nextSteps = extractTag(block, "next_steps") || undefined;
+
+	return {
+		summary,
+		keyDecisions,
+		filesModified,
+		concepts,
+		request,
+		investigated,
+		learned,
+		completed,
+		nextSteps,
+	};
 }
 
 // -----------------------------------------------------------------------------

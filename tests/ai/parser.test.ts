@@ -2,16 +2,13 @@
 // open-mem — Prompt & Parser Tests (Task 09)
 // =============================================================================
 
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
-	buildCompressionPrompt,
-	buildSummarizationPrompt,
-} from "../../src/ai/prompts";
-import {
+	estimateTokens,
 	parseObservationResponse,
 	parseSummaryResponse,
-	estimateTokens,
 } from "../../src/ai/parser";
+import { buildCompressionPrompt, buildSummarizationPrompt } from "../../src/ai/prompts";
 
 // =============================================================================
 // Prompt Construction
@@ -112,8 +109,7 @@ describe("parseObservationResponse", () => {
 	});
 
 	test("defaults invalid type to discovery", () => {
-		const xml =
-			"<observation><type>unknown_type</type><title>Test</title></observation>";
+		const xml = "<observation><type>unknown_type</type><title>Test</title></observation>";
 		const result = parseObservationResponse(xml);
 		expect(result?.type).toBe("discovery");
 	});
@@ -125,8 +121,7 @@ describe("parseObservationResponse", () => {
 	});
 
 	test("uses defaults for missing optional tags", () => {
-		const xml =
-			"<observation><type>bugfix</type><title>Fixed crash</title></observation>";
+		const xml = "<observation><type>bugfix</type><title>Fixed crash</title></observation>";
 		const result = parseObservationResponse(xml);
 		expect(result?.type).toBe("bugfix");
 		expect(result?.title).toBe("Fixed crash");
@@ -177,6 +172,93 @@ describe("parseSummaryResponse", () => {
 	test("returns null for malformed XML", () => {
 		expect(parseSummaryResponse("not xml")).toBeNull();
 		expect(parseSummaryResponse("")).toBeNull();
+	});
+
+	test("parses structured summary with all new fields", () => {
+		const xml = `
+<session_summary>
+  <request>Add dark mode toggle to settings page</request>
+  <investigated>Existing theme system and CSS variable usage</investigated>
+  <learned>The app uses CSS custom properties for theming</learned>
+  <completed>Implemented dark mode toggle with persistence</completed>
+  <next_steps>Add system preference detection</next_steps>
+  <summary>Added dark mode support using CSS custom properties with localStorage persistence.</summary>
+  <key_decisions>
+    <decision>Use CSS custom properties over styled-components</decision>
+  </key_decisions>
+  <files_modified>
+    <file>src/settings.tsx</file>
+    <file>src/theme.css</file>
+  </files_modified>
+  <concepts>
+    <concept>dark-mode</concept>
+    <concept>css-variables</concept>
+  </concepts>
+</session_summary>`;
+		const result = parseSummaryResponse(xml);
+		expect(result).not.toBeNull();
+		expect(result?.request).toBe("Add dark mode toggle to settings page");
+		expect(result?.investigated).toBe("Existing theme system and CSS variable usage");
+		expect(result?.learned).toBe("The app uses CSS custom properties for theming");
+		expect(result?.completed).toBe("Implemented dark mode toggle with persistence");
+		expect(result?.nextSteps).toBe("Add system preference detection");
+		expect(result?.summary).toContain("dark mode");
+		expect(result?.keyDecisions).toEqual(["Use CSS custom properties over styled-components"]);
+		expect(result?.filesModified).toEqual(["src/settings.tsx", "src/theme.css"]);
+		expect(result?.concepts).toEqual(["dark-mode", "css-variables"]);
+	});
+
+	test("backward compatible with old summary format", () => {
+		const xml = `
+<session_summary>
+  <summary>Implemented JWT authentication with refresh tokens.</summary>
+  <key_decisions>
+    <decision>Use RS256 algorithm</decision>
+  </key_decisions>
+  <files_modified>
+    <file>src/auth.ts</file>
+  </files_modified>
+  <concepts>
+    <concept>JWT</concept>
+  </concepts>
+</session_summary>`;
+		const result = parseSummaryResponse(xml);
+		expect(result).not.toBeNull();
+		expect(result?.summary).toContain("JWT authentication");
+		expect(result?.keyDecisions).toEqual(["Use RS256 algorithm"]);
+		expect(result?.filesModified).toEqual(["src/auth.ts"]);
+		expect(result?.concepts).toEqual(["JWT"]);
+		expect(result?.request).toBeUndefined();
+		expect(result?.investigated).toBeUndefined();
+		expect(result?.learned).toBeUndefined();
+		expect(result?.completed).toBeUndefined();
+		expect(result?.nextSteps).toBeUndefined();
+	});
+
+	test("handles partial structured summary", () => {
+		const xml = `
+<session_summary>
+  <request>Fix login bug</request>
+  <completed>Patched the session expiry logic</completed>
+  <summary>Fixed a session expiry bug in the login flow.</summary>
+  <key_decisions>
+    <decision>Extend token TTL to 2 hours</decision>
+  </key_decisions>
+  <files_modified>
+    <file>src/session.ts</file>
+  </files_modified>
+  <concepts>
+    <concept>session-management</concept>
+  </concepts>
+</session_summary>`;
+		const result = parseSummaryResponse(xml);
+		expect(result).not.toBeNull();
+		expect(result?.request).toBe("Fix login bug");
+		expect(result?.completed).toBe("Patched the session expiry logic");
+		expect(result?.investigated).toBeUndefined();
+		expect(result?.learned).toBeUndefined();
+		expect(result?.nextSteps).toBeUndefined();
+		expect(result?.summary).toContain("session expiry");
 	});
 });
 
