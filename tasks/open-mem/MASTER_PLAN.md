@@ -30,7 +30,7 @@
 
 | Phase | Status | Tasks | Effort | Notes |
 |-------|--------|-------|--------|-------|
-| Phase 1: Foundation | [ ] | 4 | 5-6h | Scaffolding, types, config + tests |
+| Phase 1: Foundation | [x] | 4 | 5-6h | Scaffolding, types, config + tests |
 | Phase 2: Data Layer | [ ] | 4 | 8-10h | SQLite, schema, CRUD, FTS5 + tests |
 | Phase 3: AI Pipeline | [ ] | 4 | 8-10h | Compression, summarization, prompts + tests |
 | Phase 4: Core Hooks | [ ] | 4 | 8-10h | Tool capture, context inject, events, queue + tests |
@@ -66,10 +66,10 @@ Build bottom-up: foundation and types first, then the data layer (SQLite), then 
 
 | Order | Task ID | File | Description | Type | Status |
 |-------|---------|------|-------------|------|--------|
-| 1 | open-mem-01 | `01-project-scaffolding.md` | Initialize npm package, tsconfig, build config, .gitignore | impl | [ ] |
-| 2 | open-mem-02 | `02-types-and-interfaces.md` | Define all TypeScript types and interfaces | impl | [ ] |
-| 3 | open-mem-03 | `03-configuration.md` | Configuration management with defaults and env overrides | impl | [ ] |
-| 4 | open-mem-04 | `04-phase-1-tests.md` | Phase 1 tests for types and config | **test** | [ ] |
+| 1 | open-mem-01 | `01-project-scaffolding.md` | Initialize npm package, tsconfig, build config, .gitignore | impl | [x] |
+| 2 | open-mem-02 | `02-types-and-interfaces.md` | Define all TypeScript types and interfaces | impl | [x] |
+| 3 | open-mem-03 | `03-configuration.md` | Configuration management with defaults and env overrides | impl | [x] |
+| 4 | open-mem-04 | `04-phase-1-tests.md` | Phase 1 tests for types and config | **test** | [x] |
 
 **Milestone**: Project compiles, types are defined, config loads with defaults
 **Test Coverage**: Tasks 02, 03
@@ -270,10 +270,10 @@ Phase 6 (Polish):
 ## Quick Reference
 
 ```
- 1. open-mem-01  Project scaffolding              [ ]
- 2. open-mem-02  Types and interfaces              [ ]
- 3. open-mem-03  Configuration                     [ ]
- 4. open-mem-04  Phase 1 tests                     [ ]
+ 1. open-mem-01  Project scaffolding              [x]
+ 2. open-mem-02  Types and interfaces              [x]
+ 3. open-mem-03  Configuration                     [x]
+ 4. open-mem-04  Phase 1 tests                     [x]
  5. open-mem-05  Database setup                    [ ]
  6. open-mem-06  Schema and FTS5                   [ ]
  7. open-mem-07  CRUD operations                   [ ]
@@ -294,7 +294,7 @@ Phase 6 (Polish):
 22. open-mem-22  Phase 6 tests                     [ ]
 ```
 
-**Progress**: 0/22 tasks complete (0%)
+**Progress**: 4/22 tasks complete (18%)
 
 ---
 
