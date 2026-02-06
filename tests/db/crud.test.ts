@@ -2,13 +2,13 @@
 // open-mem — CRUD Operations Tests (Task 07)
 // =============================================================================
 
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "../../src/db/database";
-import { createTestDb, cleanupTestDb } from "./helpers";
-import { SessionRepository } from "../../src/db/sessions";
 import { ObservationRepository } from "../../src/db/observations";
-import { SummaryRepository } from "../../src/db/summaries";
 import { PendingMessageRepository } from "../../src/db/pending";
+import { SessionRepository } from "../../src/db/sessions";
+import { SummaryRepository } from "../../src/db/summaries";
+import { cleanupTestDb, createTestDb } from "./helpers";
 
 let db: Database;
 let dbPath: string;
@@ -144,8 +144,7 @@ function makeObservationData(overrides?: Record<string, unknown>) {
 		title: "Found JWT authentication pattern",
 		subtitle: "In the auth module",
 		facts: ["Uses JWT tokens", "Tokens expire in 1 hour"],
-		narrative:
-			"Discovered that the auth module uses JWT tokens with 1 hour expiry.",
+		narrative: "Discovered that the auth module uses JWT tokens with 1 hour expiry.",
 		concepts: ["authentication", "JWT"],
 		filesRead: ["src/auth.ts"],
 		filesModified: [] as string[],
@@ -343,14 +342,14 @@ describe("SummaryRepository", () => {
 			tokenCount: 10,
 		});
 		// Set explicit timestamps to make ordering deterministic
-		db.run(
-			"UPDATE session_summaries SET created_at = ? WHERE session_id = ?",
-			["2026-01-01T00:00:00.000Z", "sess-1"],
-		);
-		db.run(
-			"UPDATE session_summaries SET created_at = ? WHERE session_id = ?",
-			["2026-01-02T00:00:00.000Z", "sess-2"],
-		);
+		db.run("UPDATE session_summaries SET created_at = ? WHERE session_id = ?", [
+			"2026-01-01T00:00:00.000Z",
+			"sess-1",
+		]);
+		db.run("UPDATE session_summaries SET created_at = ? WHERE session_id = ?", [
+			"2026-01-02T00:00:00.000Z",
+			"sess-2",
+		]);
 		const recent = repo.getRecent(10);
 		expect(recent).toHaveLength(2);
 		expect(recent[0].summary).toBe("Second session");
@@ -371,6 +370,78 @@ describe("SummaryRepository", () => {
 		const results = repo.search("JWT authentication");
 		expect(results.length).toBeGreaterThanOrEqual(1);
 		expect(results[0].summary).toContain("JWT");
+	});
+
+	test("create saves structured summary fields", () => {
+		const sessions = new SessionRepository(db);
+		sessions.create("sess-1", "/tmp/project");
+		const repo = new SummaryRepository(db);
+		const summary = repo.create({
+			sessionId: "sess-1",
+			summary: "Implemented structured summaries.",
+			keyDecisions: ["Use v3 migration"],
+			filesModified: ["src/db/schema.ts"],
+			concepts: ["migration"],
+			tokenCount: 120,
+			request: "Add structured summary columns",
+			investigated: "Checked SQLite ALTER TABLE support",
+			learned: "SQLite requires separate ALTER statements",
+			completed: "Added v3 migration with 5 new columns",
+			nextSteps: "Update context injection to use new fields",
+		});
+		expect(summary.request).toBe("Add structured summary columns");
+		expect(summary.nextSteps).toBe("Update context injection to use new fields");
+
+		const found = repo.getBySessionId("sess-1");
+		expect(found).not.toBeNull();
+		expect(found?.request).toBe("Add structured summary columns");
+		expect(found?.investigated).toBe("Checked SQLite ALTER TABLE support");
+		expect(found?.learned).toBe("SQLite requires separate ALTER statements");
+		expect(found?.completed).toBe("Added v3 migration with 5 new columns");
+		expect(found?.nextSteps).toBe("Update context injection to use new fields");
+	});
+
+	test("backward compat: old summaries have undefined new fields", () => {
+		const sessions = new SessionRepository(db);
+		sessions.create("sess-1", "/tmp/project");
+		const repo = new SummaryRepository(db);
+		repo.create({
+			sessionId: "sess-1",
+			summary: "Old-style summary without structured fields.",
+			keyDecisions: [],
+			filesModified: [],
+			concepts: ["legacy"],
+			tokenCount: 50,
+		});
+		const found = repo.getBySessionId("sess-1");
+		expect(found).not.toBeNull();
+		expect(found?.request).toBeUndefined();
+		expect(found?.investigated).toBeUndefined();
+		expect(found?.learned).toBeUndefined();
+		expect(found?.completed).toBeUndefined();
+		expect(found?.nextSteps).toBeUndefined();
+	});
+
+	test("search FTS5 works with summaries containing new columns", () => {
+		const sessions = new SessionRepository(db);
+		sessions.create("sess-1", "/tmp/project");
+		const repo = new SummaryRepository(db);
+		repo.create({
+			sessionId: "sess-1",
+			summary: "Explored quantum computing patterns in the codebase.",
+			keyDecisions: ["Use Grover algorithm"],
+			filesModified: [],
+			concepts: ["quantum"],
+			tokenCount: 80,
+			request: "Investigate quantum algorithms",
+			investigated: "Reviewed Shor and Grover algorithms",
+			learned: "Grover provides quadratic speedup",
+			completed: "Documented quantum patterns",
+			nextSteps: "Implement quantum search module",
+		});
+		const results = repo.search("quantum");
+		expect(results.length).toBeGreaterThanOrEqual(1);
+		expect(results[0].summary).toContain("quantum");
 	});
 });
 
@@ -468,10 +539,9 @@ describe("PendingMessageRepository", () => {
 		repo.markProcessing(msg.id);
 
 		// Manually backdate the created_at to simulate a stale message
-		db.run(
-			"UPDATE pending_messages SET created_at = datetime('now', '-10 minutes') WHERE id = ?",
-			[msg.id],
-		);
+		db.run("UPDATE pending_messages SET created_at = datetime('now', '-10 minutes') WHERE id = ?", [
+			msg.id,
+		]);
 
 		const resetCount = repo.resetStale(5);
 		expect(resetCount).toBe(1);

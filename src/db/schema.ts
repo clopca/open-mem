@@ -188,14 +188,27 @@ export const MIGRATIONS: Migration[] = [
 				VALUES (new._rowid, new.summary, new.key_decisions, new.concepts);
 			END;
 
-			CREATE TRIGGER summaries_ad AFTER DELETE ON session_summaries BEGIN
-				INSERT INTO summaries_fts(
-					summaries_fts, rowid, summary, key_decisions, concepts
-				)
-				VALUES (
-					'delete', old._rowid, old.summary, old.key_decisions, old.concepts
-				);
-			END;
+		CREATE TRIGGER summaries_ad AFTER DELETE ON session_summaries BEGIN
+			INSERT INTO summaries_fts(
+				summaries_fts, rowid, summary, key_decisions, concepts
+			)
+			VALUES (
+				'delete', old._rowid, old.summary, old.key_decisions, old.concepts
+			);
+		END;
+	`,
+	},
+
+	// v3 — Structured summary columns
+	{
+		version: 3,
+		name: "add-structured-summary-columns",
+		up: `
+			ALTER TABLE session_summaries ADD COLUMN request TEXT NOT NULL DEFAULT '';
+			ALTER TABLE session_summaries ADD COLUMN investigated TEXT NOT NULL DEFAULT '';
+			ALTER TABLE session_summaries ADD COLUMN learned TEXT NOT NULL DEFAULT '';
+			ALTER TABLE session_summaries ADD COLUMN completed TEXT NOT NULL DEFAULT '';
+			ALTER TABLE session_summaries ADD COLUMN next_steps TEXT NOT NULL DEFAULT '';
 		`,
 	},
 ];

@@ -19,8 +19,9 @@ export class SummaryRepository {
 		this.db.run(
 			`INSERT INTO session_summaries
 				(id, session_id, summary, key_decisions, files_modified,
-				 concepts, created_at, token_count)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				 concepts, created_at, token_count,
+				 request, investigated, learned, completed, next_steps)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				id,
 				data.sessionId,
@@ -30,6 +31,11 @@ export class SummaryRepository {
 				JSON.stringify(data.concepts),
 				now,
 				data.tokenCount,
+				data.request ?? "",
+				data.investigated ?? "",
+				data.learned ?? "",
+				data.completed ?? "",
+				data.nextSteps ?? "",
 			],
 		);
 		return { ...data, id, createdAt: now };
@@ -88,6 +94,12 @@ export class SummaryRepository {
 			concepts: JSON.parse(row.concepts as string),
 			createdAt: row.created_at as string,
 			tokenCount: row.token_count as number,
+			// Structured summary fields (v3)
+			request: (row.request as string) || undefined,
+			investigated: (row.investigated as string) || undefined,
+			learned: (row.learned as string) || undefined,
+			completed: (row.completed as string) || undefined,
+			nextSteps: (row.next_steps as string) || undefined,
 		};
 	}
 }

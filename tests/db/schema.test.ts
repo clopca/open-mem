@@ -2,10 +2,10 @@
 // open-mem — Schema and FTS5 Tests (Task 06)
 // =============================================================================
 
-import { describe, test, expect, afterEach } from "bun:test";
-import { createTestDb, createRawTestDb, cleanupTestDb } from "./helpers";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { Database } from "../../src/db/database";
 import { initializeSchema } from "../../src/db/schema";
+import { cleanupTestDb, createRawTestDb, createTestDb } from "./helpers";
 
 let cleanupPaths: string[] = [];
 
@@ -73,17 +73,14 @@ describe("Schema and FTS5", () => {
 		const migrations = db.all<{ version: number }>(
 			"SELECT version FROM _migrations ORDER BY version",
 		);
-		expect(migrations).toHaveLength(2); // v1 + v2
+		expect(migrations).toHaveLength(3); // v1 + v2 + v3
 		db.close();
 	});
 
 	test("observations type CHECK constraint rejects invalid values", () => {
 		const { db, dbPath } = createTestDb();
 		cleanupPaths.push(dbPath);
-		db.run(
-			"INSERT INTO sessions (id, project_path) VALUES (?, ?)",
-			["sess-1", "/tmp"],
-		);
+		db.run("INSERT INTO sessions (id, project_path) VALUES (?, ?)", ["sess-1", "/tmp"]);
 		expect(() => {
 			db.run(
 				"INSERT INTO observations (id, session_id, type, title, raw_tool_output, tool_name) VALUES (?, ?, ?, ?, ?, ?)",
@@ -97,10 +94,11 @@ describe("Schema and FTS5", () => {
 		const { db, dbPath } = createTestDb();
 		cleanupPaths.push(dbPath);
 		expect(() => {
-			db.run(
-				"INSERT INTO sessions (id, project_path, status) VALUES (?, ?, ?)",
-				["sess-1", "/tmp", "INVALID_STATUS"],
-			);
+			db.run("INSERT INTO sessions (id, project_path, status) VALUES (?, ?, ?)", [
+				"sess-1",
+				"/tmp",
+				"INVALID_STATUS",
+			]);
 		}).toThrow();
 		db.close();
 	});
@@ -108,22 +106,26 @@ describe("Schema and FTS5", () => {
 	test("FTS5 trigger syncs on INSERT", () => {
 		const { db, dbPath } = createTestDb();
 		cleanupPaths.push(dbPath);
-		db.run(
-			"INSERT INTO sessions (id, project_path) VALUES (?, ?)",
-			["sess-1", "/tmp"],
-		);
+		db.run("INSERT INTO sessions (id, project_path) VALUES (?, ?)", ["sess-1", "/tmp"]);
 		db.run(
 			`INSERT INTO observations
 				(id, session_id, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output, tool_name, token_count)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
-				"obs-1", "sess-1", "discovery",
-				"JWT authentication pattern", "auth module",
-				'["uses JWT"]', "Found JWT auth in the codebase",
+				"obs-1",
+				"sess-1",
+				"discovery",
+				"JWT authentication pattern",
+				"auth module",
+				'["uses JWT"]',
+				"Found JWT auth in the codebase",
 				'["authentication","JWT"]',
-				'["src/auth.ts"]', '[]',
-				"raw output", "Read", 100,
+				'["src/auth.ts"]',
+				"[]",
+				"raw output",
+				"Read",
+				100,
 			],
 		);
 
@@ -139,10 +141,7 @@ describe("Schema and FTS5", () => {
 	test("FTS5 trigger syncs on DELETE", () => {
 		const { db, dbPath } = createTestDb();
 		cleanupPaths.push(dbPath);
-		db.run(
-			"INSERT INTO sessions (id, project_path) VALUES (?, ?)",
-			["sess-1", "/tmp"],
-		);
+		db.run("INSERT INTO sessions (id, project_path) VALUES (?, ?)", ["sess-1", "/tmp"]);
 		db.run(
 			`INSERT INTO observations
 				(id, session_id, type, title, raw_tool_output, tool_name)
