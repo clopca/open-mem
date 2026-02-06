@@ -139,6 +139,13 @@ export interface OpenMemConfig {
 
 	// Logging
 	logLevel: "debug" | "info" | "warn" | "error"; // Log verbosity
+
+	// Context injection customization
+	contextShowTokenCosts: boolean; // Show ~NNNt in observation index
+	contextObservationTypes: ObservationType[] | "all"; // Filter which types appear
+	contextFullObservationCount: number; // How many recent observations show full details
+	maxObservations: number; // Total observations to include in context
+	contextShowLastSummary: boolean; // Show last session summary
 }
 
 // -----------------------------------------------------------------------------

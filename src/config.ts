@@ -2,7 +2,7 @@
 // open-mem — Configuration Management
 // =============================================================================
 
-import type { OpenMemConfig } from "./types";
+import type { ObservationType, OpenMemConfig } from "./types";
 
 // -----------------------------------------------------------------------------
 // Default Configuration
@@ -40,6 +40,13 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 
 	// Logging
 	logLevel: "warn" as const,
+
+	// Context injection customization
+	contextShowTokenCosts: true,
+	contextObservationTypes: "all" as const,
+	contextFullObservationCount: 3,
+	maxObservations: 50,
+	contextShowLastSummary: true,
 };
 
 // -----------------------------------------------------------------------------
@@ -64,6 +71,18 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		env.retentionDays = Number.parseInt(process.env.OPEN_MEM_RETENTION_DAYS, 10);
 	if (process.env.OPEN_MEM_LOG_LEVEL)
 		env.logLevel = process.env.OPEN_MEM_LOG_LEVEL as OpenMemConfig["logLevel"];
+	if (process.env.OPEN_MEM_CONTEXT_SHOW_TOKEN_COSTS === "false") env.contextShowTokenCosts = false;
+	if (process.env.OPEN_MEM_CONTEXT_TYPES)
+		env.contextObservationTypes =
+			process.env.OPEN_MEM_CONTEXT_TYPES === "all"
+				? "all"
+				: (process.env.OPEN_MEM_CONTEXT_TYPES.split(",").map((s) => s.trim()) as ObservationType[]);
+	if (process.env.OPEN_MEM_CONTEXT_FULL_COUNT)
+		env.contextFullObservationCount = Number.parseInt(process.env.OPEN_MEM_CONTEXT_FULL_COUNT, 10);
+	if (process.env.OPEN_MEM_MAX_OBSERVATIONS)
+		env.maxObservations = Number.parseInt(process.env.OPEN_MEM_MAX_OBSERVATIONS, 10);
+	if (process.env.OPEN_MEM_CONTEXT_SHOW_LAST_SUMMARY === "false")
+		env.contextShowLastSummary = false;
 
 	return env;
 }

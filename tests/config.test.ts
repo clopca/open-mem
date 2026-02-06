@@ -1,9 +1,5 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import {
-	resolveConfig,
-	validateConfig,
-	getDefaultConfig,
-} from "../src/config";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { getDefaultConfig, resolveConfig, validateConfig } from "../src/config";
 import type { OpenMemConfig } from "../src/types";
 
 describe("Configuration", () => {
@@ -188,9 +184,7 @@ describe("Configuration", () => {
 
 		// Assert: error about minimum
 		expect(errors.length).toBeGreaterThan(0);
-		expect(
-			errors.some((e) => e.toLowerCase().includes("maxcontexttokens")),
-		).toBe(true);
+		expect(errors.some((e) => e.toLowerCase().includes("maxcontexttokens"))).toBe(true);
 	});
 
 	test("validateConfig error for invalid batchSize", () => {
@@ -207,9 +201,7 @@ describe("Configuration", () => {
 
 		// Assert: error about minimum
 		expect(errors.length).toBeGreaterThan(0);
-		expect(errors.some((e) => e.toLowerCase().includes("batchsize"))).toBe(
-			true,
-		);
+		expect(errors.some((e) => e.toLowerCase().includes("batchsize"))).toBe(true);
 	});
 
 	test("OPEN_MEM_IGNORED_TOOLS parsing", () => {
@@ -222,5 +214,73 @@ describe("Configuration", () => {
 
 		// Assert: comma-separated env parsed into array
 		expect(config.ignoredTools).toEqual(["Bash", "Read"]);
+	});
+
+	// -------------------------------------------------------------------------
+	// Context injection config
+	// -------------------------------------------------------------------------
+
+	test("getDefaultConfig has context injection fields", () => {
+		const config = getDefaultConfig();
+
+		expect(config.contextShowTokenCosts).toBe(true);
+		expect(config.contextObservationTypes).toBe("all");
+		expect(config.contextFullObservationCount).toBe(3);
+		expect(config.maxObservations).toBe(50);
+		expect(config.contextShowLastSummary).toBe(true);
+	});
+
+	test("OPEN_MEM_CONTEXT_SHOW_TOKEN_COSTS=false disables costs", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_CONTEXT_SHOW_TOKEN_COSTS = "false";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.contextShowTokenCosts).toBe(false);
+	});
+
+	test("OPEN_MEM_CONTEXT_TYPES parsing", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_CONTEXT_TYPES = "bugfix,discovery";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.contextObservationTypes).toEqual(["bugfix", "discovery"]);
+	});
+
+	test("OPEN_MEM_CONTEXT_TYPES=all keeps string", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_CONTEXT_TYPES = "all";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.contextObservationTypes).toBe("all");
+	});
+
+	test("OPEN_MEM_CONTEXT_FULL_COUNT parsing", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_CONTEXT_FULL_COUNT = "5";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.contextFullObservationCount).toBe(5);
+	});
+
+	test("OPEN_MEM_MAX_OBSERVATIONS parsing", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_MAX_OBSERVATIONS = "100";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.maxObservations).toBe(100);
+	});
+
+	test("OPEN_MEM_CONTEXT_SHOW_LAST_SUMMARY=false disables summary", () => {
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.OPEN_MEM_CONTEXT_SHOW_LAST_SUMMARY = "false";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.contextShowLastSummary).toBe(false);
 	});
 });

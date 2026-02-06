@@ -6,6 +6,24 @@ import type { Observation, ObservationIndex, ObservationType } from "../types";
 import type { ProgressiveContext } from "./progressive";
 
 // -----------------------------------------------------------------------------
+// Builder Configuration
+// -----------------------------------------------------------------------------
+
+export interface ContextBuilderConfig {
+	showTokenCosts: boolean;
+	observationTypes: ObservationType[] | "all";
+	fullObservationCount: number;
+	showLastSummary: boolean;
+}
+
+const DEFAULT_BUILDER_CONFIG: ContextBuilderConfig = {
+	showTokenCosts: true,
+	observationTypes: "all",
+	fullObservationCount: 3,
+	showLastSummary: true,
+};
+
+// -----------------------------------------------------------------------------
 // Type Icons
 // -----------------------------------------------------------------------------
 
@@ -22,7 +40,10 @@ const TYPE_ICONS: Record<ObservationType, string> = {
 // Markdown Format (for system.transform injection)
 // -----------------------------------------------------------------------------
 
-export function buildContextString(context: ProgressiveContext): string {
+export function buildContextString(
+	context: ProgressiveContext,
+	config: ContextBuilderConfig = DEFAULT_BUILDER_CONFIG,
+): string {
 	const parts: string[] = [];
 
 	parts.push("## open-mem: Past Session Memory");
@@ -34,7 +55,7 @@ export function buildContextString(context: ProgressiveContext): string {
 		"Use `mem-search` to find observations by query, then `mem-recall` with IDs to fetch full details.",
 	);
 
-	if (context.recentSummaries.length > 0) {
+	if (config.showLastSummary && context.recentSummaries.length > 0) {
 		parts.push("");
 		parts.push("### Recent Sessions");
 		parts.push("| Session | Summary | Decisions |");
@@ -45,27 +66,45 @@ export function buildContextString(context: ProgressiveContext): string {
 		}
 	}
 
-	if (context.observationIndex.length > 0) {
-		parts.push("");
-		parts.push(`### Recent Observations (${context.observationIndex.length} entries)`);
+	const filteredIndex =
+		config.observationTypes === "all"
+			? context.observationIndex
+			: context.observationIndex.filter((e) =>
+					(config.observationTypes as ObservationType[]).includes(e.type),
+				);
 
-		const groups = groupByFile(context.observationIndex, context.fullObservations);
+	if (filteredIndex.length > 0) {
+		parts.push("");
+		parts.push(`### Recent Observations (${filteredIndex.length} entries)`);
+
+		const groups = groupByFile(filteredIndex, context.fullObservations);
 		for (const [file, entries] of groups) {
 			parts.push("");
 			parts.push(`**${file}**`);
-			parts.push("| ID | Type | Title | ~Tokens |");
-			parts.push("|----|------|-------|---------|");
+			if (config.showTokenCosts) {
+				parts.push("| ID | Type | Title | ~Tokens |");
+				parts.push("|----|------|-------|---------|");
+			} else {
+				parts.push("| ID | Type | Title |");
+				parts.push("|----|------|-------|");
+			}
 			for (const entry of entries) {
 				const icon = TYPE_ICONS[entry.type] || "📝";
-				parts.push(`| ${entry.id} | ${icon} | ${entry.title} | ~${entry.tokenCount} |`);
+				if (config.showTokenCosts) {
+					parts.push(`| ${entry.id} | ${icon} | ${entry.title} | ~${entry.tokenCount} |`);
+				} else {
+					parts.push(`| ${entry.id} | ${icon} | ${entry.title} |`);
+				}
 			}
 		}
 	}
 
-	if (context.fullObservations.length > 0) {
+	const slicedFullObservations = context.fullObservations.slice(0, config.fullObservationCount);
+
+	if (slicedFullObservations.length > 0) {
 		parts.push("");
 		parts.push("### Full Details (most recent)");
-		for (const obs of context.fullObservations) {
+		for (const obs of slicedFullObservations) {
 			const icon = TYPE_ICONS[obs.type] || "📝";
 			parts.push("");
 			parts.push(`#### ${icon} ${obs.title} (${obs.id})`);

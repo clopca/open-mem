@@ -2,7 +2,7 @@
 // open-mem — Context Injection Hook (experimental.chat.system.transform)
 // =============================================================================
 
-import { buildContextString } from "../context/builder";
+import { type ContextBuilderConfig, buildContextString } from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
@@ -38,14 +38,15 @@ export function createContextInjectionHook(
 				.map((s) => (s.summaryId ? summaries.getBySessionId(s.id) : null))
 				.filter((s): s is NonNullable<typeof s> => s !== null);
 
-			const observationIndex = observations.getIndex(projectPath, config.maxIndexEntries);
+			const observationIndex = observations.getIndex(projectPath, config.maxObservations);
 
 			if (recentSummaries.length === 0 && observationIndex.length === 0) {
 				return;
 			}
 
-			// Fetch full details for the most recent 3 observations
-			const recentObsIds = observationIndex.slice(0, 3).map((e) => e.id);
+			const recentObsIds = observationIndex
+				.slice(0, config.contextFullObservationCount)
+				.map((e) => e.id);
 			const fullObservations: Observation[] = recentObsIds
 				.map((id) => observations.getById(id))
 				.filter((o): o is NonNullable<typeof o> => o !== null);
@@ -58,7 +59,13 @@ export function createContextInjectionHook(
 				fullObservations,
 			);
 
-			output.system.push(buildContextString(progressive));
+			const builderConfig: ContextBuilderConfig = {
+				showTokenCosts: config.contextShowTokenCosts,
+				observationTypes: config.contextObservationTypes,
+				fullObservationCount: config.contextFullObservationCount,
+				showLastSummary: config.contextShowLastSummary,
+			};
+			output.system.push(buildContextString(progressive, builderConfig));
 		} catch (error) {
 			console.error("[open-mem] Context injection error:", error);
 		}
