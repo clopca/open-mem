@@ -2,9 +2,9 @@
 // open-mem — Plugin Integration Tests (Task 18)
 // =============================================================================
 
-import { describe, test, expect, afterEach } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
+import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { existsSync, rmSync } from "node:fs";
 import plugin from "../../src/index";
 
 let cleanupDirs: string[] = [];
@@ -49,15 +49,16 @@ describe("Plugin entry point", () => {
 		expect(hooks["experimental.session.compacting"]).toBeDefined();
 	});
 
-	test("returns 3 tools", async () => {
+	test("returns 4 tools", async () => {
 		const dir = `/tmp/open-mem-plugin-test-${randomUUID()}`;
 		cleanupDirs.push(dir);
 		const hooks = await plugin(makeInput(dir));
-		expect(hooks.tools).toHaveLength(3);
+		expect(hooks.tools).toHaveLength(4);
 		const names = hooks.tools?.map((t) => t.name) ?? [];
 		expect(names).toContain("mem-search");
 		expect(names).toContain("mem-save");
 		expect(names).toContain("mem-timeline");
+		expect(names).toContain("mem-recall");
 	});
 
 	test("creates database file", async () => {

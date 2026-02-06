@@ -77,7 +77,7 @@ describe("E2E lifecycle", () => {
 		expect(hooks["experimental.chat.system.transform"]).toBeFunction();
 		expect(hooks["experimental.session.compacting"]).toBeFunction();
 		expect(hooks.event).toBeFunction();
-		expect(hooks.tools).toHaveLength(3);
+		expect(hooks.tools).toHaveLength(4);
 	});
 
 	test("full lifecycle: capture → process → recall", async () => {
@@ -224,10 +224,7 @@ describe("E2E lifecycle", () => {
 		const { hooks } = await createTestPlugin();
 		const context: string[] = [];
 
-		await hooks["experimental.session.compacting"]!(
-			{ sessionID: randomUUID() },
-			{ context },
-		);
+		await hooks["experimental.session.compacting"]!({ sessionID: randomUUID() }, { context });
 
 		// Should not throw
 		expect(true).toBe(true);
