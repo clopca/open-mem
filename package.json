@@ -1,6 +1,6 @@
 {
 	"name": "open-mem",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
 	"type": "module",
 	"main": "dist/index.js",
@@ -12,7 +12,12 @@
 			"types": "./dist/index.d.ts"
 		}
 	},
-	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md"
+	],
 	"scripts": {
 		"build": "bun run build:bundle && bun run build:types",
 		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google",
