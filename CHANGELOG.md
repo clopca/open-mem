@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README `OPEN_MEM_CONTEXT_INJECTION` default incorrectly documented as `false` (actual default: `true`)
 - Missing `.open-mem/` in project .gitignore
 
+### Changed
+- License changed from AGPL-3.0 to MIT
+
 ## [0.1.0] - 2026-01-15
 
 ### Added

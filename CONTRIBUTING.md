@@ -110,4 +110,4 @@ chore: bump @anthropic-ai/sdk to 0.40.0
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [AGPL-3.0](LICENSE) license.
+By contributing, you agree that your contributions will be licensed under the [MIT](LICENSE) license.

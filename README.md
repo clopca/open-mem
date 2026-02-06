@@ -1,18 +1,33 @@
 # open-mem
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://www.npmjs.com/package/open-mem)
 [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.0-pink.svg)](https://bun.sh)
 
 Persistent memory for [OpenCode](https://opencode.ai) — captures, compresses, and recalls context across coding sessions.
 
+## Requirements
+
+- [OpenCode](https://opencode.ai) (the AI coding assistant)
+- [Bun](https://bun.sh) >= 1.0
+
 ## Quick Start
+
+### Install
 
 ```bash
 bun add open-mem
 ```
 
-Add to `~/.config/opencode/config.json`:
+Or with npm:
+
+```bash
+npm install open-mem
+```
+
+### Configure OpenCode
+
+Add to your OpenCode config (`~/.config/opencode/config.json`):
 
 ```json
 {
@@ -22,9 +37,17 @@ Add to `~/.config/opencode/config.json`:
 }
 ```
 
-That's it. open-mem starts capturing from your next session.
+That's it. open-mem starts capturing from your next OpenCode session.
 
-Optional: `export ANTHROPIC_API_KEY=sk-ant-...` for AI compression.
+### Enable AI Compression (Optional)
+
+For intelligent compression of observations using Claude:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Without an API key, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
 
 ## Key Features
 
@@ -38,6 +61,8 @@ Optional: `export ANTHROPIC_API_KEY=sk-ant-...` for AI compression.
 - 📁 **All data stored locally** in your project directory
 
 ## How It Works
+
+open-mem runs in the background as an OpenCode plugin. When you use tools (reading files, running commands, editing code), it captures what happened. During idle time, it compresses those captures into structured observations using AI. At the start of your next session, it injects a compact memory index into the system prompt — so your agent knows what you've been working on.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -144,8 +169,6 @@ Fetch full observation details by ID. Use after `mem-search` to get complete nar
 
 open-mem works out of the box with zero configuration. All settings can be customized via environment variables:
 
-### Environment Variables
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | — | API key for AI compression (optional) |
@@ -156,14 +179,17 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `OPEN_MEM_CONTEXT_INJECTION` | `true` | Set to `false` to disable context injection |
 | `OPEN_MEM_IGNORED_TOOLS` | — | Comma-separated tool names to ignore (e.g. `Bash,Glob`) |
 | `OPEN_MEM_BATCH_SIZE` | `5` | Observations per processing batch |
-| `OPEN_MEM_RETENTION_DAYS` | `90` | Delete observations older than N days |
+| `OPEN_MEM_RETENTION_DAYS` | `90` | Delete observations older than N days (0 = forever) |
 | `OPEN_MEM_LOG_LEVEL` | `warn` | Log verbosity: `debug`, `info`, `warn`, `error` |
 | `OPEN_MEM_CONTEXT_SHOW_TOKEN_COSTS` | `true` | Show token costs in context index entries |
 | `OPEN_MEM_CONTEXT_TYPES` | all | Observation types to include in context injection |
 | `OPEN_MEM_CONTEXT_FULL_COUNT` | `3` | Number of recent observations shown in full |
 | `OPEN_MEM_MAX_OBSERVATIONS` | `50` | Maximum observations to consider for context |
 
-### Full Configuration Reference
+<details>
+<summary><strong>Programmatic Configuration Reference</strong></summary>
+
+If you need to configure open-mem programmatically (e.g. for testing or custom integrations), these are the full config options:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -183,6 +209,8 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `retentionDays` | number | `90` | Data retention period (0 = forever) |
 | `maxDatabaseSizeMb` | number | `500` | Maximum database size |
 | `logLevel` | string | `warn` | Log level: `debug`, `info`, `warn`, `error` |
+
+</details>
 
 ## Privacy & Security
 
@@ -255,6 +283,30 @@ export OPEN_MEM_RETENTION_DAYS=30
 export OPEN_MEM_MAX_CONTEXT_TOKENS=2000
 ```
 
+## Uninstalling
+
+1. Remove the plugin from your OpenCode config (`~/.config/opencode/config.json`):
+   ```json
+   {
+     "plugins": {}
+   }
+   ```
+
+2. Remove the package:
+   ```bash
+   bun remove open-mem
+   ```
+
+3. Optionally, delete stored memory data:
+   ```bash
+   rm -rf .open-mem/
+   ```
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) — installation, configuration, and first steps
+- [Architecture](docs/architecture.md) — internal design, data flow, and source layout
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and submission guidelines.
@@ -265,4 +317,4 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
 
 ## License
 
-[AGPL-3.0](LICENSE)
+[MIT](LICENSE)
