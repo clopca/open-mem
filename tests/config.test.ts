@@ -130,9 +130,13 @@ describe("Configuration", () => {
 	});
 
 	test("resolveConfig picks up ANTHROPIC_API_KEY", () => {
-		// Arrange
+		// Arrange: clear all provider env vars so auto-detection picks Anthropic
 		delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 		delete process.env.GEMINI_API_KEY;
+		delete process.env.AWS_BEARER_TOKEN_BEDROCK;
+		delete process.env.AWS_ACCESS_KEY_ID;
+		delete process.env.AWS_PROFILE;
+		delete process.env.OPEN_MEM_PROVIDER;
 		process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-123";
 
 		// Act
