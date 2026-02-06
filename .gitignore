@@ -32,6 +32,7 @@ coverage/
 # open-mem data
 .open-mem/
 
-# Orchestrator/Sisyphus state
+# Orchestrator/Sisyphus/OpenCode state
 .sisyphus/
 .orchestrator/
+.opencode/
