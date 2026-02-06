@@ -2,24 +2,13 @@
 // open-mem — Context Injection Tests (Task 15)
 // =============================================================================
 
-import { describe, test, expect } from "bun:test";
-import {
-	buildProgressiveContext,
-	type ProgressiveContext,
-} from "../../src/context/progressive";
-import {
-	buildContextString,
-	buildCompactContext,
-} from "../../src/context/builder";
-import { createContextInjectionHook } from "../../src/hooks/context-inject";
-import { createCompactionHook } from "../../src/hooks/compaction";
-import type {
-	ObservationIndex,
-	OpenMemConfig,
-	Session,
-	SessionSummary,
-} from "../../src/types";
+import { describe, expect, test } from "bun:test";
 import { getDefaultConfig } from "../../src/config";
+import { buildCompactContext, buildContextString } from "../../src/context/builder";
+import { type ProgressiveContext, buildProgressiveContext } from "../../src/context/progressive";
+import { createCompactionHook } from "../../src/hooks/compaction";
+import { createContextInjectionHook } from "../../src/hooks/context-inject";
+import type { ObservationIndex, OpenMemConfig, Session, SessionSummary } from "../../src/types";
 
 // ---------------------------------------------------------------------------
 // Test Data
@@ -39,9 +28,7 @@ function makeSummary(overrides?: Partial<SessionSummary>): SessionSummary {
 	};
 }
 
-function makeIndexEntry(
-	overrides?: Partial<ObservationIndex>,
-): ObservationIndex {
+function makeIndexEntry(overrides?: Partial<ObservationIndex>): ObservationIndex {
 	return {
 		id: "obs-1",
 		sessionId: "sess-1",
@@ -103,53 +90,59 @@ describe("buildProgressiveContext", () => {
 // =============================================================================
 
 describe("buildContextString", () => {
-	test("produces valid XML structure", () => {
+	test("produces Markdown with progressive disclosure header", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [makeSummary()],
 			observationIndex: [makeIndexEntry()],
+			fullObservations: [],
 			totalTokens: 25,
 		};
-		const xml = buildContextString(context);
-		expect(xml).toContain("<open_mem_context>");
-		expect(xml).toContain("</open_mem_context>");
-		expect(xml).toContain("<recent_sessions>");
-		expect(xml).toContain("<observation_index");
+		const output = buildContextString(context);
+		expect(output).toContain("## open-mem");
+		expect(output).toContain("Progressive Disclosure");
+		expect(output).toContain("mem-search");
+		expect(output).toContain("mem-recall");
 	});
 
-	test("includes mem-search hint", () => {
+	test("includes mem-search and mem-recall hints", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [],
 			observationIndex: [makeIndexEntry()],
+			fullObservations: [],
 			totalTokens: 5,
 		};
-		const xml = buildContextString(context);
-		expect(xml).toContain("mem-search");
+		const output = buildContextString(context);
+		expect(output).toContain("mem-search");
+		expect(output).toContain("mem-recall");
 	});
 
 	test("omits empty sections", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [],
 			observationIndex: [],
+			fullObservations: [],
 			totalTokens: 0,
 		};
-		const xml = buildContextString(context);
-		expect(xml).not.toContain("<recent_sessions>");
-		expect(xml).not.toContain("<observation_index");
+		const output = buildContextString(context);
+		expect(output).not.toContain("Recent Sessions");
+		expect(output).not.toContain("Recent Observations");
 	});
 });
 
 describe("buildCompactContext", () => {
-	test("produces plain text", () => {
+	test("produces plain text with type icons", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [makeSummary()],
 			observationIndex: [makeIndexEntry()],
+			fullObservations: [],
 			totalTokens: 25,
 		};
 		const text = buildCompactContext(context);
 		expect(text).toContain("[open-mem] Memory context:");
 		expect(text).toContain("Recent sessions:");
 		expect(text).toContain("- Explored JWT");
-		expect(text).toContain("[discovery] Found auth pattern");
+		expect(text).toContain("🔵");
+		expect(text).toContain("Found auth pattern");
 	});
 });
 
@@ -176,13 +169,13 @@ describe("createContextInjectionHook", () => {
 		return {
 			observations: {
 				getIndex: () => data?.index ?? [],
+				getById: (_id: string) => null,
 			},
 			sessions: {
 				getRecent: () => data?.sessions ?? [],
 			},
 			summaries: {
-				getBySessionId: (id: string) =>
-					data?.summaries?.find((s) => s.sessionId === id) ?? null,
+				getBySessionId: (id: string) => data?.summaries?.find((s) => s.sessionId === id) ?? null,
 			},
 		};
 	}
@@ -205,7 +198,7 @@ describe("createContextInjectionHook", () => {
 		await hook({ model: "claude-sonnet-4-20250514" }, output);
 
 		expect(output.system).toHaveLength(2);
-		expect(output.system[1]).toContain("<open_mem_context>");
+		expect(output.system[1]).toContain("## open-mem");
 	});
 
 	test("skips when disabled", async () => {

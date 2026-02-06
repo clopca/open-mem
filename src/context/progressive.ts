@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { estimateTokens } from "../ai/parser";
-import type { ObservationIndex, Session, SessionSummary } from "../types";
+import type { Observation, ObservationIndex, Session, SessionSummary } from "../types";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -12,6 +12,7 @@ import type { ObservationIndex, Session, SessionSummary } from "../types";
 export interface ProgressiveContext {
 	recentSummaries: SessionSummary[];
 	observationIndex: ObservationIndex[];
+	fullObservations: Observation[];
 	totalTokens: number;
 }
 
@@ -28,6 +29,7 @@ export function buildProgressiveContext(
 	summaries: ReadonlyArray<SessionSummary>,
 	observationIndex: ReadonlyArray<ObservationIndex>,
 	maxTokens: number,
+	fullObservations: ReadonlyArray<Observation> = [],
 ): ProgressiveContext {
 	let budget = maxTokens;
 	const includedSummaries: SessionSummary[] = [];
@@ -52,6 +54,7 @@ export function buildProgressiveContext(
 	return {
 		recentSummaries: includedSummaries,
 		observationIndex: includedIndex,
+		fullObservations: [...fullObservations],
 		totalTokens: maxTokens - budget,
 	};
 }

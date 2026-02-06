@@ -7,7 +7,7 @@ import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
-import type { OpenMemConfig } from "../types";
+import type { Observation, OpenMemConfig } from "../types";
 
 /**
  * Factory for the `experimental.chat.system.transform` hook.
@@ -44,11 +44,18 @@ export function createContextInjectionHook(
 				return;
 			}
 
+			// Fetch full details for the most recent 3 observations
+			const recentObsIds = observationIndex.slice(0, 3).map((e) => e.id);
+			const fullObservations: Observation[] = recentObsIds
+				.map((id) => observations.getById(id))
+				.filter((o): o is NonNullable<typeof o> => o !== null);
+
 			const progressive = buildProgressiveContext(
 				recentSessions,
 				recentSummaries,
 				observationIndex,
 				config.maxContextTokens,
+				fullObservations,
 			);
 
 			output.system.push(buildContextString(progressive));
