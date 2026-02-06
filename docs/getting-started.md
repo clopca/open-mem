@@ -29,10 +29,19 @@ Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencod
 
 ### 2. Enable AI Compression (Optional)
 
-For intelligent compression, configure an AI provider. Anthropic is the default:
+For intelligent compression, configure an AI provider. Google Gemini is the default (free tier):
 
 ```bash
+# Get a free key at https://aistudio.google.com/apikey
+export GOOGLE_GENERATIVE_AI_API_KEY=...
+```
+
+Or use Anthropic:
+
+```bash
+export OPEN_MEM_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
+export OPEN_MEM_MODEL=claude-sonnet-4-20250514
 ```
 
 Or use AWS Bedrock (no API key needed — uses AWS credentials):
@@ -44,7 +53,7 @@ export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 
 Without this, open-mem still captures observations but uses a basic metadata extractor instead of AI compression.
 
-> **Auto-detection:** If no API key or provider is set but AWS credentials are present (`AWS_ACCESS_KEY_ID` or `AWS_PROFILE`), open-mem automatically uses Bedrock.
+> **Auto-detection:** open-mem detects your provider from environment variables: `GOOGLE_GENERATIVE_AI_API_KEY` → Google, `ANTHROPIC_API_KEY` → Anthropic, AWS credentials → Bedrock.
 
 ### 3. Start OpenCode
 

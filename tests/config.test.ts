@@ -28,7 +28,7 @@ describe("Configuration", () => {
 		// Assert: verify sensible default values
 		expect(config.dbPath).toBe(".open-mem/memory.db");
 		expect(config.apiKey).toBeUndefined();
-		expect(config.model).toBe("claude-sonnet-4-20250514");
+		expect(config.model).toBe("gemini-2.5-flash-lite");
 		expect(config.maxTokensPerCompression).toBe(1024);
 		expect(config.compressionEnabled).toBe(true);
 		expect(config.contextInjectionEnabled).toBe(true);
@@ -63,13 +63,16 @@ describe("Configuration", () => {
 		delete process.env.OPEN_MEM_LOG_LEVEL;
 		delete process.env.AWS_ACCESS_KEY_ID;
 		delete process.env.AWS_PROFILE;
+		delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+		delete process.env.GEMINI_API_KEY;
+		delete process.env.AWS_BEARER_TOKEN_BEDROCK;
 
 		// Act
 		const config = resolveConfig("/tmp/proj");
 
 		// Assert: defaults with resolved dbPath
 		expect(config.dbPath).toBe("/tmp/proj/.open-mem/memory.db");
-		expect(config.model).toBe("claude-sonnet-4-20250514");
+		expect(config.model).toBe("gemini-2.5-flash-lite");
 		expect(config.compressionEnabled).toBe(true);
 		expect(config.batchSize).toBe(5);
 	});
@@ -128,12 +131,15 @@ describe("Configuration", () => {
 
 	test("resolveConfig picks up ANTHROPIC_API_KEY", () => {
 		// Arrange
+		delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+		delete process.env.GEMINI_API_KEY;
 		process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-123";
 
 		// Act
 		const config = resolveConfig("/tmp/proj");
 
-		// Assert: API key populated from env
+		// Assert: API key populated from env, provider auto-detected
+		expect(config.provider).toBe("anthropic");
 		expect(config.apiKey).toBe("sk-ant-test-key-123");
 	});
 

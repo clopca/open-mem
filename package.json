@@ -51,6 +51,7 @@
 	"dependencies": {
 		"@ai-sdk/amazon-bedrock": "^4.0.51",
 		"@ai-sdk/anthropic": "^3.0.38",
+		"@ai-sdk/google": "^3.0.22",
 		"ai": "^6.0.75",
 		"zod": "^3.24.0"
 	},

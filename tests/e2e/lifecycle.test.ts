@@ -33,9 +33,15 @@ async function createTestPlugin(): Promise<{ hooks: Hooks; dir: string }> {
 	const saved = process.env.ANTHROPIC_API_KEY;
 	const savedAwsKey = process.env.AWS_ACCESS_KEY_ID;
 	const savedAwsProfile = process.env.AWS_PROFILE;
+	const savedGoogleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+	const savedGeminiKey = process.env.GEMINI_API_KEY;
+	const savedAwsBearer = process.env.AWS_BEARER_TOKEN_BEDROCK;
 	delete process.env.ANTHROPIC_API_KEY;
 	delete process.env.AWS_ACCESS_KEY_ID;
 	delete process.env.AWS_PROFILE;
+	delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+	delete process.env.GEMINI_API_KEY;
+	delete process.env.AWS_BEARER_TOKEN_BEDROCK;
 
 	const hooks = await plugin({
 		client: {},
@@ -49,6 +55,9 @@ async function createTestPlugin(): Promise<{ hooks: Hooks; dir: string }> {
 	process.env.ANTHROPIC_API_KEY = saved;
 	process.env.AWS_ACCESS_KEY_ID = savedAwsKey;
 	process.env.AWS_PROFILE = savedAwsProfile;
+	process.env.GOOGLE_GENERATIVE_AI_API_KEY = savedGoogleKey;
+	process.env.GEMINI_API_KEY = savedGeminiKey;
+	process.env.AWS_BEARER_TOKEN_BEDROCK = savedAwsBearer;
 	return { hooks, dir };
 }
 

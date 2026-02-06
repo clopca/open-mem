@@ -37,9 +37,17 @@ That's it. open-mem starts capturing from your next OpenCode session.
 
 For intelligent compression of observations, configure an AI provider:
 
-**Anthropic (default):**
+**Google Gemini (default — free tier):**
 ```bash
+# Get a free key at https://aistudio.google.com/apikey
+export GOOGLE_GENERATIVE_AI_API_KEY=...
+```
+
+**Anthropic:**
+```bash
+export OPEN_MEM_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
+export OPEN_MEM_MODEL=claude-sonnet-4-20250514
 ```
 
 **AWS Bedrock:**
@@ -56,7 +64,7 @@ export OPENAI_API_KEY=sk-...
 export OPEN_MEM_MODEL=gpt-4o
 ```
 
-**Auto-detection:** If no API key or provider is set but AWS credentials are present, open-mem automatically uses Bedrock.
+**Auto-detection:** open-mem detects your provider from environment variables: `GOOGLE_GENERATIVE_AI_API_KEY` → Google, `ANTHROPIC_API_KEY` → Anthropic, AWS credentials → Bedrock.
 
 Without any provider configured, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
 
@@ -182,11 +190,12 @@ open-mem works out of the box with zero configuration. All settings can be custo
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPEN_MEM_PROVIDER` | `anthropic` | AI provider: `anthropic`, `bedrock`, `openai`, `google` |
+| `OPEN_MEM_PROVIDER` | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai` |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | — | API key for Google Gemini provider ([free](https://aistudio.google.com/apikey)) |
 | `ANTHROPIC_API_KEY` | — | API key for Anthropic provider |
 | `OPENAI_API_KEY` | — | API key for OpenAI provider |
 | `OPEN_MEM_DB_PATH` | `.open-mem/memory.db` | Path to SQLite database |
-| `OPEN_MEM_MODEL` | `claude-sonnet-4-20250514` | Model for AI compression |
+| `OPEN_MEM_MODEL` | `gemini-2.5-flash-lite` | Model for AI compression |
 | `OPEN_MEM_MAX_CONTEXT_TOKENS` | `4000` | Token budget for injected context |
 | `OPEN_MEM_COMPRESSION` | `true` | Set to `false` to disable AI compression |
 | `OPEN_MEM_CONTEXT_INJECTION` | `true` | Set to `false` to disable context injection |
@@ -207,9 +216,9 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `dbPath` | string | `.open-mem/memory.db` | SQLite database file path |
-| `provider` | string | `anthropic` | AI provider: `anthropic`, `bedrock`, `openai`, `google` |
+| `provider` | string | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai` |
 | `apiKey` | string | `undefined` | Provider API key |
-| `model` | string | `claude-sonnet-4-20250514` | Model for compression |
+| `model` | string | `gemini-2.5-flash-lite` | Model for compression |
 | `maxTokensPerCompression` | number | `1024` | Max tokens per compression response |
 | `compressionEnabled` | boolean | `true` | Enable AI compression |
 | `contextInjectionEnabled` | boolean | `true` | Enable context injection |
@@ -270,7 +279,12 @@ echo '.open-mem/' >> .gitignore
 This is a warning, not an error. open-mem works without an API key — it falls back to a basic metadata extractor. To enable AI compression, configure a provider:
 
 ```bash
-# Anthropic (default)
+# Google Gemini (default — free tier)
+# Get a free key at https://aistudio.google.com/apikey
+export GOOGLE_GENERATIVE_AI_API_KEY=...
+
+# Or use Anthropic
+export OPEN_MEM_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Or use AWS Bedrock (no API key needed, uses AWS credentials)
