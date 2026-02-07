@@ -12,15 +12,14 @@
 			"types": "./dist/index.d.ts"
 		}
 	},
-	"files": [
-		"dist",
-		"README.md",
-		"LICENSE",
-		"CHANGELOG.md"
-	],
+	"bin": {
+		"open-mem-mcp": "./dist/mcp.js"
+	},
+	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
 	"scripts": {
-		"build": "bun run build:bundle && bun run build:types",
+		"build": "bun run build:bundle && bun run build:mcp && bun run build:types",
 		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google",
+		"build:mcp": "bun build src/mcp.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google",
 		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
 		"dev": "bun run --watch src/index.ts",
 		"test": "bun test",
