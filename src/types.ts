@@ -33,6 +33,8 @@ export interface Observation {
 	tokenCount: number; // Estimated tokens for budget management
 	discoveryTokens: number; // Original input size in tokens (for ROI tracking)
 	importance: number; // AI-assigned importance score (1-5, default 3)
+	supersededBy?: string | null;
+	supersededAt?: string | null;
 }
 
 /** Lightweight index entry for progressive disclosure */
@@ -168,6 +170,20 @@ export interface OpenMemConfig {
 
 	// Embeddings
 	embeddingDimension?: number; // Embedding vector dimension (auto-detected from provider)
+
+	// Conflict resolution
+	conflictResolutionEnabled: boolean;
+	conflictSimilarityBandLow: number;
+	conflictSimilarityBandHigh: number;
+
+	// User-level memory (cross-project)
+	userMemoryEnabled: boolean; // Enable user-level cross-project memory
+	userMemoryDbPath: string; // Path to user-level memory database
+	userMemoryMaxContextTokens: number; // Token budget for user-level context
+
+	// Reranking
+	rerankingEnabled: boolean; // Enable LLM-based reranking of search results (default: false)
+	rerankingMaxCandidates: number; // Max candidates to consider for reranking (default: 20)
 }
 
 // -----------------------------------------------------------------------------
@@ -251,6 +267,12 @@ export interface SearchQuery {
 	limit?: number;
 	offset?: number;
 	projectPath?: string;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string; // ISO 8601 date
+	createdBefore?: string; // ISO 8601 date
+	concepts?: string[]; // Filter by concepts (match any)
+	files?: string[]; // Filter by file paths (match any)
 }
 
 export interface SearchResult {

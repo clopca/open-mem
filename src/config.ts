@@ -65,6 +65,20 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 
 	// Embeddings
 	embeddingDimension: undefined,
+
+	// Conflict resolution
+	conflictResolutionEnabled: false,
+	conflictSimilarityBandLow: 0.7,
+	conflictSimilarityBandHigh: 0.92,
+
+	// User-level memory
+	userMemoryEnabled: false,
+	userMemoryDbPath: "~/.config/open-mem/user-memory.db",
+	userMemoryMaxContextTokens: 1000,
+
+	// Reranking
+	rerankingEnabled: false,
+	rerankingMaxCandidates: 20,
 };
 
 // -----------------------------------------------------------------------------
@@ -112,6 +126,25 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		env.dashboardPort = Number.parseInt(process.env.OPEN_MEM_DASHBOARD_PORT, 10);
 	if (process.env.OPEN_MEM_EMBEDDING_DIMENSION)
 		env.embeddingDimension = Number.parseInt(process.env.OPEN_MEM_EMBEDDING_DIMENSION, 10);
+	if (process.env.OPEN_MEM_CONFLICT_RESOLUTION === "true") env.conflictResolutionEnabled = true;
+	if (process.env.OPEN_MEM_CONFLICT_BAND_LOW)
+		env.conflictSimilarityBandLow = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_LOW);
+	if (process.env.OPEN_MEM_CONFLICT_BAND_HIGH)
+		env.conflictSimilarityBandHigh = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_HIGH);
+	if (process.env.OPEN_MEM_USER_MEMORY === "true") env.userMemoryEnabled = true;
+	if (process.env.OPEN_MEM_USER_MEMORY_DB_PATH)
+		env.userMemoryDbPath = process.env.OPEN_MEM_USER_MEMORY_DB_PATH;
+	if (process.env.OPEN_MEM_USER_MEMORY_MAX_TOKENS)
+		env.userMemoryMaxContextTokens = Number.parseInt(
+			process.env.OPEN_MEM_USER_MEMORY_MAX_TOKENS,
+			10,
+		);
+	if (process.env.OPEN_MEM_RERANKING === "true") env.rerankingEnabled = true;
+	if (process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES)
+		env.rerankingMaxCandidates = Number.parseInt(
+			process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES,
+			10,
+		);
 
 	return env;
 }
