@@ -17,6 +17,10 @@ export const TABLES = {
 	SUMMARIES_FTS: "summaries_fts",
 	OBSERVATION_EMBEDDINGS: "observation_embeddings",
 	EMBEDDING_META: "_embedding_meta",
+	ENTITIES: "entities",
+	ENTITY_RELATIONS: "entity_relations",
+	ENTITY_OBSERVATIONS: "entity_observations",
+	ENTITIES_FTS: "entities_fts",
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -261,6 +265,84 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE observations ADD COLUMN superseded_by TEXT;
 			ALTER TABLE observations ADD COLUMN superseded_at TEXT;
 			CREATE INDEX IF NOT EXISTS idx_observations_superseded ON observations(superseded_by);
+		`,
+	},
+
+	// v9 — Entity graph tables for knowledge graph support
+	{
+		version: 9,
+		name: "create-entity-graph-tables",
+		up: `
+			-- Entities table
+			CREATE TABLE IF NOT EXISTS entities (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				name TEXT NOT NULL,
+				entity_type TEXT NOT NULL
+					CHECK (entity_type IN ('technology','library','pattern','concept','file','person','project','other')),
+				first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+				last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+				mention_count INTEGER NOT NULL DEFAULT 1,
+				UNIQUE(name, entity_type)
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+			CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
+
+			-- Entity relations table
+			CREATE TABLE IF NOT EXISTS entity_relations (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				source_entity_id TEXT NOT NULL,
+				target_entity_id TEXT NOT NULL,
+				relationship TEXT NOT NULL
+					CHECK (relationship IN ('uses','depends_on','implements','extends','related_to','replaces','configures')),
+				observation_id TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				UNIQUE(source_entity_id, target_entity_id, relationship),
+				FOREIGN KEY (source_entity_id) REFERENCES entities(id),
+				FOREIGN KEY (target_entity_id) REFERENCES entities(id),
+				FOREIGN KEY (observation_id) REFERENCES observations(id)
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_entity_relations_source ON entity_relations(source_entity_id);
+			CREATE INDEX IF NOT EXISTS idx_entity_relations_target ON entity_relations(target_entity_id);
+
+			-- Entity-Observation junction table
+			CREATE TABLE IF NOT EXISTS entity_observations (
+				entity_id TEXT NOT NULL,
+				observation_id TEXT NOT NULL,
+				PRIMARY KEY (entity_id, observation_id),
+				FOREIGN KEY (entity_id) REFERENCES entities(id),
+				FOREIGN KEY (observation_id) REFERENCES observations(id)
+			);
+
+			-- FTS5 for entity search
+			CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
+				name,
+				entity_type,
+				content=entities,
+				content_rowid=_rowid,
+				tokenize='porter unicode61'
+			);
+
+			-- FTS5 sync triggers
+			CREATE TRIGGER entities_ai AFTER INSERT ON entities BEGIN
+				INSERT INTO entities_fts(rowid, name, entity_type)
+				VALUES (new._rowid, new.name, new.entity_type);
+			END;
+
+			CREATE TRIGGER entities_ad AFTER DELETE ON entities BEGIN
+				INSERT INTO entities_fts(entities_fts, rowid, name, entity_type)
+				VALUES ('delete', old._rowid, old.name, old.entity_type);
+			END;
+
+			CREATE TRIGGER entities_au AFTER UPDATE ON entities BEGIN
+				INSERT INTO entities_fts(entities_fts, rowid, name, entity_type)
+				VALUES ('delete', old._rowid, old.name, old.entity_type);
+				INSERT INTO entities_fts(rowid, name, entity_type)
+				VALUES (new._rowid, new.name, new.entity_type);
+			END;
 		`,
 	},
 ];

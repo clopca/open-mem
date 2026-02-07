@@ -37,7 +37,7 @@ describe("Migration v8: conflict resolution columns", () => {
 			const migrations = db.all<{ version: number }>(
 				"SELECT version FROM _migrations ORDER BY version",
 			);
-			expect(migrations).toHaveLength(8);
+			expect(migrations).toHaveLength(9);
 		} finally {
 			db.close();
 			cleanupTestDb(dbPath);

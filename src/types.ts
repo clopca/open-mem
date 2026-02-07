@@ -184,6 +184,9 @@ export interface OpenMemConfig {
 	// Reranking
 	rerankingEnabled: boolean; // Enable LLM-based reranking of search results (default: false)
 	rerankingMaxCandidates: number; // Max candidates to consider for reranking (default: 20)
+
+	// Entity extraction (graph memory)
+	entityExtractionEnabled: boolean;
 }
 
 // -----------------------------------------------------------------------------

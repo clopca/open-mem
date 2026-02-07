@@ -79,6 +79,9 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	// Reranking
 	rerankingEnabled: false,
 	rerankingMaxCandidates: 20,
+
+	// Entity extraction
+	entityExtractionEnabled: false,
 };
 
 // -----------------------------------------------------------------------------
@@ -145,6 +148,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 			process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES,
 			10,
 		);
+	if (process.env.OPEN_MEM_ENTITY_EXTRACTION === "true") env.entityExtractionEnabled = true;
 
 	return env;
 }
