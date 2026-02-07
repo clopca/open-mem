@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { estimateTokens } from "../ai/parser";
 import type { ObservationRepository } from "../db/observations";
+import type { UserObservationRepository } from "../db/user-memory";
 import type { SessionRepository } from "../db/sessions";
 import type { ToolDefinition } from "../types";
 
@@ -23,6 +24,11 @@ const saveArgsSchema = z.object({
 		.max(5)
 		.optional()
 		.describe("Importance score (1-5, default 3)"),
+	scope: z
+		.enum(["project", "user"])
+		.optional()
+		.default("project")
+		.describe("Memory scope: 'project' (default) saves to project DB, 'user' saves to cross-project user DB"),
 });
 
 type SaveArgs = z.infer<typeof saveArgsSchema>;
@@ -31,17 +37,42 @@ export function createSaveTool(
 	observations: ObservationRepository,
 	sessions: SessionRepository,
 	projectPath: string,
+	userObservationRepo?: UserObservationRepository,
 ): ToolDefinition {
 	return {
 		name: "mem-save",
 		description: `Manually save an observation to memory.
 Use this to explicitly record important decisions, discoveries, or context
-that should be remembered across sessions.`,
+that should be remembered across sessions.
+Set scope to "user" to save cross-project memories accessible from any project.`,
 		args: saveArgsSchema.shape,
 		execute: async (rawArgs, context) => {
 			try {
 				const args: SaveArgs = saveArgsSchema.parse(rawArgs);
 
+				// Save to user-level DB when scope is "user"
+				if (args.scope === "user") {
+					if (!userObservationRepo) {
+						return 'Save error: User-level memory is not enabled. Set OPEN_MEM_USER_MEMORY=true to enable.';
+					}
+					const userObs = userObservationRepo.create({
+						type: args.type,
+						title: args.title,
+						subtitle: "",
+						facts: [],
+						narrative: args.narrative,
+						concepts: args.concepts ?? [],
+						filesRead: [],
+						filesModified: args.files ?? [],
+						toolName: "mem-save",
+						tokenCount: estimateTokens(`${args.title} ${args.narrative}`),
+						importance: args.importance ?? 3,
+						sourceProject: projectPath,
+					});
+					return `Saved user-level observation: [${args.type}] "${args.title}" (ID: ${userObs.id}, scope: user)`;
+				}
+
+				// Default: save to project-level DB
 				sessions.getOrCreate(context.sessionID, projectPath);
 
 				const observation = observations.create({

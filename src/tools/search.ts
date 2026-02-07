@@ -81,8 +81,10 @@ Supports full-text search with FTS5 and optional vector similarity.`,
 function formatSearchResults(results: SearchResult[]): string {
 	const lines: string[] = [`Found ${results.length} observation(s):\n`];
 
-	for (const { observation: obs } of results) {
-		lines.push(`## [${obs.type.toUpperCase()}] ${obs.title}`);
+	for (const result of results) {
+		const { observation: obs, source } = result;
+		const sourceLabel = source === "user" ? " [USER]" : "";
+		lines.push(`## [${obs.type.toUpperCase()}]${sourceLabel} ${obs.title}`);
 		lines.push(`**ID:** \`${obs.id}\``);
 		if (obs.subtitle) lines.push(`*${obs.subtitle}*`);
 		lines.push(`\n${obs.narrative}`);

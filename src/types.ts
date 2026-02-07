@@ -279,6 +279,7 @@ export interface SearchResult {
 	observation: Observation;
 	rank: number; // FTS5 rank score
 	snippet: string; // FTS5 highlighted snippet
+	source?: "project" | "user";
 }
 
 export interface TimelineEntry {
