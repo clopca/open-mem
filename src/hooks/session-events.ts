@@ -3,10 +3,12 @@
 // =============================================================================
 
 import type { ObservationRepository } from "../db/observations";
+import type { PendingMessageRepository } from "../db/pending";
 import type { SessionRepository } from "../db/sessions";
 import type { QueueProcessor } from "../queue/processor";
 import type { OpenCodeEvent, OpenMemConfig } from "../types";
 import { updateFolderContext } from "../utils/agents-md";
+import { enforceRetention } from "../utils/retention";
 
 /**
  * Factory for the `event` hook.
@@ -25,6 +27,7 @@ export function createEventHandler(
 	projectPath: string,
 	config: OpenMemConfig,
 	observations: ObservationRepository,
+	pendingMessages: PendingMessageRepository,
 ) {
 	return async (input: { event: OpenCodeEvent }): Promise<void> => {
 		try {
@@ -36,6 +39,11 @@ export function createEventHandler(
 				case "session.created": {
 					if (sessionId) {
 						sessions.getOrCreate(sessionId, projectPath);
+					}
+					try {
+						enforceRetention(config, observations, pendingMessages);
+					} catch (error) {
+						console.error("[open-mem] Retention enforcement error:", error);
 					}
 					break;
 				}

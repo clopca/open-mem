@@ -2,11 +2,15 @@
 // open-mem — Plugin Entry Point
 // =============================================================================
 
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ObservationCompressor } from "./ai/compressor";
 import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
+import { reapOrphanDaemons } from "./daemon/reaper";
 import { Database, createDatabase } from "./db/database";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
@@ -32,10 +36,47 @@ import type { Hooks, PluginInput } from "./types";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
 // -----------------------------------------------------------------------------
+// Path Resolution
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolve the dist directory at runtime. Handles three execution contexts:
+ * 1. Dev mode — running src/index.ts directly (import.meta.url works)
+ * 2. Bundle mode — running dist/index.js as a file (import.meta.url works)
+ * 3. Eval context — OpenCode loading the bundled plugin via eval
+ *    (import.meta.url resolves to file:///path/to/[eval], which is useless)
+ */
+function getDistDir(): string {
+	// Try 1: import.meta.url (works when running as a file, not eval)
+	try {
+		const url = import.meta.url;
+		if (url && !url.includes("[eval]")) {
+			const dir = dirname(fileURLToPath(url));
+			return dir.endsWith("dist") || dir.endsWith("dist/") || dir.endsWith("dist\\")
+				? dir
+				: join(dir, "..", "dist");
+		}
+	} catch {}
+
+	// Try 2: Scan known install locations (works in OpenCode eval context)
+	const candidates = [
+		join(process.env.HOME || "", ".config", "opencode", "node_modules", "open-mem", "dist"),
+		join(process.cwd(), "node_modules", "open-mem", "dist"),
+	];
+	for (const dir of candidates) {
+		if (existsSync(join(dir, "daemon.js"))) return dir;
+	}
+
+	// Fallback: best-guess based on CWD
+	return join(process.cwd(), "node_modules", "open-mem", "dist");
+}
+
+// -----------------------------------------------------------------------------
 // Plugin Factory
 // -----------------------------------------------------------------------------
 
 export default async function plugin(input: PluginInput): Promise<Hooks> {
+	const distDir = getDistDir();
 	const projectPath = getCanonicalProjectPath(input.directory);
 
 	// 1. Configuration
@@ -92,11 +133,12 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	let daemonLivenessTimer: ReturnType<typeof setInterval> | null = null;
 
 	if (config.daemonEnabled) {
-		const { join } = await import("node:path");
+		reapOrphanDaemons(config.dbPath);
+
 		daemonManager = new DaemonManager({
 			dbPath: config.dbPath,
 			projectPath,
-			daemonScript: join(__dirname, "daemon.ts"),
+			daemonScript: join(distDir, "daemon.js"),
 		});
 
 		const started = daemonManager.start();
@@ -139,6 +181,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 			embeddingModel,
 			sseHandler: createSSERoute(sseBroadcaster),
+			dashboardDir: join(distDir, "dashboard"),
 		});
 
 		const basePort = config.dashboardPort;
@@ -191,8 +234,20 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	// 9. Build hooks
 	return {
 		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
-		"chat.message": createChatCaptureHook(observationRepo, sessionRepo, projectPath),
-		event: createEventHandler(queue, sessionRepo, projectPath, config, observationRepo),
+		"chat.message": createChatCaptureHook(
+			observationRepo,
+			sessionRepo,
+			projectPath,
+			config.sensitivePatterns,
+		),
+		event: createEventHandler(
+			queue,
+			sessionRepo,
+			projectPath,
+			config,
+			observationRepo,
+			pendingRepo,
+		),
 		"experimental.chat.system.transform": createContextInjectionHook(
 			config,
 			observationRepo,
