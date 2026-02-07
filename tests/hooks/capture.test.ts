@@ -288,13 +288,15 @@ describe("createEventHandler", () => {
 	test("handles session.created", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const mockObs = { getBySession: () => [] };
+		const mockObs = { getBySession: () => [], deleteOlderThan: () => 0 };
+		const mockPending = { deleteCompletedOlderThan: () => 0 };
 		const handler = createEventHandler(
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
 			makeConfig(),
 			mockObs as never,
+			mockPending as never,
 		);
 
 		await handler({
@@ -310,13 +312,15 @@ describe("createEventHandler", () => {
 	test("handles session.idle — triggers processBatch", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const mockObs = { getBySession: () => [] };
+		const mockObs = { getBySession: () => [], deleteOlderThan: () => 0 };
+		const mockPending = { deleteCompletedOlderThan: () => 0 };
 		const handler = createEventHandler(
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
 			makeConfig(),
 			mockObs as never,
+			mockPending as never,
 		);
 
 		await handler({
@@ -333,13 +337,15 @@ describe("createEventHandler", () => {
 	test("handles session.completed — summarize + markCompleted", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const mockObs = { getBySession: () => [] };
+		const mockObs = { getBySession: () => [], deleteOlderThan: () => 0 };
+		const mockPending = { deleteCompletedOlderThan: () => 0 };
 		const handler = createEventHandler(
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
 			makeConfig(),
 			mockObs as never,
+			mockPending as never,
 		);
 
 		await handler({
@@ -357,13 +363,15 @@ describe("createEventHandler", () => {
 	test("ignores unknown events", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const mockObs = { getBySession: () => [] };
+		const mockObs = { getBySession: () => [], deleteOlderThan: () => 0 };
+		const mockPending = { deleteCompletedOlderThan: () => 0 };
 		const handler = createEventHandler(
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
 			makeConfig(),
 			mockObs as never,
+			mockPending as never,
 		);
 
 		await handler({
