@@ -277,6 +277,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 AND o.superseded_by IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
@@ -296,6 +297,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 AND o.superseded_by IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
