@@ -244,11 +244,13 @@ export interface Hooks {
 	tools?: ToolDefinition[];
 }
 
+/** An event emitted by OpenCode (e.g. tool execution, session lifecycle). */
 export interface OpenCodeEvent {
 	type: string;
 	properties: Record<string, unknown>;
 }
 
+/** Schema for a custom tool exposed to the AI agent. */
 export interface ToolDefinition {
 	name: string;
 	description: string;
@@ -256,6 +258,7 @@ export interface ToolDefinition {
 	execute: (args: Record<string, unknown>, context: ToolContext) => Promise<string>;
 }
 
+/** Runtime context passed to a tool's execute function. */
 export interface ToolContext {
 	sessionID: string;
 	abort: AbortSignal;

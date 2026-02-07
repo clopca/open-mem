@@ -14,6 +14,7 @@ import { enforceRateLimit } from "./rate-limiter";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Configuration for the AI observation compressor. */
 export interface CompressorConfig {
 	provider: string;
 	apiKey: string | undefined;

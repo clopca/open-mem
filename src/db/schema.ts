@@ -302,9 +302,9 @@ export const MIGRATIONS: Migration[] = [
 				observation_id TEXT NOT NULL,
 				created_at TEXT NOT NULL DEFAULT (datetime('now')),
 				UNIQUE(source_entity_id, target_entity_id, relationship),
-				FOREIGN KEY (source_entity_id) REFERENCES entities(id),
-				FOREIGN KEY (target_entity_id) REFERENCES entities(id),
-				FOREIGN KEY (observation_id) REFERENCES observations(id)
+			FOREIGN KEY (source_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (target_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
 			);
 
 			CREATE INDEX IF NOT EXISTS idx_entity_relations_source ON entity_relations(source_entity_id);
@@ -315,8 +315,8 @@ export const MIGRATIONS: Migration[] = [
 				entity_id TEXT NOT NULL,
 				observation_id TEXT NOT NULL,
 				PRIMARY KEY (entity_id, observation_id),
-				FOREIGN KEY (entity_id) REFERENCES entities(id),
-				FOREIGN KEY (observation_id) REFERENCES observations(id)
+			FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
 			);
 
 			-- FTS5 for entity search

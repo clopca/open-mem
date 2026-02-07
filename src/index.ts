@@ -83,6 +83,10 @@ function getDistDir(): string {
 // Plugin Factory
 // -----------------------------------------------------------------------------
 
+/**
+ * Main open-mem plugin entry point.
+ * Initializes the database, hooks, tools, and context injection pipeline.
+ */
 export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const distDir = getDistDir();
 	const projectPath = getCanonicalProjectPath(input.directory);
@@ -342,10 +346,12 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 // Re-exports for consumers
 // -----------------------------------------------------------------------------
 
+/** Re-exported core types for library consumers. */
 export type {
 	OpenMemConfig,
 	Observation,
 	Session,
 	SessionSummary,
 } from "./types";
+/** Re-exported configuration helpers. */
 export { resolveConfig, getDefaultConfig } from "./config";

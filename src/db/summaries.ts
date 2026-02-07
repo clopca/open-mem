@@ -22,6 +22,7 @@ interface SummaryRow {
 	next_steps: string;
 }
 
+/** Repository for session summary CRUD operations. */
 export class SummaryRepository {
 	constructor(private db: Database) {}
 

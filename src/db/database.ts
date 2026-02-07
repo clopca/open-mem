@@ -13,6 +13,7 @@ type Params = SQLQueryBindings[];
 // Migration Types
 // -----------------------------------------------------------------------------
 
+/** A database migration with version, name, and SQL to apply. */
 export interface Migration {
 	version: number;
 	name: string;

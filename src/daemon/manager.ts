@@ -11,6 +11,7 @@ interface DaemonManagerConfig {
 	daemonScript: string;
 }
 
+/** Manages the lifecycle of a background daemon subprocess for queue processing. */
 export class DaemonManager {
 	private readonly pidPath: string;
 	private readonly projectPath: string;

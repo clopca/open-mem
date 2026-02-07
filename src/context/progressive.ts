@@ -10,6 +10,7 @@ import { type ScoringContext, sortByRelevance } from "./relevance";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Token-budgeted context payload injected into the system prompt. */
 export interface ProgressiveContext {
 	recentSummaries: SessionSummary[];
 	observationIndex: ObservationIndex[];

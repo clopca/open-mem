@@ -22,6 +22,7 @@ const importArgsSchema = z.object({
 
 type ImportArgs = z.infer<typeof importArgsSchema>;
 
+/** Create the mem-import tool for importing observations from JSON exports. */
 export function createImportTool(
 	observations: ObservationRepository,
 	summaries: SummaryRepository,

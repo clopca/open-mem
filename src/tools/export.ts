@@ -22,6 +22,7 @@ const exportArgsSchema = z.object({
 
 type ExportArgs = z.infer<typeof exportArgsSchema>;
 
+/** Create the mem-export tool for exporting observations and summaries as JSON. */
 export function createExportTool(
 	observations: ObservationRepository,
 	summaries: SummaryRepository,

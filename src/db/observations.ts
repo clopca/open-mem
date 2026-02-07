@@ -76,6 +76,7 @@ export class ObservationRepository {
 	// Create
 	// ---------------------------------------------------------------------------
 
+	/** Create a new observation and return it with generated ID and timestamp. */
 	create(data: Omit<Observation, "id" | "createdAt" | "supersededBy" | "supersededAt">): Observation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
@@ -109,6 +110,7 @@ export class ObservationRepository {
 		return { ...data, id, createdAt: now, discoveryTokens, importance, supersededBy: null, supersededAt: null };
 	}
 
+	/** Import an observation with a pre-existing ID (for data migration). */
 	importObservation(data: Observation): void {
 		this.db.run(
 			`INSERT INTO observations
@@ -141,11 +143,13 @@ export class ObservationRepository {
 	// Read
 	// ---------------------------------------------------------------------------
 
+	/** Get an observation by its unique ID. */
 	getById(id: string): Observation | null {
 		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
 		return row ? this.mapRow(row) : null;
 	}
 
+	/** Get all observations for a session, ordered by creation time. */
 	getBySession(sessionId: string): Observation[] {
 		return this.db
 			.all<ObservationRow>(
@@ -155,6 +159,7 @@ export class ObservationRepository {
 			.map((r) => this.mapRow(r));
 	}
 
+	/** Get the total observation count, optionally filtered by session. */
 	getCount(sessionId?: string): number {
 		if (sessionId) {
 			const row = this.db.get<{ count: number }>(
@@ -195,6 +200,7 @@ export class ObservationRepository {
 	// FTS5 Search
 	// ---------------------------------------------------------------------------
 
+	/** Search observations using FTS5 full-text search with optional filters. */
 	search(query: SearchQuery): SearchResult[] {
 		const hasProjectPath = !!query.projectPath;
 		let sql = `
@@ -263,6 +269,7 @@ export class ObservationRepository {
 		}));
 	}
 
+	/** Search observations by concept tag using FTS5. */
 	searchByConcept(concept: string, limit = 10, projectPath?: string): Observation[] {
 		const hasProjectPath = !!projectPath;
 		const sql = `SELECT o.*
@@ -281,6 +288,7 @@ export class ObservationRepository {
 		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
 	}
 
+	/** Search observations by file path using FTS5. */
 	searchByFile(filePath: string, limit = 10, projectPath?: string): Observation[] {
 		const hasProjectPath = !!projectPath;
 		const sql = `SELECT o.*
@@ -305,6 +313,7 @@ export class ObservationRepository {
 	// Embedding Support
 	// ---------------------------------------------------------------------------
 
+	/** Store an embedding vector for an observation. */
 	setEmbedding(id: string, embedding: number[]): void {
 		this.db.run("UPDATE observations SET embedding = ? WHERE id = ?", [
 			JSON.stringify(embedding),
@@ -312,6 +321,7 @@ export class ObservationRepository {
 		]);
 	}
 
+	/** Get observations with their embedding vectors for a project. */
 	getWithEmbeddings(
 		projectPath: string,
 		limit: number,
@@ -344,6 +354,7 @@ export class ObservationRepository {
 	// Embedding Similarity Search (for deduplication)
 	// ---------------------------------------------------------------------------
 
+	/** Find observations similar to a given embedding above a similarity threshold. */
 	findSimilar(
 		embedding: number[],
 		type: ObservationType,
@@ -379,6 +390,7 @@ export class ObservationRepository {
 	// Vec0 Embedding Support
 	// ---------------------------------------------------------------------------
 
+	/** Insert an embedding into the vec0 virtual table for native KNN search. */
 	insertVecEmbedding(observationId: string, embedding: number[]): void {
 		const float32 = new Float32Array(embedding);
 		this.db.run("BEGIN");
@@ -395,6 +407,7 @@ export class ObservationRepository {
 		}
 	}
 
+	/** Migrate existing JSON embeddings to the vec0 virtual table. */
 	migrateExistingEmbeddings(dimension: number): { migrated: number; skipped: number } {
 		const rows = this.db.all<{ id: string; embedding: string }>(
 			"SELECT id, embedding FROM observations WHERE embedding IS NOT NULL",
@@ -424,6 +437,7 @@ export class ObservationRepository {
 	// Vec0 KNN Search
 	// ---------------------------------------------------------------------------
 
+	/** Perform KNN search using the vec0 virtual table. */
 	getVecEmbeddingMatches(
 		queryEmbedding: number[],
 		limit: number,
@@ -446,6 +460,7 @@ export class ObservationRepository {
 		}
 	}
 
+	/** Search vec0 embeddings filtered to a subset of observation IDs. */
 	searchVecSubset(
 		queryEmbedding: number[],
 		observationIds: string[],
@@ -480,6 +495,7 @@ export class ObservationRepository {
 	// Update / Delete
 	// ---------------------------------------------------------------------------
 
+	/** Update selected fields of an observation. */
 	update(
 		id: string,
 		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
@@ -543,6 +559,7 @@ export class ObservationRepository {
 		);
 	}
 
+	/** Delete an observation by ID, including its embeddings. */
 	delete(id: string): boolean {
 		const result = this.db.all<{ id: string }>(
 			"DELETE FROM observations WHERE id = ? RETURNING id",
@@ -558,6 +575,7 @@ export class ObservationRepository {
 	// Retention / Cleanup
 	// ---------------------------------------------------------------------------
 
+	/** Delete observations older than the specified number of days. */
 	deleteOlderThan(days: number): number {
 		const deleted = this.db.all<{ id: string }>(
 			`DELETE FROM observations
@@ -569,6 +587,7 @@ export class ObservationRepository {
 		return deleted.length;
 	}
 
+	/** Remove vec0 embeddings and clear JSON embedding column for given IDs. */
 	deleteEmbeddingsForObservations(ids: string[]): void {
 		if (ids.length === 0) return;
 

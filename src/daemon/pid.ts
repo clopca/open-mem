@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 
+/** Write the current process PID to the given file path. */
 export function writePid(pidPath: string): void {
 	const lastSlash = pidPath.lastIndexOf("/");
 	if (lastSlash > 0) {
@@ -9,6 +10,7 @@ export function writePid(pidPath: string): void {
 	writeFileSync(pidPath, String(process.pid), "utf-8");
 }
 
+/** Read a PID from file, returning null if missing or invalid. */
 export function readPid(pidPath: string): number | null {
 	if (!existsSync(pidPath)) {
 		return null;
@@ -21,6 +23,7 @@ export function readPid(pidPath: string): number | null {
 	return pid;
 }
 
+/** Check whether a process with the given PID is still running. */
 export function isProcessAlive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
@@ -34,6 +37,7 @@ export function isProcessAlive(pid: number): boolean {
 	}
 }
 
+/** Remove a PID file, ignoring errors if it doesn't exist. */
 export function removePid(pidPath: string): void {
 	try {
 		unlinkSync(pidPath);
@@ -42,6 +46,7 @@ export function removePid(pidPath: string): void {
 	}
 }
 
+/** Derive the PID file path from the database path. */
 export function getPidPath(dbPath: string): string {
 	const lastSlash = dbPath.lastIndexOf("/");
 	if (lastSlash >= 0) {

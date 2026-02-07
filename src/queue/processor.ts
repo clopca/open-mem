@@ -19,8 +19,10 @@ import { generateEmbedding, prepareObservationText } from "../search/embeddings"
 // Config subset needed by the processor
 // -----------------------------------------------------------------------------
 
+/** Whether observations are processed in-process or enqueued for a daemon. */
 export type ProcessingMode = "in-process" | "enqueue-only";
 
+/** Configuration for the observation queue processor. */
 export interface QueueProcessorConfig {
 	batchSize: number;
 	batchIntervalMs: number;

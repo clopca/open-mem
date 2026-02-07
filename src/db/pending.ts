@@ -18,6 +18,7 @@ interface PendingMessageRow {
 	error: string | null;
 }
 
+/** Repository for pending message queue operations. */
 export class PendingMessageRepository {
 	constructor(private db: Database) {}
 

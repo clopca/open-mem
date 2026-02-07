@@ -15,6 +15,7 @@ const timelineArgsSchema = z.object({
 
 type TimelineArgs = z.infer<typeof timelineArgsSchema>;
 
+/** Create the mem-timeline tool for browsing session history. */
 export function createTimelineTool(
 	sessions: SessionRepository,
 	summaries: SummaryRepository,

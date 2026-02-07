@@ -8,8 +8,10 @@ import type { EmbeddingModel, LanguageModel } from "ai";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Supported AI provider identifiers. */
 export type ProviderType = "anthropic" | "bedrock" | "openai" | "google" | string;
 
+/** Configuration for creating an AI model instance. */
 export interface ModelConfig {
 	provider: ProviderType;
 	model: string;
@@ -76,6 +78,10 @@ export function createModel(config: ModelConfig): LanguageModel {
 	}
 }
 
+/**
+ * Create an EmbeddingModel instance for the given provider.
+ * Returns null for providers that don't support embeddings (e.g., Anthropic).
+ */
 export function createEmbeddingModel(config: ModelConfig): EmbeddingModel | null {
 	try {
 		switch (config.provider) {
