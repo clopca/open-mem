@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ObservationCompressor } from "./ai/compressor";
+import { ConflictEvaluator } from "./ai/conflict-evaluator";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
@@ -133,6 +134,16 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			: null;
 
 	// 5. Queue processor
+	const conflictEvaluator =
+		config.conflictResolutionEnabled && (!providerRequiresKey || config.apiKey)
+			? new ConflictEvaluator({
+					provider: config.provider,
+					apiKey: config.apiKey,
+					model: config.model,
+					rateLimitingEnabled: config.rateLimitingEnabled,
+				})
+			: null;
+
 	const queue = new QueueProcessor(
 		config,
 		compressor,
@@ -142,6 +153,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		sessionRepo,
 		summaryRepo,
 		embeddingModel,
+		conflictEvaluator,
 	);
 	queue.start();
 
@@ -287,6 +299,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			sessionRepo,
 			summaryRepo,
 			projectPath,
+			userObservationRepo,
 		),
 		"experimental.session.compacting": createCompactionHook(
 			config,
@@ -294,6 +307,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			sessionRepo,
 			summaryRepo,
 			projectPath,
+			userObservationRepo,
 		),
 		tools: [
 			createSearchTool(searchOrchestrator, summaryRepo, projectPath),

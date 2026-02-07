@@ -5,6 +5,7 @@
 
 import { parseArgs } from "node:util";
 import { ObservationCompressor } from "./ai/compressor";
+import { ConflictEvaluator } from "./ai/conflict-evaluator";
 import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
@@ -80,6 +81,16 @@ const embeddingModel =
 			})
 		: null;
 
+const conflictEvaluator =
+	config.conflictResolutionEnabled && (!providerRequiresKey || config.apiKey)
+		? new ConflictEvaluator({
+				provider: config.provider,
+				apiKey: config.apiKey,
+				model: config.model,
+				rateLimitingEnabled: config.rateLimitingEnabled,
+			})
+		: null;
+
 const queueProcessor = new QueueProcessor(
 	config,
 	compressor,
@@ -89,6 +100,7 @@ const queueProcessor = new QueueProcessor(
 	sessionRepo,
 	summaryRepo,
 	embeddingModel,
+	conflictEvaluator,
 );
 
 const pidPath = getPidPath(config.dbPath);
