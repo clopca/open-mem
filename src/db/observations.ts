@@ -277,6 +277,100 @@ export class ObservationRepository {
 	}
 
 	// ---------------------------------------------------------------------------
+	// Vec0 Embedding Support
+	// ---------------------------------------------------------------------------
+
+	insertVecEmbedding(observationId: string, embedding: number[]): void {
+		const float32 = new Float32Array(embedding);
+		this.db.run("DELETE FROM observation_embeddings WHERE observation_id = ?", [observationId]);
+		this.db.run("INSERT INTO observation_embeddings (observation_id, embedding) VALUES (?, ?)", [
+			observationId,
+			float32,
+		]);
+	}
+
+	migrateExistingEmbeddings(dimension: number): { migrated: number; skipped: number } {
+		const rows = this.db.all<{ id: string; embedding: string }>(
+			"SELECT id, embedding FROM observations WHERE embedding IS NOT NULL",
+		);
+
+		let migrated = 0;
+		let skipped = 0;
+
+		for (const row of rows) {
+			try {
+				const parsed: unknown = JSON.parse(row.embedding);
+				if (!Array.isArray(parsed) || parsed.length !== dimension) {
+					skipped++;
+					continue;
+				}
+				this.insertVecEmbedding(row.id, parsed);
+				migrated++;
+			} catch {
+				skipped++;
+			}
+		}
+
+		return { migrated, skipped };
+	}
+
+	// ---------------------------------------------------------------------------
+	// Vec0 KNN Search
+	// ---------------------------------------------------------------------------
+
+	getVecEmbeddingMatches(
+		queryEmbedding: number[],
+		limit: number,
+	): Array<{ observationId: string; distance: number }> {
+		try {
+			const float32 = new Float32Array(queryEmbedding);
+			return this.db
+				.all<{ observation_id: string; distance: number }>(
+					`SELECT observation_id, distance
+					 FROM observation_embeddings
+					 WHERE embedding MATCH ? AND k = ?`,
+					[float32, limit],
+				)
+				.map((row) => ({
+					observationId: row.observation_id,
+					distance: row.distance,
+				}));
+		} catch {
+			return [];
+		}
+	}
+
+	searchVecSubset(
+		queryEmbedding: number[],
+		observationIds: string[],
+		limit: number,
+	): Array<{ observationId: string; distance: number }> {
+		if (observationIds.length === 0) return [];
+
+		try {
+			const float32 = new Float32Array(queryEmbedding);
+			const fetchCount = Math.max(limit * 5, observationIds.length);
+			const allMatches = this.db.all<{ observation_id: string; distance: number }>(
+				`SELECT observation_id, distance
+				 FROM observation_embeddings
+				 WHERE embedding MATCH ? AND k = ?`,
+				[float32, fetchCount],
+			);
+
+			const idSet = new Set(observationIds);
+			return allMatches
+				.filter((row) => idSet.has(row.observation_id))
+				.slice(0, limit)
+				.map((row) => ({
+					observationId: row.observation_id,
+					distance: row.distance,
+				}));
+		} catch {
+			return [];
+		}
+	}
+
+	// ---------------------------------------------------------------------------
 	// Row Mapping
 	// ---------------------------------------------------------------------------
 
