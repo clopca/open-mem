@@ -40,6 +40,7 @@ export class QueueProcessor {
 	private processing = false;
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private mode: ProcessingMode = "in-process";
+	private onEnqueue: (() => void) | null = null;
 
 	constructor(
 		private config: QueueProcessorConfig,
@@ -63,6 +64,10 @@ export class QueueProcessor {
 		return this.mode;
 	}
 
+	setOnEnqueue(callback: (() => void) | null): void {
+		this.onEnqueue = callback;
+	}
+
 	// ---------------------------------------------------------------------------
 	// Enqueue
 	// ---------------------------------------------------------------------------
@@ -70,6 +75,9 @@ export class QueueProcessor {
 	/** Add a new pending message to the queue */
 	enqueue(sessionId: string, toolName: string, toolOutput: string, callId: string): void {
 		this.pendingRepo.create({ sessionId, toolName, toolOutput, callId });
+		if (this.mode === "enqueue-only") {
+			this.onEnqueue?.();
+		}
 	}
 
 	// ---------------------------------------------------------------------------

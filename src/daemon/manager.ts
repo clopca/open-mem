@@ -14,6 +14,7 @@ export class DaemonManager {
 	private readonly pidPath: string;
 	private readonly projectPath: string;
 	private readonly daemonScript: string;
+	private subprocess: ReturnType<typeof Bun.spawn> | null = null;
 
 	constructor(config: DaemonManagerConfig) {
 		this.pidPath = getPidPath(config.dbPath);
@@ -26,11 +27,14 @@ export class DaemonManager {
 			return false;
 		}
 
-		const proc = Bun.spawn(["bun", "run", this.daemonScript, "--project", this.projectPath], {
+		this.subprocess = Bun.spawn(["bun", "run", this.daemonScript, "--project", this.projectPath], {
 			detached: true,
 			stdio: ["ignore", "ignore", "ignore"],
+			ipc(_message) {
+				// No-op — we only send messages to the child, not receive
+			},
 		});
-		proc.unref();
+		this.subprocess.unref();
 
 		const deadline = Date.now() + POLL_TIMEOUT_MS;
 		while (Date.now() < deadline) {
@@ -46,6 +50,14 @@ export class DaemonManager {
 		return false;
 	}
 
+	signal(message: string): void {
+		try {
+			this.subprocess?.send(message);
+		} catch {
+			// IPC failure is non-fatal — daemon may have died
+		}
+	}
+
 	stop(): void {
 		const pid = readPid(this.pidPath);
 		if (pid !== null) {
@@ -55,6 +67,7 @@ export class DaemonManager {
 				// process may already be dead
 			}
 		}
+		this.subprocess = null;
 		removePid(this.pidPath);
 	}
 

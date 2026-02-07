@@ -70,6 +70,8 @@ export class DaemonWorker {
 	handleMessage(message: unknown): void {
 		if (message === "SHUTDOWN") {
 			this.stop();
+		} else if (message === "PROCESS_NOW") {
+			this.queueProcessor.processBatch().catch(() => {});
 		}
 	}
 }

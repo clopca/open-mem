@@ -98,6 +98,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		const started = daemonManager.start();
 		if (started) {
 			queue.setMode("enqueue-only");
+			queue.setOnEnqueue(() => daemonManager?.signal("PROCESS_NOW"));
 			console.log("[open-mem] Background daemon started — processing delegated");
 
 			daemonLivenessTimer = setInterval(() => {
@@ -175,6 +176,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const cleanup = () => {
 		if (daemonLivenessTimer) clearInterval(daemonLivenessTimer);
 		if (daemonManager) daemonManager.stop();
+		queue.setOnEnqueue(null);
 		queue.stop();
 		if (dashboardServer) dashboardServer.stop();
 		if (sseBroadcaster) sseBroadcaster.destroy();
