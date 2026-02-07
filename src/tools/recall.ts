@@ -17,7 +17,7 @@ export function createRecallTool(observations: ObservationRepository): ToolDefin
 	return {
 		name: "mem-recall",
 		description:
-			"Fetch full observation details by ID. Use after mem-search to get complete narratives, facts, concepts, and file lists for specific observations.",
+			"Layer 3: Deep recall — fetches full observation details including narrative, facts, concepts, and file lists. Use after mem-search to expand specific results, or with IDs from the context injection index.",
 		args: recallArgsSchema.shape,
 		execute: async (rawArgs) => {
 			try {
