@@ -55,6 +55,10 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	// Folder context
 	folderContextEnabled: true,
 	folderContextMaxDepth: 5,
+
+	// Dashboard
+	dashboardEnabled: false,
+	dashboardPort: 3737,
 };
 
 // -----------------------------------------------------------------------------
@@ -96,6 +100,9 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_FOLDER_CONTEXT === "false") env.folderContextEnabled = false;
 	if (process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH)
 		env.folderContextMaxDepth = Number.parseInt(process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH, 10);
+	if (process.env.OPEN_MEM_DASHBOARD === "true") env.dashboardEnabled = true;
+	if (process.env.OPEN_MEM_DASHBOARD_PORT)
+		env.dashboardPort = Number.parseInt(process.env.OPEN_MEM_DASHBOARD_PORT, 10);
 
 	return env;
 }
