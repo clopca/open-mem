@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { resolveBunPathCached } from "../utils/bun-path";
 import { getPidPath, isProcessAlive, readPid, removePid } from "./pid";
 
 const POLL_INTERVAL_MS = 100;
@@ -27,13 +28,16 @@ export class DaemonManager {
 			return false;
 		}
 
-		this.subprocess = Bun.spawn(["bun", "run", this.daemonScript, "--project", this.projectPath], {
-			detached: true,
-			stdio: ["ignore", "ignore", "ignore"],
-			ipc(_message) {
-				// No-op — we only send messages to the child, not receive
+		this.subprocess = Bun.spawn(
+			[resolveBunPathCached(), "run", this.daemonScript, "--project", this.projectPath],
+			{
+				detached: true,
+				stdio: ["ignore", "ignore", "ignore"],
+				ipc(_message) {
+					// No-op — we only send messages to the child, not receive
+				},
 			},
-		});
+		);
 		this.subprocess.unref();
 
 		const deadline = Date.now() + POLL_TIMEOUT_MS;

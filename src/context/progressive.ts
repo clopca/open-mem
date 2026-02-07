@@ -4,6 +4,7 @@
 
 import { estimateTokens } from "../ai/parser";
 import type { Observation, ObservationIndex, Session, SessionSummary } from "../types";
+import { type ScoringContext, sortByRelevance } from "./relevance";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -23,6 +24,10 @@ export interface ProgressiveContext {
 /**
  * Select summaries and observation-index entries that fit within the
  * token budget. Summaries are higher priority (richer context).
+ *
+ * When `scoringContext` is provided, observations are sorted by relevance
+ * score (descending) before applying the token budget — prioritizing
+ * recent, important entries. Without it, chronological order is preserved.
  */
 export function buildProgressiveContext(
 	_recentSessions: ReadonlyArray<Session>,
@@ -30,6 +35,7 @@ export function buildProgressiveContext(
 	observationIndex: ReadonlyArray<ObservationIndex>,
 	maxTokens: number,
 	fullObservations: ReadonlyArray<Observation> = [],
+	scoringContext?: ScoringContext,
 ): ProgressiveContext {
 	let budget = maxTokens;
 	const includedSummaries: SessionSummary[] = [];
@@ -43,8 +49,12 @@ export function buildProgressiveContext(
 		budget -= tokens;
 	}
 
-	// Priority 2 — lightweight observation index entries
-	for (const entry of observationIndex) {
+	// Priority 2 — observation index entries (sorted by relevance when context provided)
+	const sortedIndex = scoringContext
+		? sortByRelevance(observationIndex, scoringContext)
+		: observationIndex;
+
+	for (const entry of sortedIndex) {
 		const tokens = entry.tokenCount || estimateTokens(entry.title);
 		if (budget - tokens < 0) break;
 		includedIndex.push(entry);

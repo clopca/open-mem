@@ -23,8 +23,9 @@ export function createTimelineTool(
 ): ToolDefinition {
 	return {
 		name: "mem-timeline",
-		description: `View a timeline of past coding sessions for this project.
-Shows recent sessions with summaries, observation counts, and key decisions.`,
+		description: `Layer 2: Session overview — shows session history with summaries, observation counts, and key decisions.
+Browse past coding sessions to understand project history. Use sessionId to drill down into a specific session's observations.
+Combine with mem-search (Layer 1) to find specific observations, then mem-recall (Layer 3) to get full details.`,
 		args: timelineArgsSchema.shape,
 		execute: async (rawArgs) => {
 			try {

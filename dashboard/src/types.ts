@@ -56,8 +56,4 @@ export interface StatsResponse {
 	totalTokensSaved: number;
 	averageObservationSize: number;
 	typeBreakdown: Record<ObservationType, number>;
-	recentActivity: Array<{
-		date: string;
-		count: number;
-	}>;
 }
