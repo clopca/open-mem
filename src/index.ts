@@ -12,12 +12,15 @@ import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
+import { type MemoryEventBus, createEventBus } from "./events/bus";
 import { createChatCaptureHook } from "./hooks/chat-capture";
 import { createCompactionHook } from "./hooks/compaction";
 import { createContextInjectionHook } from "./hooks/context-inject";
 import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
+import { createDashboardApp } from "./servers/http-server";
+import { SSEBroadcaster, createSSERoute } from "./servers/sse-broadcaster";
 import { createExportTool } from "./tools/export";
 import { createImportTool } from "./tools/import";
 import { createRecallTool } from "./tools/recall";
@@ -79,14 +82,70 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	);
 	queue.start();
 
-	// 6. Shutdown handler
+	// 6. Dashboard (opt-in)
+	let dashboardServer: ReturnType<typeof Bun.serve> | null = null;
+	let eventBus: MemoryEventBus | null = null;
+	let sseBroadcaster: SSEBroadcaster | null = null;
+
+	if (config.dashboardEnabled) {
+		eventBus = createEventBus();
+		sseBroadcaster = new SSEBroadcaster(eventBus);
+
+		const app = createDashboardApp({
+			observationRepo,
+			sessionRepo,
+			summaryRepo,
+			config,
+			projectPath,
+			embeddingModel,
+			sseHandler: createSSERoute(sseBroadcaster),
+		});
+
+		const basePort = config.dashboardPort;
+		let port = basePort;
+		let started = false;
+
+		for (let offset = 0; offset < 10; offset++) {
+			port = basePort + offset;
+			try {
+				dashboardServer = Bun.serve({
+					port,
+					hostname: "127.0.0.1",
+					fetch: app.fetch,
+				});
+				started = true;
+				break;
+			} catch {}
+		}
+
+		if (started) {
+			console.log(`[open-mem] Dashboard available at http://127.0.0.1:${port}`);
+		} else {
+			console.warn(
+				`[open-mem] Could not start dashboard — ports ${basePort}-${basePort + 9} all busy`,
+			);
+		}
+
+		// Wire event bus to observation creates
+		const bus = eventBus;
+		const originalCreate = observationRepo.create.bind(observationRepo);
+		observationRepo.create = (...args: Parameters<typeof observationRepo.create>) => {
+			const obs = originalCreate(...args);
+			bus.emit("observation:created", obs);
+			return obs;
+		};
+	}
+
+	// 7. Shutdown handler
 	const cleanup = () => {
 		queue.stop();
+		if (dashboardServer) dashboardServer.stop();
+		if (sseBroadcaster) sseBroadcaster.destroy();
 		db.close();
 	};
 	process.on("beforeExit", cleanup);
 
-	// 7. Build hooks
+	// 8. Build hooks
 	return {
 		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
 		"chat.message": createChatCaptureHook(observationRepo, sessionRepo, projectPath),

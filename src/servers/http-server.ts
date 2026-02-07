@@ -3,6 +3,7 @@
 // =============================================================================
 
 import type { EmbeddingModel } from "ai";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
@@ -21,6 +22,8 @@ export interface DashboardDeps {
 	config: OpenMemConfig;
 	projectPath: string;
 	embeddingModel: EmbeddingModel | null;
+	/** Optional SSE handler — registered before the catch-all `*` route */
+	sseHandler?: (c: Context) => Response | Promise<Response>;
 }
 
 // -----------------------------------------------------------------------------
@@ -230,6 +233,14 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	app.get("/api/config", (c) => {
 		return c.json(redactConfig(config));
 	});
+
+	// -------------------------------------------------------------------------
+	// SSE Route (must precede the catch-all)
+	// -------------------------------------------------------------------------
+
+	if (deps.sseHandler) {
+		app.get("/api/events", deps.sseHandler);
+	}
 
 	// -------------------------------------------------------------------------
 	// Static File Serving for SPA
