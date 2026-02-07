@@ -5,6 +5,7 @@
 import type { SessionRepository } from "../db/sessions";
 import type { QueueProcessor } from "../queue/processor";
 import type { OpenMemConfig } from "../types";
+import { redactSensitive, stripPrivateBlocks } from "../utils/privacy";
 
 /**
  * Factory for the `tool.execute.after` hook.
@@ -42,18 +43,9 @@ export function createToolCaptureHook(
 			// Skip empty or very short outputs
 			if (!toolOutput || toolOutput.length < config.minOutputLength) return;
 
-			// Redact sensitive content (replace, don't skip)
-			let processedOutput = toolOutput;
-			for (const pattern of config.sensitivePatterns) {
-				try {
-					processedOutput = processedOutput.replace(new RegExp(pattern, "g"), "[REDACTED]");
-				} catch {
-					// Invalid regex — skip this pattern
-				}
-			}
-
-			// Strip <private>...</private> blocks
-			processedOutput = processedOutput.replace(/<private>[\s\S]*?<\/private>/g, "[PRIVATE]");
+			// Redact sensitive content and strip <private> blocks
+			let processedOutput = redactSensitive(toolOutput, config.sensitivePatterns);
+			processedOutput = stripPrivateBlocks(processedOutput, "[PRIVATE]");
 
 			// Ensure session record exists
 			sessions.getOrCreate(sessionID, projectPath);
