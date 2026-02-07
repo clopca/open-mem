@@ -40,17 +40,21 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	maxDatabaseSizeMb: 500, // 500MB max by default
 
 	// Logging
-	logLevel: "warn" as const,
+	logLevel: "warn",
 
 	// Context injection customization
 	contextShowTokenCosts: true,
-	contextObservationTypes: "all" as const,
+	contextObservationTypes: "all",
 	contextFullObservationCount: 3,
 	maxObservations: 50,
 	contextShowLastSummary: true,
 
 	// Rate limiting
 	rateLimitingEnabled: true,
+
+	// Folder context
+	folderContextEnabled: true,
+	folderContextMaxDepth: 5,
 };
 
 // -----------------------------------------------------------------------------
@@ -89,6 +93,9 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_CONTEXT_SHOW_LAST_SUMMARY === "false")
 		env.contextShowLastSummary = false;
 	if (process.env.OPEN_MEM_RATE_LIMITING === "false") env.rateLimitingEnabled = false;
+	if (process.env.OPEN_MEM_FOLDER_CONTEXT === "false") env.folderContextEnabled = false;
+	if (process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH)
+		env.folderContextMaxDepth = Number.parseInt(process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH, 10);
 
 	return env;
 }

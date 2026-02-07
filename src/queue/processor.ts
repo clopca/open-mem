@@ -2,6 +2,7 @@
 // open-mem — Queue Processor
 // =============================================================================
 
+import type { EmbeddingModel } from "ai";
 import type { ObservationCompressor } from "../ai/compressor";
 import { estimateTokens } from "../ai/parser";
 import type { SessionSummarizer } from "../ai/summarizer";
@@ -9,6 +10,7 @@ import type { ObservationRepository } from "../db/observations";
 import type { PendingMessageRepository } from "../db/pending";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
+import { generateEmbedding, prepareObservationText } from "../search/embeddings";
 
 // -----------------------------------------------------------------------------
 // Config subset needed by the processor
@@ -44,6 +46,7 @@ export class QueueProcessor {
 		private observationRepo: ObservationRepository,
 		private sessionRepo: SessionRepository,
 		private summaryRepo: SummaryRepository,
+		private embeddingModel: EmbeddingModel | null = null,
 	) {}
 
 	// ---------------------------------------------------------------------------
@@ -86,7 +89,7 @@ export class QueueProcessor {
 					const observation =
 						parsed ?? this.compressor.createFallbackObservation(item.toolName, item.toolOutput);
 
-					this.observationRepo.create({
+					const created = this.observationRepo.create({
 						sessionId: item.sessionId,
 						type: observation.type,
 						title: observation.title,
@@ -101,7 +104,24 @@ export class QueueProcessor {
 						tokenCount: estimateTokens(
 							`${observation.title} ${observation.narrative} ${observation.facts.join(" ")}`,
 						),
+						discoveryTokens: observation.discoveryTokens ?? estimateTokens(item.toolOutput),
 					});
+
+					if (this.embeddingModel) {
+						try {
+							const text = prepareObservationText({
+								title: created.title,
+								narrative: created.narrative,
+								concepts: created.concepts,
+							});
+							const embedding = await generateEmbedding(this.embeddingModel, text);
+							if (embedding) {
+								this.observationRepo.setEmbedding(created.id, embedding);
+							}
+						} catch {
+							// Embedding failure must not affect observation creation
+						}
+					}
 
 					this.sessionRepo.incrementObservationCount(item.sessionId);
 					this.pendingRepo.markCompleted(item.id);

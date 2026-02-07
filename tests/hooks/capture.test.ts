@@ -288,7 +288,14 @@ describe("createEventHandler", () => {
 	test("handles session.created", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const handler = createEventHandler(queue as never, sessions as never, "/tmp/proj");
+		const mockObs = { getBySession: () => [] };
+		const handler = createEventHandler(
+			queue as never,
+			sessions as never,
+			"/tmp/proj",
+			makeConfig(),
+			mockObs as never,
+		);
 
 		await handler({
 			event: {
@@ -303,7 +310,14 @@ describe("createEventHandler", () => {
 	test("handles session.idle — triggers processBatch", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const handler = createEventHandler(queue as never, sessions as never, "/tmp/proj");
+		const mockObs = { getBySession: () => [] };
+		const handler = createEventHandler(
+			queue as never,
+			sessions as never,
+			"/tmp/proj",
+			makeConfig(),
+			mockObs as never,
+		);
 
 		await handler({
 			event: {
@@ -319,7 +333,14 @@ describe("createEventHandler", () => {
 	test("handles session.completed — summarize + markCompleted", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const handler = createEventHandler(queue as never, sessions as never, "/tmp/proj");
+		const mockObs = { getBySession: () => [] };
+		const handler = createEventHandler(
+			queue as never,
+			sessions as never,
+			"/tmp/proj",
+			makeConfig(),
+			mockObs as never,
+		);
 
 		await handler({
 			event: {
@@ -336,7 +357,14 @@ describe("createEventHandler", () => {
 	test("ignores unknown events", async () => {
 		const queue = makeMockQueue();
 		const sessions = makeMockSessions();
-		const handler = createEventHandler(queue as never, sessions as never, "/tmp/proj");
+		const mockObs = { getBySession: () => [] };
+		const handler = createEventHandler(
+			queue as never,
+			sessions as never,
+			"/tmp/proj",
+			makeConfig(),
+			mockObs as never,
+		);
 
 		await handler({
 			event: { type: "some.unknown.event", properties: {} },

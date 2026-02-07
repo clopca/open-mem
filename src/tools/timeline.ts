@@ -8,6 +8,13 @@ import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
 import type { ToolDefinition } from "../types";
 
+const timelineArgsSchema = z.object({
+	limit: z.number().min(1).max(20).default(5).describe("Number of recent sessions to show"),
+	sessionId: z.string().optional().describe("Show details for a specific session ID"),
+});
+
+type TimelineArgs = z.infer<typeof timelineArgsSchema>;
+
 export function createTimelineTool(
 	sessions: SessionRepository,
 	summaries: SummaryRepository,
@@ -18,20 +25,16 @@ export function createTimelineTool(
 		name: "mem-timeline",
 		description: `View a timeline of past coding sessions for this project.
 Shows recent sessions with summaries, observation counts, and key decisions.`,
-		args: {
-			limit: z.number().min(1).max(20).default(5).describe("Number of recent sessions to show"),
-			sessionId: z.string().optional().describe("Show details for a specific session ID"),
-		},
-		execute: async (args) => {
+		args: timelineArgsSchema.shape,
+		execute: async (rawArgs) => {
 			try {
-				const limit = (args.limit as number) || 5;
-				const sessionId = args.sessionId as string | undefined;
+				const args: TimelineArgs = timelineArgsSchema.parse(rawArgs);
 
-				if (sessionId) {
-					return formatSessionDetail(sessionId, sessions, summaries, observations);
+				if (args.sessionId) {
+					return formatSessionDetail(args.sessionId, sessions, summaries, observations);
 				}
 
-				const recent = sessions.getRecent(projectPath, limit);
+				const recent = sessions.getRecent(projectPath, args.limit);
 				if (recent.length === 0) {
 					return "No past sessions found for this project.";
 				}

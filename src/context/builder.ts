@@ -69,9 +69,7 @@ export function buildContextString(
 	const filteredIndex =
 		config.observationTypes === "all"
 			? context.observationIndex
-			: context.observationIndex.filter((e) =>
-					(config.observationTypes as ObservationType[]).includes(e.type),
-				);
+			: context.observationIndex.filter((e) => config.observationTypes.includes(e.type));
 
 	if (filteredIndex.length > 0) {
 		parts.push("");
@@ -122,7 +120,43 @@ export function buildContextString(
 		}
 	}
 
+	const roiFooter = buildRoiFooter(context);
+	if (roiFooter) {
+		parts.push("");
+		parts.push(roiFooter);
+	}
+
 	return parts.join("\n");
+}
+
+// -----------------------------------------------------------------------------
+// ROI Footer
+// -----------------------------------------------------------------------------
+
+function buildRoiFooter(context: ProgressiveContext): string | null {
+	let totalReadTokens = 0;
+	let totalDiscoveryTokens = 0;
+
+	const indexIds = new Set(context.observationIndex.map((e) => e.id));
+
+	for (const entry of context.observationIndex) {
+		totalReadTokens += entry.tokenCount;
+		totalDiscoveryTokens += entry.discoveryTokens;
+	}
+
+	for (const obs of context.fullObservations) {
+		if (!indexIds.has(obs.id)) {
+			totalReadTokens += obs.tokenCount;
+			totalDiscoveryTokens += obs.discoveryTokens;
+		}
+	}
+
+	if (totalDiscoveryTokens === 0) return null;
+
+	const savedTokens = totalDiscoveryTokens - totalReadTokens;
+	const savingsPercent = Math.max(0, Math.round((savedTokens / totalDiscoveryTokens) * 100));
+
+	return `### 💰 Memory Economics\n**Read cost:** ~${totalReadTokens}t | **Discovery cost:** ~${totalDiscoveryTokens}t | **Savings:** ${savingsPercent}% (${savedTokens}t saved)`;
 }
 
 // -----------------------------------------------------------------------------

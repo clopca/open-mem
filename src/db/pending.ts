@@ -6,6 +6,18 @@ import { randomUUID } from "node:crypto";
 import type { PendingMessage } from "../types";
 import type { Database } from "./database";
 
+interface PendingMessageRow {
+	id: string;
+	session_id: string;
+	tool_name: string;
+	tool_output: string;
+	call_id: string;
+	created_at: string;
+	status: string;
+	retry_count: number;
+	error: string | null;
+}
+
 export class PendingMessageRepository {
 	constructor(private db: Database) {}
 
@@ -40,7 +52,7 @@ export class PendingMessageRepository {
 
 	getPending(limit = 10): PendingMessage[] {
 		return this.db
-			.all<Record<string, unknown>>(
+			.all<PendingMessageRow>(
 				"SELECT * FROM pending_messages WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?",
 				[limit],
 			)
@@ -49,7 +61,7 @@ export class PendingMessageRepository {
 
 	getByStatus(status: PendingMessage["status"]): PendingMessage[] {
 		return this.db
-			.all<Record<string, unknown>>(
+			.all<PendingMessageRow>(
 				"SELECT * FROM pending_messages WHERE status = ? ORDER BY created_at ASC",
 				[status],
 			)
@@ -81,7 +93,7 @@ export class PendingMessageRepository {
 	 * Returns the number of messages reset.
 	 */
 	resetStale(olderThanMinutes = 5): number {
-		const result = this.db.all<Record<string, unknown>>(
+		const result = this.db.all<{ id: string }>(
 			`UPDATE pending_messages SET status = 'pending'
 			 WHERE status = 'processing'
 			 AND created_at < datetime('now', ? || ' minutes')
@@ -95,17 +107,17 @@ export class PendingMessageRepository {
 	// Row Mapping
 	// ---------------------------------------------------------------------------
 
-	private mapRow(row: Record<string, unknown>): PendingMessage {
+	private mapRow(row: PendingMessageRow): PendingMessage {
 		return {
-			id: row.id as string,
-			sessionId: row.session_id as string,
-			toolName: row.tool_name as string,
-			toolOutput: row.tool_output as string,
-			callId: row.call_id as string,
-			createdAt: row.created_at as string,
+			id: row.id,
+			sessionId: row.session_id,
+			toolName: row.tool_name,
+			toolOutput: row.tool_output,
+			callId: row.call_id,
+			createdAt: row.created_at,
 			status: row.status as PendingMessage["status"],
-			retryCount: row.retry_count as number,
-			error: (row.error as string) ?? null,
+			retryCount: row.retry_count,
+			error: row.error ?? null,
 		};
 	}
 }

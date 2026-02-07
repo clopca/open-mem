@@ -5,6 +5,7 @@
 import { type LanguageModel, generateText } from "ai";
 import type { OpenMemConfig } from "../types";
 import { type ParsedObservation, parseObservationResponse } from "./parser";
+import { estimateTokens } from "./parser";
 import { buildCompressionPrompt } from "./prompts";
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
@@ -82,6 +83,8 @@ export class ObservationCompressor {
 			return null;
 		}
 
+		const discoveryTokens = estimateTokens(toolOutput);
+
 		// Truncate to cap API costs
 		const truncated =
 			toolOutput.length > ObservationCompressor.MAX_INPUT_LENGTH
@@ -102,7 +105,11 @@ export class ObservationCompressor {
 					prompt,
 				});
 
-				return parseObservationResponse(text);
+				const parsed = parseObservationResponse(text);
+				if (parsed) {
+					parsed.discoveryTokens = discoveryTokens;
+				}
+				return parsed;
 			} catch (error: unknown) {
 				if (isRetryable(error) && attempt < maxRetries) {
 					const delay = 2 ** attempt * 1000; // 1 s, 2 s
@@ -170,6 +177,7 @@ export class ObservationCompressor {
 			concepts: [],
 			filesRead: type === "discovery" ? filePaths : [],
 			filesModified: type === "change" ? filePaths : [],
+			discoveryTokens: estimateTokens(toolOutput),
 		};
 	}
 
@@ -217,9 +225,10 @@ function extractFilePaths(text: string): string[] {
 
 function isRetryable(error: unknown): boolean {
 	if (typeof error !== "object" || error === null) return false;
-	const status = (error as Record<string, unknown>).status;
+	const err = error as Record<string, unknown>;
+	const status = err.status;
 	if (status === 429 || status === 500 || status === 503) return true;
-	const errObj = (error as Record<string, unknown>).error;
+	const errObj = err.error;
 	if (
 		typeof errObj === "object" &&
 		errObj !== null &&
