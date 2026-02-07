@@ -6,7 +6,7 @@ export async function generateEmbedding(
 ): Promise<number[] | null> {
 	try {
 		const { embedding } = await embed({ model, value: text });
-		return embedding as number[];
+		return embedding;
 	} catch {
 		return null;
 	}

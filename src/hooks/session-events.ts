@@ -29,7 +29,8 @@ export function createEventHandler(
 	return async (input: { event: OpenCodeEvent }): Promise<void> => {
 		try {
 			const { event } = input;
-			const sessionId = event.properties.sessionID as string | undefined;
+			const rawSessionId = event.properties.sessionID;
+			const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
 
 			switch (event.type) {
 				case "session.created": {

@@ -10,6 +10,18 @@ const MAX_NARRATIVE_LENGTH = 2000;
 const MAX_TITLE_CONTENT_LENGTH = 60;
 
 /**
+ * Type guard: checks whether a value is an object with a string `text` property.
+ */
+function hasTextProperty(value: unknown): value is { text: string } {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"text" in value &&
+		typeof (value as Record<string, unknown>).text === "string"
+	);
+}
+
+/**
  * Extract text from message parts (typed as `unknown[]`).
  * Handles both plain strings and objects with a `text` property.
  */
@@ -18,13 +30,8 @@ function extractTextFromParts(parts: unknown[]): string {
 	for (const part of parts) {
 		if (typeof part === "string") {
 			texts.push(part);
-		} else if (
-			part &&
-			typeof part === "object" &&
-			"text" in part &&
-			typeof (part as { text: unknown }).text === "string"
-		) {
-			texts.push((part as { text: string }).text);
+		} else if (hasTextProperty(part)) {
+			texts.push(part.text);
 		}
 	}
 	return texts.join("\n").trim();

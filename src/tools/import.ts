@@ -38,31 +38,39 @@ Skips duplicate observations (by ID) and summaries (by session ID).`,
 			try {
 				const args: ImportArgs = importArgsSchema.parse(rawArgs);
 
-				let parsed: ExportData;
+				let parsed: unknown;
 				try {
 					parsed = JSON.parse(args.data);
 				} catch {
 					return "Import error: Invalid JSON. Please provide valid JSON from a mem-export.";
 				}
 
-				if (!parsed.version || typeof parsed.version !== "number") {
+				if (typeof parsed !== "object" || parsed === null) {
+					return "Import error: Invalid JSON structure.";
+				}
+
+				const data = parsed as Record<string, unknown>;
+
+				if (!data.version || typeof data.version !== "number") {
 					return "Import error: Missing or invalid 'version' field. This doesn't look like a mem-export file.";
 				}
 
-				if (parsed.version !== 1) {
-					return `Import error: Unsupported export version ${parsed.version}. This tool supports version 1.`;
+				if (data.version !== 1) {
+					return `Import error: Unsupported export version ${data.version}. This tool supports version 1.`;
 				}
 
-				if (!Array.isArray(parsed.observations)) {
+				if (!Array.isArray(data.observations)) {
 					return "Import error: Missing or invalid 'observations' array.";
 				}
+
+				const exportData = data as unknown as ExportData;
 
 				let imported = 0;
 				let skipped = 0;
 				let summariesImported = 0;
 				let summariesSkipped = 0;
 
-				for (const obs of parsed.observations) {
+				for (const obs of exportData.observations) {
 					const existing = observations.getById(obs.id);
 					if (existing) {
 						skipped++;
@@ -93,8 +101,8 @@ Skips duplicate observations (by ID) and summaries (by session ID).`,
 					imported++;
 				}
 
-				if (Array.isArray(parsed.summaries)) {
-					for (const summary of parsed.summaries) {
+				if (Array.isArray(exportData.summaries)) {
+					for (const summary of exportData.summaries) {
 						const existing = summaries.getBySessionId(summary.sessionId);
 						if (existing) {
 							summariesSkipped++;

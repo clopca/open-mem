@@ -62,6 +62,37 @@ export interface McpServerDeps {
 	version: string;
 }
 
+// -----------------------------------------------------------------------------
+// Validation Helpers
+// -----------------------------------------------------------------------------
+
+const VALID_OBS_TYPES = new Set<string>([
+	"decision",
+	"bugfix",
+	"feature",
+	"refactor",
+	"discovery",
+	"change",
+]);
+
+function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+	if (typeof value !== "object" || value === null) return false;
+	const obj = value as Record<string, unknown>;
+	return obj.jsonrpc === "2.0" && typeof obj.method === "string";
+}
+
+function toObservationType(value: unknown): ObservationType | undefined {
+	return typeof value === "string" && VALID_OBS_TYPES.has(value)
+		? (value as ObservationType)
+		: undefined;
+}
+
+function toStringArray(value: unknown): string[] {
+	return Array.isArray(value)
+		? value.filter((item): item is string => typeof item === "string")
+		: [];
+}
+
 export class McpServer {
 	private observations: ObservationRepository;
 	private sessions: SessionRepository;
@@ -92,8 +123,16 @@ export class McpServer {
 			if (!trimmed) return;
 
 			try {
-				const message = JSON.parse(trimmed) as JsonRpcRequest;
-				this.handleMessage(message);
+				const parsed: unknown = JSON.parse(trimmed);
+				if (isJsonRpcRequest(parsed)) {
+					this.handleMessage(parsed);
+				} else {
+					this.sendResponse({
+						jsonrpc: "2.0",
+						id: 0,
+						error: { code: -32600, message: "Invalid Request" },
+					});
+				}
 			} catch {
 				// Malformed JSON — send parse error if we can
 				this.sendResponse({
@@ -351,7 +390,7 @@ export class McpServer {
 
 	private execSearch(args: Record<string, unknown>): McpToolResult {
 		const query = typeof args.query === "string" ? args.query : undefined;
-		const type = typeof args.type === "string" ? (args.type as ObservationType) : undefined;
+		const type = toObservationType(args.type);
 		const limit = typeof args.limit === "number" ? args.limit : 10;
 
 		if (!query) {
@@ -387,10 +426,10 @@ export class McpServer {
 	// ---------------------------------------------------------------------------
 
 	private execRecall(args: Record<string, unknown>): McpToolResult {
-		const ids = Array.isArray(args.ids) ? (args.ids as string[]) : undefined;
+		const ids = toStringArray(args.ids);
 		const limit = typeof args.limit === "number" ? args.limit : 10;
 
-		if (!ids || !Array.isArray(ids) || ids.length === 0) {
+		if (ids.length === 0) {
 			return { content: [{ type: "text", text: "No observation IDs provided." }] };
 		}
 
@@ -521,10 +560,10 @@ export class McpServer {
 
 	private execSave(args: Record<string, unknown>): McpToolResult {
 		const title = typeof args.title === "string" ? args.title : undefined;
-		const type = typeof args.type === "string" ? (args.type as ObservationType) : undefined;
+		const type = toObservationType(args.type);
 		const narrative = typeof args.narrative === "string" ? args.narrative : undefined;
-		const concepts = Array.isArray(args.concepts) ? (args.concepts as string[]) : [];
-		const files = Array.isArray(args.files) ? (args.files as string[]) : [];
+		const concepts = toStringArray(args.concepts);
+		const files = toStringArray(args.files);
 
 		if (!title || !type || !narrative) {
 			return {
