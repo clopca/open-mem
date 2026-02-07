@@ -9,6 +9,7 @@ interface HybridSearchOptions {
 	type?: ObservationType;
 	limit?: number;
 	projectPath: string;
+	hasVectorExtension?: boolean;
 }
 
 export async function hybridSearch(
@@ -30,12 +31,16 @@ export async function hybridSearch(
 		return ftsResults;
 	}
 
+	const ftsObservationIds = ftsResults.map((r) => r.observation.id);
+
 	const vectorResults = runVectorSearch(
 		observations,
 		queryEmbedding,
 		options.projectPath,
 		options.type,
 		limit,
+		options.hasVectorExtension ?? false,
+		ftsObservationIds,
 	);
 
 	if (vectorResults.length === 0) {
@@ -64,8 +69,64 @@ function runVectorSearch(
 	projectPath: string,
 	type: ObservationType | undefined,
 	limit: number,
+	hasVectorExtension: boolean,
+	ftsObservationIds: string[],
 ): SearchResult[] {
-	// Fetch more candidates than needed for better ranking after filtering
+	if (hasVectorExtension) {
+		return runNativeVectorSearch(observations, queryEmbedding, type, limit, ftsObservationIds);
+	}
+	return runJsFallbackVectorSearch(observations, queryEmbedding, projectPath, type, limit);
+}
+
+function runNativeVectorSearch(
+	observations: ObservationRepository,
+	queryEmbedding: number[],
+	type: ObservationType | undefined,
+	limit: number,
+	ftsObservationIds: string[],
+): SearchResult[] {
+	try {
+		let candidates: Array<{ observationId: string; distance: number }>;
+
+		if (ftsObservationIds.length > 0) {
+			candidates = observations.searchVecSubset(queryEmbedding, ftsObservationIds, limit * 3);
+			if (candidates.length === 0) {
+				candidates = observations.getVecEmbeddingMatches(queryEmbedding, limit * 3);
+			}
+		} else {
+			candidates = observations.getVecEmbeddingMatches(queryEmbedding, limit * 3);
+		}
+
+		if (candidates.length === 0) return [];
+
+		const results: SearchResult[] = [];
+		for (const { observationId, distance } of candidates) {
+			if (results.length >= limit) break;
+
+			const obs = observations.getById(observationId);
+			if (!obs) continue;
+			if (type && obs.type !== type) continue;
+
+			results.push({
+				observation: obs,
+				rank: distance - 1,
+				snippet: obs.title,
+			});
+		}
+
+		return results;
+	} catch {
+		return [];
+	}
+}
+
+function runJsFallbackVectorSearch(
+	observations: ObservationRepository,
+	queryEmbedding: number[],
+	projectPath: string,
+	type: ObservationType | undefined,
+	limit: number,
+): SearchResult[] {
 	const candidates = observations.getWithEmbeddings(projectPath, limit * 10);
 	if (candidates.length === 0) return [];
 
@@ -87,7 +148,7 @@ function runVectorSearch(
 
 		results.push({
 			observation: obs,
-			rank: -similarity, // Negative so higher similarity = better rank (matching FTS convention)
+			rank: -similarity,
 			snippet: obs.title,
 		});
 	}
