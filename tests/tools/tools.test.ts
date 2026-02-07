@@ -7,6 +7,7 @@ import type { Database } from "../../src/db/database";
 import { ObservationRepository } from "../../src/db/observations";
 import { SessionRepository } from "../../src/db/sessions";
 import { SummaryRepository } from "../../src/db/summaries";
+import { SearchOrchestrator } from "../../src/search/orchestrator";
 import { createRecallTool } from "../../src/tools/recall";
 import { createSaveTool } from "../../src/tools/save";
 import { createSearchTool } from "../../src/tools/search";
@@ -86,7 +87,7 @@ const abort = new AbortController().signal;
 describe("mem-search", () => {
 	test("returns formatted results", async () => {
 		seedData();
-		const tool = createSearchTool(observations, summaries);
+		const tool = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
 		const result = await tool.execute({ query: "JWT", limit: 10 }, { sessionID: "s", abort });
 		expect(typeof result).toBe("string");
 		expect(result).toContain("Found");
@@ -95,7 +96,7 @@ describe("mem-search", () => {
 
 	test("filters by type", async () => {
 		seedData();
-		const tool = createSearchTool(observations, summaries);
+		const tool = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
 		const result = await tool.execute(
 			{ query: "JWT", type: "decision", limit: 10 },
 			{ sessionID: "s", abort },
@@ -105,7 +106,7 @@ describe("mem-search", () => {
 	});
 
 	test("returns no-results message", async () => {
-		const tool = createSearchTool(observations, summaries);
+		const tool = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
 		const result = await tool.execute(
 			{ query: "xyznonexistent", limit: 10 },
 			{ sessionID: "s", abort },
@@ -123,7 +124,7 @@ describe("mem-search", () => {
 			concepts: ["GraphQL"],
 			tokenCount: 10,
 		});
-		const tool = createSearchTool(observations, summaries);
+		const tool = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
 		const result = await tool.execute({ query: "GraphQL", limit: 10 }, { sessionID: "s", abort });
 		expect(result).toContain("session summary");
 		expect(result).toContain("GraphQL");
@@ -262,7 +263,7 @@ describe("mem-recall", () => {
 
 describe("Tool contract", () => {
 	test("all tools have required fields", () => {
-		const search = createSearchTool(observations, summaries);
+		const search = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
 		const save = createSaveTool(observations, sessions, "/tmp");
 		const timeline = createTimelineTool(sessions, summaries, observations, "/tmp");
 		const recall = createRecallTool(observations);

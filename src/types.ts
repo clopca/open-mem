@@ -250,6 +250,7 @@ export interface SearchQuery {
 	type?: ObservationType;
 	limit?: number;
 	offset?: number;
+	projectPath?: string;
 }
 
 export interface SearchResult {

@@ -24,14 +24,17 @@ import { createContextInjectionHook } from "./hooks/context-inject";
 import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
+import { SearchOrchestrator } from "./search/orchestrator";
 import { createDashboardApp } from "./servers/http-server";
 import { SSEBroadcaster, createSSERoute } from "./servers/sse-broadcaster";
+import { createDeleteTool } from "./tools/delete";
 import { createExportTool } from "./tools/export";
 import { createImportTool } from "./tools/import";
 import { createRecallTool } from "./tools/recall";
 import { createSaveTool } from "./tools/save";
 import { createSearchTool } from "./tools/search";
 import { createTimelineTool } from "./tools/timeline";
+import { createUpdateTool } from "./tools/update";
 import type { Hooks, PluginInput } from "./types";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
@@ -231,7 +234,14 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	};
 	process.on("beforeExit", cleanup);
 
-	// 9. Build hooks
+	// 9. Search orchestrator
+	const searchOrchestrator = new SearchOrchestrator(
+		observationRepo,
+		embeddingModel,
+		db.hasVectorExtension,
+	);
+
+	// 10. Build hooks
 	return {
 		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
 		"chat.message": createChatCaptureHook(
@@ -263,18 +273,14 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 		),
 		tools: [
-			createSearchTool(
-				observationRepo,
-				summaryRepo,
-				embeddingModel,
-				projectPath,
-				db.hasVectorExtension,
-			),
+			createSearchTool(searchOrchestrator, summaryRepo, projectPath),
 			createSaveTool(observationRepo, sessionRepo, projectPath),
 			createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
 			createRecallTool(observationRepo),
 			createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
 			createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
+			createUpdateTool(observationRepo, sessionRepo, projectPath),
+			createDeleteTool(observationRepo, sessionRepo, projectPath),
 		],
 	};
 }

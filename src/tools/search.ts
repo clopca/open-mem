@@ -2,11 +2,9 @@
 // open-mem — mem-search Custom Tool
 // =============================================================================
 
-import type { EmbeddingModel } from "ai";
 import { z } from "zod";
-import type { ObservationRepository } from "../db/observations";
 import type { SummaryRepository } from "../db/summaries";
-import { hybridSearch } from "../search/hybrid";
+import type { SearchOrchestrator } from "../search/orchestrator";
 import type { SearchResult, SessionSummary, ToolDefinition } from "../types";
 
 const searchArgsSchema = z.object({
@@ -21,33 +19,31 @@ const searchArgsSchema = z.object({
 type SearchArgs = z.infer<typeof searchArgsSchema>;
 
 export function createSearchTool(
-	observations: ObservationRepository,
+	searchOrchestrator: SearchOrchestrator,
 	summaries: SummaryRepository,
-	embeddingModel: EmbeddingModel | null = null,
 	projectPath = "",
-	hasVectorExtension = false,
 ): ToolDefinition {
 	return {
 		name: "mem-search",
-		description: `Search through past coding session observations and memories.
-Use this tool to find relevant context from previous sessions, including:
+		description: `Layer 1: Quick search — returns lightweight results with observation IDs.
+Search through past coding session observations and memories to find:
 - Past decisions and their rationale
 - Bug fixes and their solutions
 - Code patterns and discoveries
 - File modification history
 - Concept-based knowledge retrieval
 
-Supports full-text search with FTS5.`,
+Results include observation IDs. For full details on any result, use mem-recall with the observation ID.
+Supports full-text search with FTS5 and optional vector similarity.`,
 		args: searchArgsSchema.shape,
 		execute: async (rawArgs) => {
 			try {
 				const args: SearchArgs = searchArgsSchema.parse(rawArgs);
 
-				const results = await hybridSearch(args.query, observations, embeddingModel, {
+				const results = await searchOrchestrator.search(args.query, {
 					type: args.type,
 					limit: args.limit,
 					projectPath,
-					hasVectorExtension,
 				});
 
 				if (results.length === 0) {
@@ -75,6 +71,7 @@ function formatSearchResults(results: SearchResult[]): string {
 
 	for (const { observation: obs } of results) {
 		lines.push(`## [${obs.type.toUpperCase()}] ${obs.title}`);
+		lines.push(`**ID:** \`${obs.id}\``);
 		if (obs.subtitle) lines.push(`*${obs.subtitle}*`);
 		lines.push(`\n${obs.narrative}`);
 
@@ -95,6 +92,8 @@ function formatSearchResults(results: SearchResult[]): string {
 		lines.push(`\n*Session: ${obs.sessionId} | ${obs.createdAt}*`);
 		lines.push("---");
 	}
+
+	lines.push("\n💡 Use `mem-recall` with observation IDs above to get full details.");
 
 	return lines.join("\n");
 }
