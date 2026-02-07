@@ -15,6 +15,8 @@ export const TABLES = {
 	PENDING_MESSAGES: "pending_messages",
 	OBSERVATIONS_FTS: "observations_fts",
 	SUMMARIES_FTS: "summaries_fts",
+	OBSERVATION_EMBEDDINGS: "observation_embeddings",
+	EMBEDDING_META: "_embedding_meta",
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -229,6 +231,18 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE observations ADD COLUMN embedding TEXT;
 		`,
 	},
+
+	// v6 — Metadata table for embedding configuration (vec0 created separately)
+	{
+		version: 6,
+		name: "create-embedding-meta-table",
+		up: `
+			CREATE TABLE IF NOT EXISTS _embedding_meta (
+				key TEXT PRIMARY KEY,
+				value TEXT NOT NULL
+			);
+		`,
+	},
 ];
 
 // -----------------------------------------------------------------------------
@@ -236,6 +250,34 @@ export const MIGRATIONS: Migration[] = [
 // -----------------------------------------------------------------------------
 
 /** Run all migrations to bring the database schema up to date */
-export function initializeSchema(db: Database): void {
+export function initializeSchema(
+	db: Database,
+	options?: { hasVectorExtension?: boolean; embeddingDimension?: number },
+): void {
 	db.migrate(MIGRATIONS);
+	if (
+		options?.hasVectorExtension &&
+		options?.embeddingDimension &&
+		options.embeddingDimension > 0
+	) {
+		initializeVec0Table(db, options.embeddingDimension);
+	}
+}
+
+export function initializeVec0Table(db: Database, dimension: number): void {
+	const exists = db.get<{ name: string }>(
+		"SELECT name FROM sqlite_master WHERE type='table' AND name='observation_embeddings'",
+	);
+	if (!exists) {
+		db.exec(
+			`CREATE VIRTUAL TABLE observation_embeddings USING vec0(
+				observation_id TEXT PRIMARY KEY,
+				embedding float[${dimension}] distance_metric=cosine
+			)`,
+		);
+	}
+	db.run("INSERT OR REPLACE INTO _embedding_meta (key, value) VALUES (?, ?)", [
+		"dimension",
+		String(dimension),
+	]);
 }
