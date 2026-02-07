@@ -325,6 +325,97 @@ describe("ObservationRepository", () => {
 		expect(fetched?.filesRead).toEqual(["a.ts", "b.ts"]);
 		expect(fetched?.filesModified).toEqual(["c.ts"]);
 	});
+
+	// =========================================================================
+	// update()
+	// =========================================================================
+
+	test("update returns updated observation", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		const updated = observations.update(obs.id, { title: "Updated title" });
+		expect(updated).not.toBeNull();
+		expect(updated?.title).toBe("Updated title");
+		expect(updated?.narrative).toBe(obs.narrative);
+	});
+
+	test("update changes multiple fields", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		const updated = observations.update(obs.id, {
+			title: "New title",
+			narrative: "New narrative",
+			type: "decision",
+			concepts: ["new-concept"],
+			importance: 5,
+		});
+		expect(updated).not.toBeNull();
+		expect(updated?.title).toBe("New title");
+		expect(updated?.narrative).toBe("New narrative");
+		expect(updated?.type).toBe("decision");
+		expect(updated?.concepts).toEqual(["new-concept"]);
+		expect(updated?.importance).toBe(5);
+	});
+
+	test("update returns null for nonexistent id", () => {
+		const { observations } = createSessionAndObs(db);
+		const result = observations.update("nonexistent-id", { title: "x" });
+		expect(result).toBeNull();
+	});
+
+	test("update with empty data returns unchanged observation", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		const updated = observations.update(obs.id, {});
+		expect(updated).not.toBeNull();
+		expect(updated?.title).toBe(obs.title);
+	});
+
+	test("update syncs FTS5 index", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData({ title: "Original title" }));
+		observations.update(obs.id, { title: "Quantum computing breakthrough" });
+		const results = observations.search({ query: "quantum computing" });
+		expect(results.length).toBeGreaterThanOrEqual(1);
+		expect(results[0].observation.id).toBe(obs.id);
+		const oldResults = observations.search({ query: "Original title" });
+		const matchesOld = oldResults.some((r) => r.observation.id === obs.id);
+		expect(matchesOld).toBe(false);
+	});
+
+	// =========================================================================
+	// delete()
+	// =========================================================================
+
+	test("delete removes observation and returns true", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		const deleted = observations.delete(obs.id);
+		expect(deleted).toBe(true);
+		expect(observations.getById(obs.id)).toBeNull();
+	});
+
+	test("delete returns false for nonexistent id", () => {
+		const { observations } = createSessionAndObs(db);
+		const deleted = observations.delete("nonexistent-id");
+		expect(deleted).toBe(false);
+	});
+
+	test("delete removes from FTS5 index", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData({ title: "Unique searchable zebra" }));
+		observations.delete(obs.id);
+		const results = observations.search({ query: "zebra" });
+		expect(results).toHaveLength(0);
+	});
+
+	test("delete clears embedding column", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		observations.setEmbedding(obs.id, [0.1, 0.2, 0.3]);
+		observations.delete(obs.id);
+		expect(observations.getById(obs.id)).toBeNull();
+	});
 });
 
 // =============================================================================

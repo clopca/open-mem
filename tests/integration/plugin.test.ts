@@ -49,11 +49,11 @@ describe("Plugin entry point", () => {
 		expect(hooks["experimental.session.compacting"]).toBeDefined();
 	});
 
-	test("returns 6 tools", async () => {
+	test("returns 8 tools", async () => {
 		const dir = `/tmp/open-mem-plugin-test-${randomUUID()}`;
 		cleanupDirs.push(dir);
 		const hooks = await plugin(makeInput(dir));
-		expect(hooks.tools).toHaveLength(6);
+		expect(hooks.tools).toHaveLength(8);
 		const names = hooks.tools?.map((t) => t.name) ?? [];
 		expect(names).toContain("mem-search");
 		expect(names).toContain("mem-save");
@@ -61,6 +61,8 @@ describe("Plugin entry point", () => {
 		expect(names).toContain("mem-recall");
 		expect(names).toContain("mem-export");
 		expect(names).toContain("mem-import");
+		expect(names).toContain("mem-update");
+		expect(names).toContain("mem-delete");
 	});
 
 	test("creates database file", async () => {

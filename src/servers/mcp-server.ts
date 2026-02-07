@@ -393,6 +393,58 @@ export class McpServer {
 					required: ["data"],
 				},
 			},
+			{
+				name: "mem-update",
+				description:
+					"Update an existing observation in memory. Use this to correct or refine previously saved observations. Only observations belonging to the current project can be updated.",
+				inputSchema: {
+					type: "object",
+					properties: {
+						id: {
+							type: "string",
+							description: "Observation ID to update",
+						},
+						title: {
+							type: "string",
+							description: "Updated title (max 80 chars)",
+						},
+						narrative: {
+							type: "string",
+							description: "Updated narrative description",
+						},
+						type: {
+							type: "string",
+							enum: ["decision", "bugfix", "feature", "refactor", "discovery", "change"],
+							description: "Updated observation type",
+						},
+						concepts: {
+							type: "array",
+							items: { type: "string" },
+							description: "Updated concepts/tags",
+						},
+						importance: {
+							type: "number",
+							description: "Updated importance score (1-5)",
+						},
+					},
+					required: ["id"],
+				},
+			},
+			{
+				name: "mem-delete",
+				description:
+					"Delete an observation from memory. Use this to remove incorrect, outdated, or duplicate observations. Only observations belonging to the current project can be deleted.",
+				inputSchema: {
+					type: "object",
+					properties: {
+						id: {
+							type: "string",
+							description: "Observation ID to delete",
+						},
+					},
+					required: ["id"],
+				},
+			},
 		];
 	}
 
@@ -414,6 +466,10 @@ export class McpServer {
 				return this.execExport(args);
 			case "mem-import":
 				return this.execImport(args);
+			case "mem-update":
+				return this.execUpdate(args);
+			case "mem-delete":
+				return this.execDelete(args);
 			default:
 				return {
 					content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -894,6 +950,113 @@ export class McpServer {
 			};
 		} catch (error) {
 			return { content: [{ type: "text", text: `Import error: ${error}` }], isError: true };
+		}
+	}
+
+	private execUpdate(args: Record<string, unknown>): McpToolResult {
+		const id = typeof args.id === "string" ? args.id : undefined;
+		if (!id) {
+			return {
+				content: [{ type: "text", text: "Missing required argument: id" }],
+				isError: true,
+			};
+		}
+
+		try {
+			const existing = this.observations.getById(id);
+			if (!existing) {
+				return {
+					content: [{ type: "text", text: `Observation "${id}" not found.` }],
+					isError: true,
+				};
+			}
+
+			const session = this.sessions.getById(existing.sessionId);
+			if (!session || session.projectPath !== this.projectPath) {
+				return {
+					content: [{ type: "text", text: `Observation "${id}" not found in this project.` }],
+					isError: true,
+				};
+			}
+
+			const updateData: Record<string, unknown> = {};
+			if (typeof args.title === "string") updateData.title = args.title;
+			if (typeof args.narrative === "string") updateData.narrative = args.narrative;
+			if (typeof args.type === "string" && VALID_OBS_TYPES.has(args.type))
+				updateData.type = args.type;
+			if (Array.isArray(args.concepts)) updateData.concepts = toStringArray(args.concepts);
+			if (typeof args.importance === "number") updateData.importance = args.importance;
+
+			const updated = this.observations.update(
+				id,
+				updateData as Parameters<typeof this.observations.update>[1],
+			);
+			if (!updated) {
+				return {
+					content: [{ type: "text", text: `Failed to update observation "${id}".` }],
+					isError: true,
+				};
+			}
+
+			const changedFields = Object.keys(updateData);
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Updated observation "${updated.title}" (ID: ${updated.id}). Changed: ${changedFields.join(", ") || "nothing"}.`,
+					},
+				],
+			};
+		} catch (error) {
+			return { content: [{ type: "text", text: `Update error: ${error}` }], isError: true };
+		}
+	}
+
+	private execDelete(args: Record<string, unknown>): McpToolResult {
+		const id = typeof args.id === "string" ? args.id : undefined;
+		if (!id) {
+			return {
+				content: [{ type: "text", text: "Missing required argument: id" }],
+				isError: true,
+			};
+		}
+
+		try {
+			const existing = this.observations.getById(id);
+			if (!existing) {
+				return {
+					content: [{ type: "text", text: `Observation "${id}" not found.` }],
+					isError: true,
+				};
+			}
+
+			const session = this.sessions.getById(existing.sessionId);
+			if (!session || session.projectPath !== this.projectPath) {
+				return {
+					content: [{ type: "text", text: `Observation "${id}" not found in this project.` }],
+					isError: true,
+				};
+			}
+
+			const title = existing.title;
+			const deleted = this.observations.delete(id);
+			if (!deleted) {
+				return {
+					content: [{ type: "text", text: `Failed to delete observation "${id}".` }],
+					isError: true,
+				};
+			}
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Deleted observation: [${existing.type}] "${title}" (ID: ${id})`,
+					},
+				],
+			};
+		} catch (error) {
+			return { content: [{ type: "text", text: `Delete error: ${error}` }], isError: true };
 		}
 	}
 
