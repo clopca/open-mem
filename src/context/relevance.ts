@@ -17,8 +17,6 @@ export interface ScoringContext {
 	currentSessionId?: string;
 	/** Reference time for recency scoring */
 	now: Date;
-	/** Files recently touched — boost matching observations */
-	recentFileContext?: string[];
 }
 
 // -----------------------------------------------------------------------------
@@ -63,7 +61,7 @@ const MAX_EFFICIENT_TOKENS = 200;
 // -----------------------------------------------------------------------------
 
 /**
- * Compute recency score using exponential decay.
+ * Compute recency score using a step function.
  *
  * - Today (< 24h): 1.0
  * - Yesterday (24-48h): 0.8
@@ -165,9 +163,14 @@ export function sortByRelevance(
 	entries: ReadonlyArray<ObservationIndex>,
 	context: ScoringContext,
 ): ObservationIndex[] {
+	const scoreMap = new Map<string, number>();
+	for (const entry of entries) {
+		scoreMap.set(entry.id, scoreObservation(entry, context));
+	}
+
 	return [...entries].sort((a, b) => {
-		const scoreA = scoreObservation(a, context);
-		const scoreB = scoreObservation(b, context);
+		const scoreA = scoreMap.get(a.id) ?? 0;
+		const scoreB = scoreMap.get(b.id) ?? 0;
 		// Descending — higher score first
 		if (scoreB !== scoreA) return scoreB - scoreA;
 		// Tie-break: more recent first

@@ -28,6 +28,7 @@ function makeEntry(overrides?: Partial<ObservationIndex>): ObservationIndex {
 		tokenCount: 15,
 		discoveryTokens: 100,
 		createdAt: "2026-01-15T12:00:00Z",
+		importance: 3,
 		...overrides,
 	};
 }

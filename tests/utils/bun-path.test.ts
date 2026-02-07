@@ -34,25 +34,24 @@ describe("resolveBunPath", () => {
 	test("falls back when Bun.which returns null", () => {
 		const originalWhich = Bun.which;
 		const originalEnv = process.env.BUN_INSTALL;
+		const originalPath = process.env.PATH;
 
 		try {
 			(Bun as { which: typeof Bun.which }).which = (() => null) as typeof Bun.which;
-			process.env.BUN_INSTALL = undefined as unknown as string;
+			delete process.env.BUN_INSTALL;
 
-			const originalPath = process.env.PATH;
 			process.env.PATH = "";
 
 			const result = resolveBunPath();
 			expect(typeof result).toBe("string");
 			expect(result.length).toBeGreaterThan(0);
-
-			process.env.PATH = originalPath;
 		} finally {
+			process.env.PATH = originalPath;
 			(Bun as { which: typeof Bun.which }).which = originalWhich;
 			if (originalEnv !== undefined) {
 				process.env.BUN_INSTALL = originalEnv;
 			} else {
-				process.env.BUN_INSTALL = undefined as unknown as string;
+				delete process.env.BUN_INSTALL;
 			}
 		}
 	});
@@ -77,7 +76,7 @@ describe("resolveBunPath", () => {
 			if (originalEnv !== undefined) {
 				process.env.BUN_INSTALL = originalEnv;
 			} else {
-				process.env.BUN_INSTALL = undefined as unknown as string;
+				delete process.env.BUN_INSTALL;
 			}
 		}
 	});

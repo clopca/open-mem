@@ -31,8 +31,14 @@ export function reapOrphanDaemons(dbPath: string): ReapResult {
 			try {
 				if (existsSync(pidPath)) {
 					removePid(pidPath);
-					result.reaped++;
-					console.log("[open-mem] Reaped corrupt daemon PID file");
+					if (!existsSync(pidPath)) {
+						result.reaped++;
+						console.log("[open-mem] Reaped corrupt daemon PID file");
+					} else {
+						result.errors.push(
+							"Failed to remove corrupt PID file: file still exists after removal",
+						);
+					}
 				}
 			} catch (err) {
 				result.errors.push(
@@ -48,8 +54,14 @@ export function reapOrphanDaemons(dbPath: string): ReapResult {
 		}
 
 		removePid(pidPath);
-		result.reaped++;
-		console.log(`[open-mem] Reaped stale daemon PID file (pid=${pid})`);
+		if (!existsSync(pidPath)) {
+			result.reaped++;
+			console.log(`[open-mem] Reaped stale daemon PID file (pid=${pid})`);
+		} else {
+			result.errors.push(
+				`Failed to remove stale PID file (pid=${pid}): file still exists after removal`,
+			);
+		}
 	} catch (err) {
 		result.errors.push(`Reaper error: ${err instanceof Error ? err.message : String(err)}`);
 	}

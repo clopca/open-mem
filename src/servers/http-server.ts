@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { normalize, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { EmbeddingModel } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -265,7 +266,7 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		}
 
 		const dashboardDir =
-			injectedDashboardDir ?? new URL("../../dist/dashboard/", import.meta.url).pathname;
+			injectedDashboardDir ?? resolve(fileURLToPath(import.meta.url), "../../dist/dashboard");
 		const normalizedDir = normalize(dashboardDir);
 		const safeDirPrefix = normalizedDir.endsWith(sep) ? normalizedDir : normalizedDir + sep;
 		const cleanPath = path === "/" ? "index.html" : path.replace(/^\//, "");
@@ -280,7 +281,9 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			if (await file.exists()) {
 				return new Response(file);
 			}
-		} catch {}
+		} catch (error) {
+			console.debug("[open-mem] Failed to serve static file:", error);
+		}
 
 		const indexPath = resolve(dashboardDir, "index.html");
 		if (!indexPath.startsWith(safeDirPrefix)) {
@@ -294,7 +297,9 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 					headers: { "Content-Type": "text/html; charset=utf-8" },
 				});
 			}
-		} catch {}
+		} catch (error) {
+			console.debug("[open-mem] Failed to serve dashboard index:", error);
+		}
 
 		return c.json({ error: "Dashboard not found. Run the dashboard build first." }, 404);
 	});
