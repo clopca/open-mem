@@ -4,28 +4,37 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { getPidPath, readPid } from "../../src/daemon/pid";
 import { reapOrphanDaemons } from "../../src/daemon/reaper";
 
 function tmpDir(): string {
 	const dir = `/tmp/open-mem-reaper-test-${randomUUID()}`;
 	mkdirSync(dir, { recursive: true });
+	cleanupDirs.push(dir);
 	return dir;
 }
 
 let cleanupPaths: string[] = [];
+let cleanupDirs: string[] = [];
 
 afterEach(() => {
 	for (const p of cleanupPaths) {
 		try {
-			const { unlinkSync } = require("node:fs");
 			unlinkSync(p);
 		} catch {
 			// file may not exist
 		}
 	}
 	cleanupPaths = [];
+	for (const d of cleanupDirs) {
+		try {
+			rmSync(d, { recursive: true, force: true });
+		} catch {
+			// dir may not exist
+		}
+	}
+	cleanupDirs = [];
 });
 
 describe("reapOrphanDaemons", () => {

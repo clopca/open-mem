@@ -52,6 +52,7 @@ export function resolveBunPath(): string {
 
 	for (const candidate of getCandidatePaths()) {
 		if (existsSync(candidate)) {
+			console.debug(`[open-mem] Resolved bun path via candidate scan: ${candidate}`);
 			return candidate;
 		}
 	}
