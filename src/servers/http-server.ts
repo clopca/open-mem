@@ -25,6 +25,8 @@ export interface DashboardDeps {
 	embeddingModel: EmbeddingModel | null;
 	/** Optional SSE handler — registered before the catch-all `*` route */
 	sseHandler?: (c: Context) => Response | Promise<Response>;
+	/** Absolute path to the dashboard static files directory */
+	dashboardDir?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -90,7 +92,15 @@ function redactConfig(config: OpenMemConfig): Record<string, unknown> {
  * Does NOT start an HTTP server — returns the app for the caller to serve.
  */
 export function createDashboardApp(deps: DashboardDeps): Hono {
-	const { observationRepo, sessionRepo, summaryRepo, config, projectPath, embeddingModel } = deps;
+	const {
+		observationRepo,
+		sessionRepo,
+		summaryRepo,
+		config,
+		projectPath,
+		embeddingModel,
+		dashboardDir: injectedDashboardDir,
+	} = deps;
 
 	const app = new Hono();
 
@@ -221,8 +231,8 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		return c.json({
 			totalObservations,
 			totalSessions,
-			tokensSaved,
-			avgObservationSize,
+			totalTokensSaved: tokensSaved,
+			averageObservationSize: avgObservationSize,
 			typeBreakdown,
 		});
 	});
@@ -254,7 +264,8 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json({ error: "Not found" }, 404);
 		}
 
-		const dashboardDir = new URL("../../dist/dashboard/", import.meta.url).pathname;
+		const dashboardDir =
+			injectedDashboardDir ?? new URL("../../dist/dashboard/", import.meta.url).pathname;
 		const normalizedDir = normalize(dashboardDir);
 		const safeDirPrefix = normalizedDir.endsWith(sep) ? normalizedDir : normalizedDir + sep;
 		const cleanPath = path === "/" ? "index.html" : path.replace(/^\//, "");

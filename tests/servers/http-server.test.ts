@@ -384,8 +384,8 @@ describe("GET /api/stats", () => {
 		const data = await res.json();
 		expect(data.totalObservations).toBe(0);
 		expect(data.totalSessions).toBe(0);
-		expect(data.tokensSaved).toBe(0);
-		expect(data.avgObservationSize).toBe(0);
+		expect(data.totalTokensSaved).toBe(0);
+		expect(data.averageObservationSize).toBe(0);
 		expect(data.typeBreakdown).toEqual({});
 	});
 
@@ -413,8 +413,8 @@ describe("GET /api/stats", () => {
 		const data = await res.json();
 		expect(data.totalObservations).toBe(3);
 		expect(data.totalSessions).toBe(2);
-		expect(data.tokensSaved).toBe(1900 - 450); // (500+800+600) - (100+200+150)
-		expect(data.avgObservationSize).toBe(150); // (100+200+150)/3
+		expect(data.totalTokensSaved).toBe(1900 - 450); // (500+800+600) - (100+200+150)
+		expect(data.averageObservationSize).toBe(150); // (100+200+150)/3
 		expect(data.typeBreakdown.discovery).toBe(2);
 		expect(data.typeBreakdown.bugfix).toBe(1);
 	});
