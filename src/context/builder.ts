@@ -10,6 +10,7 @@ import type { ProgressiveContext } from "./progressive";
 // Builder Configuration
 // -----------------------------------------------------------------------------
 
+/** Configuration for how context strings are built and formatted. */
 export interface ContextBuilderConfig {
 	showTokenCosts: boolean;
 	observationTypes: ObservationType[] | "all";
@@ -41,6 +42,7 @@ const TYPE_ICONS: Record<ObservationType, string> = {
 // Markdown Format (for system.transform injection)
 // -----------------------------------------------------------------------------
 
+/** Build a Markdown context string for system prompt injection. */
 export function buildContextString(
 	context: ProgressiveContext,
 	config: ContextBuilderConfig = DEFAULT_BUILDER_CONFIG,
@@ -195,6 +197,7 @@ function groupByFile(
 // Plain-text Format (for session compaction)
 // -----------------------------------------------------------------------------
 
+/** Build a plain-text context string for session compaction. */
 export function buildCompactContext(context: ProgressiveContext): string {
 	const parts: string[] = [];
 

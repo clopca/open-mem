@@ -9,6 +9,7 @@ import type { Database } from "./database";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Classification of entity types in the knowledge graph. */
 export type EntityType =
 	| "technology"
 	| "library"
@@ -19,6 +20,7 @@ export type EntityType =
 	| "project"
 	| "other";
 
+/** A node in the knowledge graph representing a named concept or artifact. */
 export interface Entity {
 	id: string;
 	name: string;
@@ -28,6 +30,7 @@ export interface Entity {
 	mentionCount: number;
 }
 
+/** A directed edge between two entities in the knowledge graph. */
 export interface EntityRelation {
 	id: string;
 	sourceEntityId: string;
@@ -67,6 +70,7 @@ interface EntityObservationRow {
 // EntityRepository
 // -----------------------------------------------------------------------------
 
+/** Repository for managing the entity knowledge graph (nodes, relations, observation links). */
 export class EntityRepository {
 	constructor(private db: Database) {}
 
@@ -74,6 +78,7 @@ export class EntityRepository {
 	// Upsert Entity
 	// ---------------------------------------------------------------------------
 
+	/** Insert or update an entity, incrementing its mention count if it already exists. */
 	upsertEntity(name: string, entityType: EntityType): Entity {
 		const id = randomUUID();
 		const now = new Date().toISOString();
@@ -102,6 +107,7 @@ export class EntityRepository {
 	// Create Relation
 	// ---------------------------------------------------------------------------
 
+	/** Create a directed relation between two entities, ignoring duplicates. */
 	createRelation(
 		sourceEntityId: string,
 		targetEntityId: string,
@@ -135,6 +141,7 @@ export class EntityRepository {
 	// Link Observation
 	// ---------------------------------------------------------------------------
 
+	/** Link an entity to an observation via the junction table. */
 	linkObservation(entityId: string, observationId: string): void {
 		this.db.run(
 			"INSERT OR IGNORE INTO entity_observations (entity_id, observation_id) VALUES (?, ?)",
@@ -146,6 +153,7 @@ export class EntityRepository {
 	// Find by Name (FTS5)
 	// ---------------------------------------------------------------------------
 
+	/** Find entities by name using FTS5 full-text search. */
 	findByName(name: string): Entity[] {
 		try {
 			const rows = this.db.all<EntityRow>(
@@ -166,6 +174,7 @@ export class EntityRepository {
 	// Get Relations
 	// ---------------------------------------------------------------------------
 
+	/** Get all relations where the entity is either source or target. */
 	getRelationsFor(entityId: string): EntityRelation[] {
 		const rows = this.db.all<EntityRelationRow>(
 			`SELECT * FROM entity_relations
@@ -179,8 +188,10 @@ export class EntityRepository {
 	// BFS Traversal
 	// ---------------------------------------------------------------------------
 
+	/** BFS traversal of entity relations up to the given depth (max 2). */
 	traverseRelations(entityId: string, depth = 1): Set<string> {
 		const maxDepth = Math.min(depth, 2); // Cap at 2 to prevent explosion
+		const MAX_VISITED = 100;
 		const visited = new Set<string>();
 		const queue: Array<{ id: string; currentDepth: number }> = [
 			{ id: entityId, currentDepth: 0 },
@@ -189,6 +200,7 @@ export class EntityRepository {
 		visited.add(entityId);
 
 		while (queue.length > 0) {
+			if (visited.size >= MAX_VISITED) break;
 			const current = queue.shift()!;
 			if (current.currentDepth >= maxDepth) continue;
 
@@ -211,6 +223,7 @@ export class EntityRepository {
 	// Get Observations for Entity
 	// ---------------------------------------------------------------------------
 
+	/** Get all observation IDs linked to an entity. */
 	getObservationsForEntity(entityId: string): string[] {
 		const rows = this.db.all<EntityObservationRow>(
 			"SELECT observation_id FROM entity_observations WHERE entity_id = ?",
@@ -223,6 +236,7 @@ export class EntityRepository {
 	// Get by ID
 	// ---------------------------------------------------------------------------
 
+	/** Get an entity by its unique ID. */
 	getById(id: string): Entity | null {
 		const row = this.db.get<EntityRow>("SELECT * FROM entities WHERE id = ?", [id]);
 		return row ? this.mapEntityRow(row) : null;

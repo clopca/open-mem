@@ -68,6 +68,7 @@ interface EmbeddingRow {
 	title: string;
 }
 
+/** Repository for observation CRUD, FTS5 search, and embedding operations. */
 export class ObservationRepository {
 	constructor(private db: Database) {}
 
@@ -533,6 +534,7 @@ export class ObservationRepository {
 		return this.getById(id);
 	}
 
+	/** Mark an observation as superseded by a newer one. */
 	supersede(observationId: string, newObservationId: string): void {
 		const now = new Date().toISOString();
 		this.db.run(

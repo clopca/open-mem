@@ -8,6 +8,7 @@ import type { Database, Migration } from "./database";
 // Table Name Constants
 // -----------------------------------------------------------------------------
 
+/** Table name constants for the database schema. */
 export const TABLES = {
 	SESSIONS: "sessions",
 	OBSERVATIONS: "observations",
@@ -27,6 +28,7 @@ export const TABLES = {
 // Migrations
 // -----------------------------------------------------------------------------
 
+/** Ordered list of database migrations from v1 to v9. */
 export const MIGRATIONS: Migration[] = [
 	// v1 — Core tables
 	{
@@ -366,6 +368,7 @@ export function initializeSchema(
 	}
 }
 
+/** Create the vec0 virtual table for native vector similarity search. */
 export function initializeVec0Table(db: Database, dimension: number): void {
 	const exists = db.get<{ name: string }>(
 		"SELECT name FROM sqlite_master WHERE type='table' AND name='observation_embeddings'",

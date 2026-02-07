@@ -12,6 +12,7 @@ import type { SearchResult } from "../types";
 // Interface
 // -----------------------------------------------------------------------------
 
+/** Interface for reranking search results by relevance to a query. */
 export interface Reranker {
 	rerank(query: string, results: SearchResult[], limit: number): Promise<SearchResult[]>;
 }
@@ -20,6 +21,7 @@ export interface Reranker {
 // LLM Reranker
 // -----------------------------------------------------------------------------
 
+/** Reranks search results using an LLM to judge relevance. */
 export class LLMReranker implements Reranker {
 	private languageModel: LanguageModel;
 	private maxCandidates: number;
@@ -46,10 +48,12 @@ export class LLMReranker implements Reranker {
 		this.rateLimitingEnabled = config.rateLimitingEnabled ?? true;
 	}
 
+	/** Rerank results by sending candidates to the LLM for relevance ordering. */
 	async rerank(query: string, results: SearchResult[], limit: number): Promise<SearchResult[]> {
 		if (results.length <= 1) return results;
 
 		const candidates = results.slice(0, this.maxCandidates);
+		const overflow = results.slice(this.maxCandidates);
 
 		const prompt = buildRerankingPrompt(
 			query,
@@ -75,7 +79,12 @@ export class LLMReranker implements Reranker {
 				const indices = parseRerankingResponse(text);
 				if (!indices) return results.slice(0, limit);
 
-				return this.applyReranking(candidates, indices, limit);
+				const reranked = this.applyReranking(candidates, indices, limit);
+				for (const item of overflow) {
+					if (reranked.length >= limit) break;
+					reranked.push(item);
+				}
+				return reranked;
 			} catch (error: unknown) {
 				if (isRetryable(error) && attempt < maxRetries) {
 					await sleep(2 ** attempt * 1000);
@@ -122,7 +131,9 @@ export class LLMReranker implements Reranker {
 // Heuristic Reranker
 // -----------------------------------------------------------------------------
 
+/** Reranks search results using term-overlap heuristics (no LLM required). */
 export class HeuristicReranker implements Reranker {
+	/** Rerank results by scoring term overlap, recency, and importance. */
 	async rerank(query: string, results: SearchResult[], limit: number): Promise<SearchResult[]> {
 		if (results.length <= 1) return results.slice(0, limit);
 
@@ -176,6 +187,7 @@ export class HeuristicReranker implements Reranker {
 // Factory
 // -----------------------------------------------------------------------------
 
+/** Create a reranker based on config: LLM-based if model available, heuristic fallback. */
 export function createReranker(
 	config: { rerankingEnabled: boolean; rerankingMaxCandidates: number; provider?: string; model?: string; rateLimitingEnabled?: boolean },
 	languageModel: LanguageModel | null,

@@ -8,6 +8,7 @@ import type { ObservationRepository } from "../db/observations";
 import type { UserObservationRepository, UserObservation } from "../db/user-memory";
 import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
+import { passesFilters } from "./filters";
 import { graphAugmentedSearch } from "./graph";
 import { hybridSearch } from "./hybrid";
 import type { Reranker } from "./reranker";
@@ -16,8 +17,10 @@ import type { Reranker } from "./reranker";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Available search strategies for the orchestrator. */
 export type SearchStrategy = "filter-only" | "semantic" | "hybrid";
 
+/** Options for orchestrated search across project and user memory. */
 export interface OrchestratedSearchOptions {
 	strategy?: SearchStrategy;
 	type?: ObservationType;
@@ -37,6 +40,10 @@ export interface OrchestratedSearchOptions {
 // SearchOrchestrator
 // -----------------------------------------------------------------------------
 
+/**
+ * Coordinates multi-strategy search across FTS5, vector, graph, and user memory.
+ * Supports filter-only, semantic, and hybrid search with optional LLM reranking.
+ */
 export class SearchOrchestrator {
 	constructor(
 		private observations: ObservationRepository,
@@ -47,6 +54,7 @@ export class SearchOrchestrator {
 		private entityRepo: EntityRepository | null = null,
 	) {}
 
+	/** Execute a search using the configured strategy, with graph augmentation and reranking. */
 	async search(query: string, options: OrchestratedSearchOptions): Promise<SearchResult[]> {
 		const strategy = options.strategy ?? "hybrid";
 		const limit = options.limit ?? 10;
@@ -201,7 +209,7 @@ export class SearchOrchestrator {
 
 				const obs = this.observations.getById(observationId);
 				if (!obs) continue;
-				if (!passesAdvancedFilters(obs, options)) continue;
+				if (!passesFilters(obs, options)) continue;
 
 				results.push({
 					observation: obs,
@@ -238,7 +246,7 @@ export class SearchOrchestrator {
 
 			const obs = this.observations.getById(id);
 			if (!obs) continue;
-			if (!passesAdvancedFilters(obs, options)) continue;
+			if (!passesFilters(obs, options)) continue;
 
 			results.push({
 				observation: obs,
@@ -280,45 +288,18 @@ export class SearchOrchestrator {
 		limit: number,
 	): SearchResult[] {
 		const seenIds = new Set(projectResults.map((r) => r.observation.id));
-		const dedupedUserResults = userResults.filter((r) => !seenIds.has(r.observation.id));
+		const seenContent = new Set(
+			projectResults.map((r) => `${r.observation.title}::${r.observation.narrative}`),
+		);
+		const dedupedUserResults = userResults.filter((r) => {
+			if (seenIds.has(r.observation.id)) return false;
+			const contentKey = `${r.observation.title}::${r.observation.narrative}`;
+			if (seenContent.has(contentKey)) return false;
+			seenContent.add(contentKey);
+			return true;
+		});
 		return [...projectResults, ...dedupedUserResults].slice(0, limit);
 	}
-}
-
-// -----------------------------------------------------------------------------
-// Filter Helpers
-// -----------------------------------------------------------------------------
-
-interface AdvancedFilterOptions {
-	type?: ObservationType;
-	importanceMin?: number;
-	importanceMax?: number;
-	createdAfter?: string;
-	createdBefore?: string;
-	concepts?: string[];
-	files?: string[];
-}
-
-function passesAdvancedFilters(obs: Observation, filters: AdvancedFilterOptions): boolean {
-	if (filters.type && obs.type !== filters.type) return false;
-	if (filters.importanceMin !== undefined && obs.importance < filters.importanceMin) return false;
-	if (filters.importanceMax !== undefined && obs.importance > filters.importanceMax) return false;
-	if (filters.createdAfter && obs.createdAt < filters.createdAfter) return false;
-	if (filters.createdBefore && obs.createdAt > filters.createdBefore) return false;
-	if (filters.concepts && filters.concepts.length > 0) {
-		const hasConcept = filters.concepts.some((c) =>
-			obs.concepts.some((oc) => oc.toLowerCase().includes(c.toLowerCase())),
-		);
-		if (!hasConcept) return false;
-	}
-	if (filters.files && filters.files.length > 0) {
-		const allFiles = [...obs.filesRead, ...obs.filesModified];
-		const hasFile = filters.files.some((f) =>
-			allFiles.some((af) => af.toLowerCase().includes(f.toLowerCase())),
-		);
-		if (!hasFile) return false;
-	}
-	return true;
 }
 
 function userObservationToObservation(userObs: UserObservation): Observation {

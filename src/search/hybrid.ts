@@ -1,7 +1,8 @@
 import type { EmbeddingModel } from "ai";
 import type { ObservationRepository } from "../db/observations";
-import type { Observation, ObservationType, SearchResult } from "../types";
+import type { ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
+import { passesFilters } from "./filters";
 
 const RRF_K = 60;
 
@@ -18,6 +19,10 @@ interface HybridSearchOptions {
 	files?: string[];
 }
 
+/**
+ * Perform hybrid search combining FTS5 text search with vector similarity,
+ * merging results via Reciprocal Rank Fusion (RRF).
+ */
 export async function hybridSearch(
 	query: string,
 	observations: ObservationRepository,
@@ -67,6 +72,7 @@ function safelyRunFts(
 			query,
 			type: options.type,
 			limit,
+			projectPath: options.projectPath,
 			importanceMin: options.importanceMin,
 			importanceMax: options.importanceMax,
 			createdAfter: options.createdAfter,
@@ -77,28 +83,6 @@ function safelyRunFts(
 	} catch {
 		return [];
 	}
-}
-
-function passesFilters(obs: Observation, options: HybridSearchOptions): boolean {
-	if (options.type && obs.type !== options.type) return false;
-	if (options.importanceMin !== undefined && obs.importance < options.importanceMin) return false;
-	if (options.importanceMax !== undefined && obs.importance > options.importanceMax) return false;
-	if (options.createdAfter && obs.createdAt < options.createdAfter) return false;
-	if (options.createdBefore && obs.createdAt > options.createdBefore) return false;
-	if (options.concepts && options.concepts.length > 0) {
-		const hasConcept = options.concepts.some((c) =>
-			obs.concepts.some((oc) => oc.toLowerCase().includes(c.toLowerCase())),
-		);
-		if (!hasConcept) return false;
-	}
-	if (options.files && options.files.length > 0) {
-		const allFiles = [...obs.filesRead, ...obs.filesModified];
-		const hasFile = options.files.some((f) =>
-			allFiles.some((af) => af.toLowerCase().includes(f.toLowerCase())),
-		);
-		if (!hasFile) return false;
-	}
-	return true;
 }
 
 function runVectorSearch(

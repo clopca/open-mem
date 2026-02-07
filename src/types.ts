@@ -53,6 +53,7 @@ export interface ObservationIndex {
 // Session Types
 // -----------------------------------------------------------------------------
 
+/** An active or completed coding session. */
 export interface Session {
 	id: string; // OpenCode session ID
 	projectPath: string; // Project directory
@@ -63,6 +64,7 @@ export interface Session {
 	summaryId: string | null; // Reference to session summary
 }
 
+/** AI-generated summary of a coding session. */
 export interface SessionSummary {
 	id: string;
 	sessionId: string;
@@ -83,6 +85,7 @@ export interface SessionSummary {
 // Queue Types
 // -----------------------------------------------------------------------------
 
+/** A pending tool output awaiting AI compression. */
 export interface PendingMessage {
 	id: string;
 	sessionId: string;
@@ -95,6 +98,7 @@ export interface PendingMessage {
 	error: string | null;
 }
 
+/** Queued work item for the background processor. */
 export type QueueItem =
 	| {
 			type: "compress";
@@ -113,6 +117,7 @@ export type QueueItem =
 // Configuration Types
 // -----------------------------------------------------------------------------
 
+/** Full configuration for the open-mem plugin. */
 export interface OpenMemConfig {
 	// Storage
 	dbPath: string; // Path to SQLite database file
@@ -263,6 +268,7 @@ export type Plugin = (input: PluginInput) => Promise<Hooks>;
 // Search / Query Types
 // -----------------------------------------------------------------------------
 
+/** FTS5 search query parameters with optional filters. */
 export interface SearchQuery {
 	query: string;
 	sessionId?: string;
@@ -278,6 +284,7 @@ export interface SearchQuery {
 	files?: string[]; // Filter by file paths (match any)
 }
 
+/** A search result pairing an observation with its relevance rank. */
 export interface SearchResult {
 	observation: Observation;
 	rank: number; // FTS5 rank score
@@ -285,6 +292,7 @@ export interface SearchResult {
 	source?: "project" | "user";
 }
 
+/** A session with its summary and observation count for timeline display. */
 export interface TimelineEntry {
 	session: Session;
 	summary: SessionSummary | null;

@@ -10,6 +10,7 @@ import { createDatabase, type Database, type Migration } from "./database";
 // User Observation Types
 // -----------------------------------------------------------------------------
 
+/** A cross-project observation stored in the user-level memory database. */
 export interface UserObservation {
 	id: string;
 	type: ObservationType;
@@ -145,6 +146,7 @@ const USER_MIGRATIONS: Migration[] = [
 // UserMemoryDatabase
 // -----------------------------------------------------------------------------
 
+/** Manages the user-level SQLite database for cross-project memory. */
 export class UserMemoryDatabase {
 	private db: Database;
 
@@ -158,10 +160,12 @@ export class UserMemoryDatabase {
 		this.db.migrate(USER_MIGRATIONS);
 	}
 
+	/** Get the underlying database instance. */
 	get database(): Database {
 		return this.db;
 	}
 
+	/** Close the database connection. */
 	close(): void {
 		this.db.close();
 	}
@@ -171,9 +175,11 @@ export class UserMemoryDatabase {
 // UserObservationRepository
 // -----------------------------------------------------------------------------
 
+/** Repository for CRUD operations on user-level cross-project observations. */
 export class UserObservationRepository {
 	constructor(private db: Database) {}
 
+	/** Create a new user-level observation. */
 	create(
 		data: Omit<UserObservation, "id" | "createdAt">,
 	): UserObservation {
@@ -205,35 +211,41 @@ export class UserObservationRepository {
 		return { ...data, id, createdAt: now, importance: data.importance ?? 3 };
 	}
 
+	/** Search user observations using FTS5 full-text search. */
 	search(query: {
 		query: string;
 		limit?: number;
 		sourceProject?: string;
 	}): Array<{ observation: UserObservation; rank: number }> {
-		let sql = `
-			SELECT o.*, rank
-			FROM user_observations o
-			JOIN user_observations_fts fts ON o._rowid = fts.rowid
-			WHERE user_observations_fts MATCH ?
-		`;
-		const params: (string | number)[] = [query.query];
+		try {
+			let sql = `
+				SELECT o.*, rank
+				FROM user_observations o
+				JOIN user_observations_fts fts ON o._rowid = fts.rowid
+				WHERE user_observations_fts MATCH ?
+			`;
+			const params: (string | number)[] = [query.query];
 
-		if (query.sourceProject) {
-			sql += " AND o.source_project = ?";
-			params.push(query.sourceProject);
+			if (query.sourceProject) {
+				sql += " AND o.source_project = ?";
+				params.push(query.sourceProject);
+			}
+
+			sql += " ORDER BY rank LIMIT ?";
+			params.push(query.limit ?? 10);
+
+			return this.db
+				.all<UserObservationSearchRow>(sql, params)
+				.map((row) => ({
+					observation: this.mapRow(row),
+					rank: row.rank,
+				}));
+		} catch {
+			return [];
 		}
-
-		sql += " ORDER BY rank LIMIT ?";
-		params.push(query.limit ?? 10);
-
-		return this.db
-			.all<UserObservationSearchRow>(sql, params)
-			.map((row) => ({
-				observation: this.mapRow(row),
-				rank: row.rank,
-			}));
 	}
 
+	/** Get a lightweight index of user observations for context injection. */
 	getIndex(
 		limit?: number,
 		sourceProject?: string,
@@ -264,6 +276,7 @@ export class UserObservationRepository {
 			}));
 	}
 
+	/** Get a user observation by its unique ID. */
 	getById(id: string): UserObservation | null {
 		const row = this.db.get<UserObservationRow>(
 			"SELECT * FROM user_observations WHERE id = ?",
@@ -272,6 +285,7 @@ export class UserObservationRepository {
 		return row ? this.mapRow(row) : null;
 	}
 
+	/** Delete a user observation by ID. */
 	delete(id: string): boolean {
 		const result = this.db.all<{ id: string }>(
 			"DELETE FROM user_observations WHERE id = ? RETURNING id",
@@ -307,7 +321,15 @@ export class UserObservationRepository {
 function resolveUserDbPath(dbPath: string): string {
 	if (dbPath.startsWith("~/")) {
 		const home = process.env.HOME || process.env.USERPROFILE || "";
-		return `${home}${dbPath.slice(1)}`;
+		if (!home) {
+			throw new Error(
+				"Cannot resolve user DB path: HOME environment variable is not set",
+			);
+		}
+		const resolved = `${home}${dbPath.slice(1)}`;
+		const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+		require("node:fs").mkdirSync(dir, { recursive: true });
+		return resolved;
 	}
 	return dbPath;
 }

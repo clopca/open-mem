@@ -11,9 +11,12 @@ import {
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
+/** Re-exported conflict evaluation types. */
 export type { ConflictEvaluation, ConflictCandidate, ConflictNewObservation };
+/** Re-exported conflict outcome type. */
 export type { ConflictOutcome } from "./parser";
 
+/** Configuration for the AI-powered conflict evaluator. */
 export interface ConflictEvaluatorConfig {
 	provider: string;
 	apiKey: string | undefined;
@@ -21,6 +24,10 @@ export interface ConflictEvaluatorConfig {
 	rateLimitingEnabled: boolean;
 }
 
+/**
+ * Uses an LLM to determine whether a new observation conflicts with,
+ * updates, or duplicates existing observations.
+ */
 export class ConflictEvaluator {
 	private model: LanguageModel | null;
 	private config: ConflictEvaluatorConfig;
@@ -45,6 +52,10 @@ export class ConflictEvaluator {
 		}
 	}
 
+	/**
+	 * Evaluate a new observation against existing candidates for conflicts.
+	 * @returns Evaluation result, or null if AI is unavailable or no candidates.
+	 */
 	async evaluate(
 		newObs: ConflictNewObservation,
 		candidates: ReadonlyArray<ConflictCandidate>,

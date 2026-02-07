@@ -55,6 +55,7 @@ interface McpToolResult {
 // MCP Server
 // -----------------------------------------------------------------------------
 
+/** Dependencies required to initialize the MCP server. */
 export interface McpServerDeps {
 	observations: ObservationRepository;
 	sessions: SessionRepository;
@@ -95,6 +96,10 @@ function toStringArray(value: unknown): string[] {
 		: [];
 }
 
+/**
+ * MCP server exposing memory tools over stdin/stdout JSON-RPC 2.0.
+ * Implements the Model Context Protocol for any MCP-compatible AI client.
+ */
 export class McpServer {
 	private observations: ObservationRepository;
 	private sessions: SessionRepository;
@@ -117,6 +122,7 @@ export class McpServer {
 	// Start listening on stdin/stdout
 	// ---------------------------------------------------------------------------
 
+	/** Start listening for JSON-RPC messages on stdin. */
 	start(): void {
 		const rl = createInterface({
 			input: process.stdin,
@@ -147,9 +153,10 @@ export class McpServer {
 			}
 		});
 
-		rl.on("close", async () => {
-			await Promise.all(this.pendingOps);
-			process.exit(0);
+		rl.on("close", () => {
+			Promise.allSettled(this.pendingOps).then(() => {
+				process.exit(0);
+			});
 		});
 	}
 
@@ -515,7 +522,7 @@ export class McpServer {
 					projectPath: this.projectPath,
 				});
 			} else {
-				results = this.observations.search({ query, type, limit });
+				results = this.observations.search({ query, type, limit, projectPath: this.projectPath });
 			}
 
 			if (results.length === 0) {

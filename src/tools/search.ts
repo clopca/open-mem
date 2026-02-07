@@ -24,6 +24,7 @@ const searchArgsSchema = z.object({
 
 type SearchArgs = z.infer<typeof searchArgsSchema>;
 
+/** Create the mem-search tool with FTS5, vector, and advanced filter support. */
 export function createSearchTool(
 	searchOrchestrator: SearchOrchestrator,
 	summaries: SummaryRepository,

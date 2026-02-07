@@ -6,6 +6,11 @@ import type { EntityRepository } from "../db/entities";
 import type { ObservationRepository } from "../db/observations";
 import type { SearchResult } from "../types";
 
+/**
+ * Augment base search results with observations discovered via entity graph traversal.
+ * Finds entities mentioned in the query, traverses their relations, and appends
+ * linked observations not already in the base results.
+ */
 export async function graphAugmentedSearch(
 	query: string,
 	baseResults: SearchResult[],

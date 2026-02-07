@@ -287,9 +287,10 @@ export class QueueProcessor {
 							console.log(
 								`[open-mem] Superseded observation ${conflictSupersedesId} with ${created.id}`,
 							);
-						} catch {
-							// Supersede failure must not block observation creation
-						}
+					} catch (error) {
+						// Supersede failure must not block observation creation
+						console.error(`[open-mem] Failed to supersede ${conflictSupersedesId}:`, error);
+					}
 					}
 
 					// ---------------------------------------------------------------

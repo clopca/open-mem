@@ -120,6 +120,7 @@ Respond with EXACTLY this XML format:
 // Conflict Evaluation Prompt
 // -----------------------------------------------------------------------------
 
+/** An existing observation that may conflict with a new one. */
 export interface ConflictCandidate {
 	id: string;
 	title: string;
@@ -128,6 +129,7 @@ export interface ConflictCandidate {
 	type: string;
 }
 
+/** The new observation being evaluated for conflicts. */
 export interface ConflictNewObservation {
 	title: string;
 	narrative: string;
@@ -189,6 +191,7 @@ Respond with EXACTLY this XML format:
 // Entity Extraction Prompt
 // -----------------------------------------------------------------------------
 
+/** Observation data used as input for entity extraction. */
 export interface EntityExtractionObservation {
 	title: string;
 	type: string;
@@ -223,7 +226,7 @@ Extract entities and relationships from this observation.
 Entity types: technology, library, pattern, concept, file, person, project, other
 Relationship types: uses, depends_on, implements, extends, related_to, replaces, configures
 
-Only extract entities that are clearly mentioned. Do not infer.
+Extract entities that are clearly mentioned or strongly implied. For example, "React hooks" implies a relationship between React and hooks. Do not extract speculative relationships.
 Respond with EXACTLY this XML format:
 <extraction>
   <entities>
@@ -242,6 +245,10 @@ Respond with EXACTLY this XML format:
 // Reranking Prompt
 // -----------------------------------------------------------------------------
 
+/**
+ * Build a prompt that instructs the AI to reorder search result candidates
+ * by relevance to the query.
+ */
 export function buildRerankingPrompt(
 	query: string,
 	candidates: ReadonlyArray<{ title: string; narrative: string }>,

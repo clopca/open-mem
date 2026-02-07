@@ -14,6 +14,7 @@ const recallArgsSchema = z.object({
 
 type RecallArgs = z.infer<typeof recallArgsSchema>;
 
+/** Create the mem-recall tool for fetching full observation details by ID. */
 export function createRecallTool(
 	observations: ObservationRepository,
 	userObservationRepo?: UserObservationRepository,

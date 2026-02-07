@@ -130,10 +130,14 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_EMBEDDING_DIMENSION)
 		env.embeddingDimension = Number.parseInt(process.env.OPEN_MEM_EMBEDDING_DIMENSION, 10);
 	if (process.env.OPEN_MEM_CONFLICT_RESOLUTION === "true") env.conflictResolutionEnabled = true;
-	if (process.env.OPEN_MEM_CONFLICT_BAND_LOW)
-		env.conflictSimilarityBandLow = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_LOW);
-	if (process.env.OPEN_MEM_CONFLICT_BAND_HIGH)
-		env.conflictSimilarityBandHigh = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_HIGH);
+	if (process.env.OPEN_MEM_CONFLICT_BAND_LOW) {
+		const v = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_LOW);
+		if (!Number.isNaN(v)) env.conflictSimilarityBandLow = v;
+	}
+	if (process.env.OPEN_MEM_CONFLICT_BAND_HIGH) {
+		const v = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_HIGH);
+		if (!Number.isNaN(v)) env.conflictSimilarityBandHigh = v;
+	}
 	if (process.env.OPEN_MEM_USER_MEMORY === "true") env.userMemoryEnabled = true;
 	if (process.env.OPEN_MEM_USER_MEMORY_DB_PATH)
 		env.userMemoryDbPath = process.env.OPEN_MEM_USER_MEMORY_DB_PATH;
@@ -157,6 +161,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 // Embedding Dimension Defaults
 // -----------------------------------------------------------------------------
 
+/** Get the default embedding dimension for a given AI provider. */
 export function getDefaultDimension(provider: string): number {
 	switch (provider) {
 		case "google":

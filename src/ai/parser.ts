@@ -12,6 +12,7 @@ import type { ObservationType } from "../types";
 // Parsed Result Types
 // -----------------------------------------------------------------------------
 
+/** Structured observation parsed from AI XML response. */
 export interface ParsedObservation {
 	type: ObservationType;
 	title: string;
@@ -25,6 +26,7 @@ export interface ParsedObservation {
 	importance?: number;
 }
 
+/** Structured session summary parsed from AI XML response. */
 export interface ParsedSummary {
 	summary: string;
 	keyDecisions: string[];
@@ -158,6 +160,7 @@ export function parseSummaryResponse(response: string): ParsedSummary | null {
 // Reranking Parser
 // -----------------------------------------------------------------------------
 
+/** Parse an LLM reranking response into an ordered array of candidate indices. */
 export function parseRerankingResponse(response: string): number[] | null {
 	const block = extractTag(response, "reranked");
 	if (!block) return null;
@@ -179,8 +182,10 @@ export function parseRerankingResponse(response: string): number[] | null {
 // Conflict Evaluation Parser
 // -----------------------------------------------------------------------------
 
+/** Possible outcomes of a conflict evaluation. */
 export type ConflictOutcome = "new_fact" | "update" | "duplicate";
 
+/** Result of evaluating whether a new observation conflicts with existing ones. */
 export interface ConflictEvaluation {
 	outcome: ConflictOutcome;
 	supersedesId?: string;
@@ -189,6 +194,7 @@ export interface ConflictEvaluation {
 
 const VALID_CONFLICT_OUTCOMES = new Set<string>(["new_fact", "update", "duplicate"]);
 
+/** Parse an LLM conflict evaluation response into a structured result. */
 export function parseConflictEvaluationResponse(response: string): ConflictEvaluation | null {
 	const block = extractTag(response, "evaluation");
 	if (!block) return null;
@@ -208,6 +214,10 @@ export function parseConflictEvaluationResponse(response: string): ConflictEvalu
 		result.supersedesId = supersedes;
 	}
 
+	if (outcome === "update" && !result.supersedesId) {
+		return null; // "update" requires a supersedes target
+	}
+
 	return result;
 }
 
@@ -215,6 +225,7 @@ export function parseConflictEvaluationResponse(response: string): ConflictEvalu
 // Entity Extraction Parser
 // -----------------------------------------------------------------------------
 
+/** Classification of entity types extracted from observations. */
 export type EntityType =
 	| "technology"
 	| "library"
@@ -225,6 +236,7 @@ export type EntityType =
 	| "project"
 	| "other";
 
+/** Types of relationships between extracted entities. */
 export type RelationshipType =
 	| "uses"
 	| "depends_on"
@@ -234,17 +246,20 @@ export type RelationshipType =
 	| "replaces"
 	| "configures";
 
+/** An entity extracted from observation text. */
 export interface ParsedEntity {
 	name: string;
 	entityType: EntityType;
 }
 
+/** A relationship between two extracted entities. */
 export interface ParsedRelation {
 	sourceName: string;
 	targetName: string;
 	relationship: RelationshipType;
 }
 
+/** Complete result of entity extraction from an observation. */
 export interface ParsedEntityExtraction {
 	entities: ParsedEntity[];
 	relations: ParsedRelation[];
@@ -271,6 +286,7 @@ const VALID_RELATIONSHIP_TYPES = new Set<string>([
 	"configures",
 ]);
 
+/** Parse an LLM entity extraction response into entities and relations. */
 export function parseEntityExtractionResponse(
 	response: string,
 ): ParsedEntityExtraction | null {

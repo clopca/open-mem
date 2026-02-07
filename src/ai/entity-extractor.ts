@@ -10,10 +10,12 @@ import {
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
+/** Re-exported entity extraction result types. */
 export type {
 	ParsedEntityExtraction as EntityExtractionResult,
 	EntityExtractionObservation,
 };
+/** Re-exported entity and relation types. */
 export type {
 	ParsedEntity as ExtractedEntity,
 	ParsedRelation as ExtractedRelation,
@@ -21,6 +23,7 @@ export type {
 	RelationshipType,
 } from "./parser";
 
+/** Configuration for the AI-powered entity extractor. */
 export interface EntityExtractorConfig {
 	provider: string;
 	apiKey: string | undefined;
@@ -28,6 +31,10 @@ export interface EntityExtractorConfig {
 	rateLimitingEnabled: boolean;
 }
 
+/**
+ * Uses an LLM to extract entities (technologies, libraries, patterns) and
+ * their relationships from observation text.
+ */
 export class EntityExtractor {
 	private model: LanguageModel | null;
 	private config: EntityExtractorConfig;
@@ -52,6 +59,10 @@ export class EntityExtractor {
 		}
 	}
 
+	/**
+	 * Extract entities and relationships from an observation.
+	 * @returns Extracted entities and relations, or null if AI is unavailable.
+	 */
 	async extract(
 		observation: EntityExtractionObservation,
 	): Promise<ParsedEntityExtraction | null> {

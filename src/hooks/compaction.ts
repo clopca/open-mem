@@ -10,6 +10,7 @@ import type { SummaryRepository } from "../db/summaries";
 import type { UserObservationRepository } from "../db/user-memory";
 import type { OpenMemConfig } from "../types";
 
+/** Create the session compaction hook that injects memory context during compaction. */
 export function createCompactionHook(
 	config: OpenMemConfig,
 	observations: ObservationRepository,

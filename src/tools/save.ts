@@ -33,6 +33,7 @@ const saveArgsSchema = z.object({
 
 type SaveArgs = z.infer<typeof saveArgsSchema>;
 
+/** Create the mem-save tool for manually saving observations to project or user memory. */
 export function createSaveTool(
 	observations: ObservationRepository,
 	sessions: SessionRepository,
