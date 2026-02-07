@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { existsSync } from "node:fs";
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import type { Observation, ObservationType } from "../types";
 
@@ -181,6 +181,7 @@ export async function updateAgentsMd(folderPath: string, contextBlock: string): 
 	const finalContent = replaceTaggedContent(existingContent, contextBlock);
 
 	// Atomic write: temp file + rename
+	await mkdir(dirname(tempPath), { recursive: true });
 	await writeFile(tempPath, finalContent, "utf-8");
 	await rename(tempPath, agentsMdPath);
 }

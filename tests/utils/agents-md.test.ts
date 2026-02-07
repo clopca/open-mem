@@ -3,9 +3,18 @@
 // =============================================================================
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { Observation } from "../../src/types";
 import {
 	generateFolderContext,
@@ -201,5 +210,35 @@ describe("updateAgentsMd", () => {
 		expect(content).toContain("# My Custom Notes");
 		expect(content).toContain("Important info here.");
 		expect(content).toContain("Auto-generated context");
+	});
+
+	test("handles ENOENT race when folder disappears between check and write", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-agents-"));
+		const racyDir = join(tempDir, "racy");
+		mkdirSync(racyDir);
+
+		rmSync(racyDir, { recursive: true });
+
+		const tempPath = join(racyDir, ".AGENTS.md.tmp");
+		const agentsMdPath = join(racyDir, "AGENTS.md");
+
+		await mkdir(dirname(tempPath), { recursive: true });
+		await writeFile(tempPath, "race-safe content", "utf-8");
+		await rename(tempPath, agentsMdPath);
+
+		expect(existsSync(agentsMdPath)).toBe(true);
+		expect(readFileSync(agentsMdPath, "utf-8")).toBe("race-safe content");
+	});
+
+	test("mkdir before atomic write is idempotent on existing dirs", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-agents-"));
+
+		await updateAgentsMd(tempDir, "idempotent mkdir test");
+
+		const agentsMdPath = join(tempDir, "AGENTS.md");
+		expect(existsSync(agentsMdPath)).toBe(true);
+		const content = readFileSync(agentsMdPath, "utf-8");
+		expect(content).toContain("idempotent mkdir test");
+		expect(existsSync(join(tempDir, ".AGENTS.md.tmp"))).toBe(false);
 	});
 });
