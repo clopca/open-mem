@@ -6,21 +6,24 @@ import { z } from "zod";
 import type { ObservationRepository } from "../db/observations";
 import type { Observation, ToolDefinition } from "../types";
 
+const recallArgsSchema = z.object({
+	ids: z.array(z.string()).describe("Observation IDs to fetch"),
+	limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
+});
+
+type RecallArgs = z.infer<typeof recallArgsSchema>;
+
 export function createRecallTool(observations: ObservationRepository): ToolDefinition {
 	return {
 		name: "mem-recall",
 		description:
 			"Fetch full observation details by ID. Use after mem-search to get complete narratives, facts, concepts, and file lists for specific observations.",
-		args: {
-			ids: z.array(z.string()).describe("Observation IDs to fetch"),
-			limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
-		},
-		execute: async (args) => {
+		args: recallArgsSchema.shape,
+		execute: async (rawArgs) => {
 			try {
-				const ids = args.ids as string[];
-				const limit = (args.limit as number) || 10;
+				const args: RecallArgs = recallArgsSchema.parse(rawArgs);
 
-				const idsToFetch = ids.slice(0, limit);
+				const idsToFetch = args.ids.slice(0, args.limit);
 				const results: string[] = [];
 
 				for (const id of idsToFetch) {

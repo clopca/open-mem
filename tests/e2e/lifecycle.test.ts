@@ -92,7 +92,7 @@ describe("E2E lifecycle", () => {
 		expect(hooks["experimental.chat.system.transform"]).toBeFunction();
 		expect(hooks["experimental.session.compacting"]).toBeFunction();
 		expect(hooks.event).toBeFunction();
-		expect(hooks.tools).toHaveLength(4);
+		expect(hooks.tools).toHaveLength(6);
 	});
 
 	test("full lifecycle: capture → process → recall", async () => {

@@ -6,6 +6,22 @@ import { randomUUID } from "node:crypto";
 import type { SessionSummary } from "../types";
 import type { Database } from "./database";
 
+interface SummaryRow {
+	id: string;
+	session_id: string;
+	summary: string;
+	key_decisions: string;
+	files_modified: string;
+	concepts: string;
+	created_at: string;
+	token_count: number;
+	request: string;
+	investigated: string;
+	learned: string;
+	completed: string;
+	next_steps: string;
+}
+
 export class SummaryRepository {
 	constructor(private db: Database) {}
 
@@ -41,24 +57,45 @@ export class SummaryRepository {
 		return { ...data, id, createdAt: now };
 	}
 
+	importSummary(data: SessionSummary): void {
+		this.db.run(
+			`INSERT INTO session_summaries
+				(id, session_id, summary, key_decisions, files_modified,
+				 concepts, created_at, token_count,
+				 request, investigated, learned, completed, next_steps)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				data.id,
+				data.sessionId,
+				data.summary,
+				JSON.stringify(data.keyDecisions),
+				JSON.stringify(data.filesModified),
+				JSON.stringify(data.concepts),
+				data.createdAt,
+				data.tokenCount,
+				data.request ?? "",
+				data.investigated ?? "",
+				data.learned ?? "",
+				data.completed ?? "",
+				data.nextSteps ?? "",
+			],
+		);
+	}
+
 	// ---------------------------------------------------------------------------
 	// Read
 	// ---------------------------------------------------------------------------
 
 	getBySessionId(sessionId: string): SessionSummary | null {
-		const row = this.db.get<Record<string, unknown>>(
-			"SELECT * FROM session_summaries WHERE session_id = ?",
-			[sessionId],
-		);
+		const row = this.db.get<SummaryRow>("SELECT * FROM session_summaries WHERE session_id = ?", [
+			sessionId,
+		]);
 		return row ? this.mapRow(row) : null;
 	}
 
 	getRecent(limit = 10): SessionSummary[] {
 		return this.db
-			.all<Record<string, unknown>>(
-				"SELECT * FROM session_summaries ORDER BY created_at DESC LIMIT ?",
-				[limit],
-			)
+			.all<SummaryRow>("SELECT * FROM session_summaries ORDER BY created_at DESC LIMIT ?", [limit])
 			.map((r) => this.mapRow(r));
 	}
 
@@ -68,7 +105,7 @@ export class SummaryRepository {
 
 	search(query: string, limit = 10): SessionSummary[] {
 		return this.db
-			.all<Record<string, unknown>>(
+			.all<SummaryRow>(
 				`SELECT ss.*
 				 FROM session_summaries ss
 				 JOIN summaries_fts fts ON ss._rowid = fts.rowid
@@ -84,22 +121,21 @@ export class SummaryRepository {
 	// Row Mapping
 	// ---------------------------------------------------------------------------
 
-	private mapRow(row: Record<string, unknown>): SessionSummary {
+	private mapRow(row: SummaryRow): SessionSummary {
 		return {
-			id: row.id as string,
-			sessionId: row.session_id as string,
-			summary: row.summary as string,
-			keyDecisions: JSON.parse(row.key_decisions as string),
-			filesModified: JSON.parse(row.files_modified as string),
-			concepts: JSON.parse(row.concepts as string),
-			createdAt: row.created_at as string,
-			tokenCount: row.token_count as number,
-			// Structured summary fields (v3)
-			request: (row.request as string) || undefined,
-			investigated: (row.investigated as string) || undefined,
-			learned: (row.learned as string) || undefined,
-			completed: (row.completed as string) || undefined,
-			nextSteps: (row.next_steps as string) || undefined,
+			id: row.id,
+			sessionId: row.session_id,
+			summary: row.summary,
+			keyDecisions: JSON.parse(row.key_decisions),
+			filesModified: JSON.parse(row.files_modified),
+			concepts: JSON.parse(row.concepts),
+			createdAt: row.created_at,
+			tokenCount: row.token_count,
+			request: row.request || undefined,
+			investigated: row.investigated || undefined,
+			learned: row.learned || undefined,
+			completed: row.completed || undefined,
+			nextSteps: row.next_steps || undefined,
 		};
 	}
 }
