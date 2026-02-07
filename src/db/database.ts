@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { Database as BunDatabase, type SQLQueryBindings } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 
 /** Param array accepted by query helpers */
 type Params = SQLQueryBindings[];
@@ -29,8 +29,10 @@ export interface Migration {
  */
 export class Database {
 	private db: BunDatabase;
+	private dbPath: string;
 
 	constructor(dbPath: string) {
+		this.dbPath = dbPath;
 		this.db = this.open(dbPath);
 		this.configure();
 	}
@@ -51,6 +53,55 @@ export class Database {
 	}
 
 	private configure(): void {
+		try {
+			this.applyPragmas();
+		} catch (firstError) {
+			// Step 1: Close connection, delete WAL/SHM sidecar files, retry
+			console.warn(
+				"[open-mem] Database configure failed, attempting recovery by removing WAL/SHM files:",
+				(firstError as Error).message,
+			);
+			try {
+				this.db.close();
+			} catch {
+				// ignore close errors
+			}
+			this.deleteSidecarFiles();
+			try {
+				this.db = this.open(this.dbPath);
+				this.applyPragmas();
+				console.warn("[open-mem] Recovery successful after removing WAL/SHM files");
+				return;
+			} catch (secondError) {
+				// Step 2: Nuclear option — delete entire database and recreate
+				console.warn(
+					"[open-mem] WAL/SHM cleanup insufficient, recreating database from scratch:",
+					(secondError as Error).message,
+				);
+				try {
+					this.db.close();
+				} catch {
+					// ignore close errors
+				}
+				this.deleteDatabaseFiles();
+				try {
+					this.db = this.open(this.dbPath);
+					this.applyPragmas();
+					console.warn("[open-mem] Recovery successful after full database recreation");
+					return;
+				} catch (thirdError) {
+					// Filesystem is truly broken — nothing we can do
+					console.warn(
+						"[open-mem] All recovery attempts failed, filesystem may be broken:",
+						(thirdError as Error).message,
+					);
+					throw firstError;
+				}
+			}
+		}
+	}
+
+	private applyPragmas(): void {
 		// WAL mode for concurrent read/write performance
 		this.db.exec("PRAGMA journal_mode = WAL");
 		// NORMAL sync is safe with WAL and much faster than FULL
@@ -59,6 +110,30 @@ export class Database {
 		this.db.exec("PRAGMA foreign_keys = ON");
 		// Prevent "database is locked" errors during concurrent access
 		this.db.exec("PRAGMA busy_timeout = 5000");
+	}
+
+	private deleteSidecarFiles(): void {
+		for (const suffix of ["-wal", "-shm"]) {
+			const filePath = this.dbPath + suffix;
+			try {
+				if (existsSync(filePath)) {
+					unlinkSync(filePath);
+				}
+			} catch {
+				// best-effort deletion
+			}
+		}
+	}
+
+	private deleteDatabaseFiles(): void {
+		this.deleteSidecarFiles();
+		try {
+			if (existsSync(this.dbPath)) {
+				unlinkSync(this.dbPath);
+			}
+		} catch {
+			// best-effort deletion
+		}
 	}
 
 	// ---------------------------------------------------------------------------
