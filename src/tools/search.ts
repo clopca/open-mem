@@ -31,7 +31,6 @@ export function createSearchTool(
 	projectPath = "",
 ): ToolDefinition {
 	return {
-		name: "mem-search",
 		description: `Layer 1: Quick search — returns lightweight results with observation IDs.
 Search through past coding session observations and memories to find:
 - Past decisions and their rationale

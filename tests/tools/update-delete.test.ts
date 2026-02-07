@@ -128,7 +128,6 @@ describe("mem-update", () => {
 
 	test("has correct tool contract", () => {
 		const tool = createUpdateTool(observations, sessions, PROJECT_PATH);
-		expect(tool.name).toBe("mem-update");
 		expect(typeof tool.description).toBe("string");
 		expect(typeof tool.args).toBe("object");
 		expect(typeof tool.execute).toBe("function");
@@ -184,7 +183,6 @@ describe("mem-delete", () => {
 
 	test("has correct tool contract", () => {
 		const tool = createDeleteTool(observations, sessions, PROJECT_PATH);
-		expect(tool.name).toBe("mem-delete");
 		expect(typeof tool.description).toBe("string");
 		expect(typeof tool.args).toBe("object");
 		expect(typeof tool.execute).toBe("function");

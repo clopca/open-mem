@@ -269,7 +269,6 @@ describe("Tool contract", () => {
 		const recall = createRecallTool(observations);
 
 		for (const tool of [search, save, timeline, recall]) {
-			expect(typeof tool.name).toBe("string");
 			expect(typeof tool.description).toBe("string");
 			expect(typeof tool.args).toBe("object");
 			expect(typeof tool.execute).toBe("function");

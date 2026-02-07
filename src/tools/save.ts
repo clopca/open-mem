@@ -41,7 +41,6 @@ export function createSaveTool(
 	userObservationRepo?: UserObservationRepository,
 ): ToolDefinition {
 	return {
-		name: "mem-save",
 		description: `Manually save an observation to memory.
 Use this to explicitly record important decisions, discoveries, or context
 that should be remembered across sessions.

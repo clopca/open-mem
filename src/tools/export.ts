@@ -30,7 +30,6 @@ export function createExportTool(
 	projectPath: string,
 ): ToolDefinition {
 	return {
-		name: "mem-export",
 		description: `Export project memories (observations and session summaries) as portable JSON.
 Use this to back up memories, transfer them between machines, or share context across environments.
 Returns a JSON string — the agent can write it to a file if needed.`,

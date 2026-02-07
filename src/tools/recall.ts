@@ -20,7 +20,6 @@ export function createRecallTool(
 	userObservationRepo?: UserObservationRepository,
 ): ToolDefinition {
 	return {
-		name: "mem-recall",
 		description:
 			"Layer 3: Deep recall — fetches full observation details including narrative, facts, concepts, and file lists. Use after mem-search to expand specific results, or with IDs from the context injection index.",
 		args: recallArgsSchema.shape,

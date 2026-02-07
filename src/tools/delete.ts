@@ -16,7 +16,6 @@ export function createDeleteTool(
 	projectPath: string,
 ): ToolDefinition {
 	return {
-		name: "mem-delete",
 		description: `Delete an observation from memory.
 Use this to remove incorrect, outdated, or duplicate observations.
 Only observations belonging to the current project can be deleted.`,

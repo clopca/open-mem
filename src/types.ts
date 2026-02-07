@@ -241,7 +241,7 @@ export interface Hooks {
 
 	event?: (input: { event: OpenCodeEvent }) => Promise<void>;
 
-	tools?: ToolDefinition[];
+	tool?: Record<string, ToolDefinition>;
 }
 
 /** An event emitted by OpenCode (e.g. tool execution, session lifecycle). */
@@ -252,7 +252,6 @@ export interface OpenCodeEvent {
 
 /** Schema for a custom tool exposed to the AI agent. */
 export interface ToolDefinition {
-	name: string;
 	description: string;
 	args: Record<string, unknown>; // Zod schema
 	execute: (args: Record<string, unknown>, context: ToolContext) => Promise<string>;
@@ -262,6 +261,12 @@ export interface ToolDefinition {
 export interface ToolContext {
 	sessionID: string;
 	abort: AbortSignal;
+	messageID?: string;
+	agent?: string;
+	directory?: string;
+	worktree?: string;
+	metadata?: (input: { title?: string; metadata?: Record<string, unknown> }) => void;
+	ask?: (input: unknown) => Promise<void>;
 }
 
 /** Plugin type — entry point for OpenCode plugins */

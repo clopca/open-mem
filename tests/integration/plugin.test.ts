@@ -53,8 +53,8 @@ describe("Plugin entry point", () => {
 		const dir = `/tmp/open-mem-plugin-test-${randomUUID()}`;
 		cleanupDirs.push(dir);
 		const hooks = await plugin(makeInput(dir));
-		expect(hooks.tools).toHaveLength(8);
-		const names = hooks.tools?.map((t) => t.name) ?? [];
+		expect(Object.keys(hooks.tool!)).toHaveLength(8);
+		const names = Object.keys(hooks.tool ?? {});
 		expect(names).toContain("mem-search");
 		expect(names).toContain("mem-save");
 		expect(names).toContain("mem-timeline");

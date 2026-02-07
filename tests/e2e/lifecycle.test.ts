@@ -92,7 +92,7 @@ describe("E2E lifecycle", () => {
 		expect(hooks["experimental.chat.system.transform"]).toBeFunction();
 		expect(hooks["experimental.session.compacting"]).toBeFunction();
 		expect(hooks.event).toBeFunction();
-		expect(hooks.tools).toHaveLength(8);
+		expect(Object.keys(hooks.tool!)).toHaveLength(8);
 	});
 
 	test("full lifecycle: capture → process → recall", async () => {
@@ -147,7 +147,7 @@ describe("E2E lifecycle", () => {
 		await new Promise((r) => setTimeout(r, 100));
 
 		// Search for the captured observations using mem-search tool
-		const searchTool = hooks.tools!.find((t) => t.name === "mem-search")!;
+		const searchTool = hooks.tool!["mem-search"];
 		const result = await searchTool.execute(
 			{ query: "config", limit: 10 },
 			mockToolContext(sessionId),
@@ -163,7 +163,7 @@ describe("E2E lifecycle", () => {
 		const ctx = mockToolContext(sessionId);
 
 		// Save an observation manually
-		const saveTool = hooks.tools!.find((t) => t.name === "mem-save")!;
+		const saveTool = hooks.tool!["mem-save"];
 		const saveResult = await saveTool.execute(
 			{
 				title: "Important architecture decision",
@@ -180,7 +180,7 @@ describe("E2E lifecycle", () => {
 		expect(saveResult).toContain("Important architecture decision");
 
 		// Search for the saved observation
-		const searchTool = hooks.tools!.find((t) => t.name === "mem-search")!;
+		const searchTool = hooks.tool!["mem-search"];
 		const searchResult = await searchTool.execute({ query: "FTS5 architecture", limit: 10 }, ctx);
 
 		expect(searchResult).toContain("FTS5");
@@ -189,7 +189,7 @@ describe("E2E lifecycle", () => {
 	test("mem-search returns no results gracefully", async () => {
 		const { hooks } = await createTestPlugin();
 
-		const searchTool = hooks.tools!.find((t) => t.name === "mem-search")!;
+		const searchTool = hooks.tool!["mem-search"];
 		const result = await searchTool.execute(
 			{ query: "nonexistent_query_xyz_12345", limit: 5 },
 			mockToolContext(),
@@ -204,7 +204,7 @@ describe("E2E lifecycle", () => {
 		const ctx = mockToolContext(sessionId);
 
 		// Create some activity in a session
-		const saveTool = hooks.tools!.find((t) => t.name === "mem-save")!;
+		const saveTool = hooks.tool!["mem-save"];
 		await saveTool.execute(
 			{
 				title: "Test observation for timeline",
@@ -215,7 +215,7 @@ describe("E2E lifecycle", () => {
 		);
 
 		// Check timeline
-		const timelineTool = hooks.tools!.find((t) => t.name === "mem-timeline")!;
+		const timelineTool = hooks.tool!["mem-timeline"];
 		const timeline = await timelineTool.execute({ limit: 5 }, ctx);
 
 		expect(timeline).toContain("Session");

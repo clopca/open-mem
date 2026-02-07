@@ -24,7 +24,6 @@ export function createUpdateTool(
 	projectPath: string,
 ): ToolDefinition {
 	return {
-		name: "mem-update",
 		description: `Update an existing observation in memory.
 Use this to correct or refine previously saved observations.
 Only observations belonging to the current project can be updated.`,

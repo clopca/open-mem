@@ -30,7 +30,6 @@ export function createImportTool(
 	projectPath: string,
 ): ToolDefinition {
 	return {
-		name: "mem-import",
 		description: `Import observations and session summaries from a JSON export.
 Use this to restore memories from a backup, or import memories from another machine.
 Skips duplicate observations (by ID) and summaries (by session ID).`,

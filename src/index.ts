@@ -329,16 +329,16 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 			userObservationRepo,
 		),
-		tools: [
-			createSearchTool(searchOrchestrator, summaryRepo, projectPath),
-			createSaveTool(observationRepo, sessionRepo, projectPath, userObservationRepo ?? undefined),
-			createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
-			createRecallTool(observationRepo, userObservationRepo ?? undefined),
-			createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
-			createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
-			createUpdateTool(observationRepo, sessionRepo, projectPath),
-			createDeleteTool(observationRepo, sessionRepo, projectPath),
-		],
+		tool: {
+			"mem-search": createSearchTool(searchOrchestrator, summaryRepo, projectPath),
+			"mem-save": createSaveTool(observationRepo, sessionRepo, projectPath, userObservationRepo ?? undefined),
+			"mem-timeline": createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
+			"mem-recall": createRecallTool(observationRepo, userObservationRepo ?? undefined),
+			"mem-export": createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
+			"mem-import": createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
+			"mem-update": createUpdateTool(observationRepo, sessionRepo, projectPath),
+			"mem-delete": createDeleteTool(observationRepo, sessionRepo, projectPath),
+		},
 	};
 }
 
