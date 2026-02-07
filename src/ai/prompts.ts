@@ -116,6 +116,75 @@ Respond with EXACTLY this XML format:
 </instructions>`;
 }
 
+// -----------------------------------------------------------------------------
+// Conflict Evaluation Prompt
+// -----------------------------------------------------------------------------
+
+export interface ConflictCandidate {
+	id: string;
+	title: string;
+	narrative: string;
+	concepts: string[];
+	type: string;
+}
+
+export interface ConflictNewObservation {
+	title: string;
+	narrative: string;
+	concepts: string[];
+	type: string;
+}
+
+/**
+ * Build a prompt that instructs the AI to evaluate whether a new observation
+ * conflicts with, updates, or duplicates existing candidates.
+ */
+export function buildConflictEvaluationPrompt(
+	newObs: ConflictNewObservation,
+	candidates: ReadonlyArray<ConflictCandidate>,
+): string {
+	const candidateList = candidates
+		.map(
+			(c) =>
+				`  <candidate id="${c.id}">
+    <title>${c.title}</title>
+    <narrative>${c.narrative}</narrative>
+    <concepts>${c.concepts.join(", ")}</concepts>
+    <type>${c.type}</type>
+  </candidate>`,
+		)
+		.join("\n");
+
+	return `<conflict_evaluation>
+<new_observation>
+  <title>${newObs.title}</title>
+  <narrative>${newObs.narrative}</narrative>
+  <concepts>${newObs.concepts.join(", ")}</concepts>
+  <type>${newObs.type}</type>
+</new_observation>
+<existing_candidates>
+${candidateList}
+</existing_candidates>
+<instructions>
+Evaluate whether the new observation represents:
+1. new_fact — genuinely new information not covered by any candidate
+2. update — supersedes/updates an existing candidate (newer version of same info)
+3. duplicate — semantically identical to an existing candidate
+
+Respond with EXACTLY this XML format:
+<evaluation>
+  <outcome>new_fact|update|duplicate</outcome>
+  <supersedes>candidate-id (only if outcome is update)</supersedes>
+  <reason>Brief explanation</reason>
+</evaluation>
+</instructions>
+</conflict_evaluation>`;
+}
+
+// -----------------------------------------------------------------------------
+// Reranking Prompt
+// -----------------------------------------------------------------------------
+
 export function buildRerankingPrompt(
 	query: string,
 	candidates: ReadonlyArray<{ title: string; narrative: string }>,

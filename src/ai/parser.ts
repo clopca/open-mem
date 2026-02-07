@@ -176,6 +176,42 @@ export function parseRerankingResponse(response: string): number[] | null {
 }
 
 // -----------------------------------------------------------------------------
+// Conflict Evaluation Parser
+// -----------------------------------------------------------------------------
+
+export type ConflictOutcome = "new_fact" | "update" | "duplicate";
+
+export interface ConflictEvaluation {
+	outcome: ConflictOutcome;
+	supersedesId?: string;
+	reason: string;
+}
+
+const VALID_CONFLICT_OUTCOMES = new Set<string>(["new_fact", "update", "duplicate"]);
+
+export function parseConflictEvaluationResponse(response: string): ConflictEvaluation | null {
+	const block = extractTag(response, "evaluation");
+	if (!block) return null;
+
+	const rawOutcome = extractTag(block, "outcome").toLowerCase().trim();
+	if (!VALID_CONFLICT_OUTCOMES.has(rawOutcome)) return null;
+
+	const outcome = rawOutcome as ConflictOutcome;
+	const reason = extractTag(block, "reason");
+	if (!reason) return null;
+
+	const supersedes = extractTag(block, "supersedes");
+
+	const result: ConflictEvaluation = { outcome, reason };
+
+	if (outcome === "update" && supersedes) {
+		result.supersedesId = supersedes;
+	}
+
+	return result;
+}
+
+// -----------------------------------------------------------------------------
 // Token Estimation
 // -----------------------------------------------------------------------------
 
