@@ -3,10 +3,12 @@
 // =============================================================================
 
 import type { EmbeddingModel } from "ai";
+import type { EntityRepository } from "../db/entities";
 import type { ObservationRepository } from "../db/observations";
 import type { UserObservationRepository, UserObservation } from "../db/user-memory";
 import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
+import { graphAugmentedSearch } from "./graph";
 import { hybridSearch } from "./hybrid";
 import type { Reranker } from "./reranker";
 
@@ -42,6 +44,7 @@ export class SearchOrchestrator {
 		private hasVectorExtension: boolean,
 		private reranker: Reranker | null = null,
 		private userObservationRepo: UserObservationRepository | null = null,
+		private entityRepo: EntityRepository | null = null,
 	) {}
 
 	async search(query: string, options: OrchestratedSearchOptions): Promise<SearchResult[]> {
@@ -64,6 +67,17 @@ export class SearchOrchestrator {
 		// Label project results
 		for (const r of results) {
 			r.source = "project";
+		}
+
+		// Augment with graph-based entity traversal
+		if (this.entityRepo && query.trim()) {
+			results = await graphAugmentedSearch(
+				query,
+				results,
+				this.entityRepo,
+				this.observations,
+				limit,
+			);
 		}
 
 		// Merge user-level results when available
