@@ -5,8 +5,10 @@
 import type { EmbeddingModel } from "ai";
 import type { ObservationCompressor } from "../ai/compressor";
 import type { ConflictEvaluator } from "../ai/conflict-evaluator";
+import type { EntityExtractor } from "../ai/entity-extractor";
 import { estimateTokens } from "../ai/parser";
 import type { SessionSummarizer } from "../ai/summarizer";
+import type { EntityRepository } from "../db/entities";
 import type { ObservationRepository } from "../db/observations";
 import type { PendingMessageRepository } from "../db/pending";
 import type { SessionRepository } from "../db/sessions";
@@ -25,6 +27,7 @@ export interface QueueProcessorConfig {
 	conflictResolutionEnabled?: boolean;
 	conflictSimilarityBandLow?: number;
 	conflictSimilarityBandHigh?: number;
+	entityExtractionEnabled?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -56,6 +59,8 @@ export class QueueProcessor {
 		private summaryRepo: SummaryRepository,
 		private embeddingModel: EmbeddingModel | null = null,
 		private conflictEvaluator: ConflictEvaluator | null = null,
+		private entityExtractor: EntityExtractor | null = null,
+		private entityRepo: EntityRepository | null = null,
 	) {}
 
 	setMode(mode: ProcessingMode): void {
@@ -284,6 +289,40 @@ export class QueueProcessor {
 							);
 						} catch {
 							// Supersede failure must not block observation creation
+						}
+					}
+
+					// ---------------------------------------------------------------
+					// Entity Extraction (Knowledge Graph)
+					// ---------------------------------------------------------------
+					if (this.config.entityExtractionEnabled && this.entityExtractor && this.entityRepo) {
+						try {
+							const extraction = await this.entityExtractor.extract({
+								title: created.title,
+								narrative: created.narrative,
+								concepts: created.concepts,
+								facts: created.facts,
+								filesRead: created.filesRead,
+								filesModified: created.filesModified,
+								type: created.type,
+							});
+							if (extraction) {
+								const entityMap = new Map<string, string>();
+								for (const e of extraction.entities) {
+									const entity = this.entityRepo.upsertEntity(e.name, e.entityType);
+									entityMap.set(e.name, entity.id);
+									this.entityRepo.linkObservation(entity.id, created.id);
+								}
+								for (const r of extraction.relations) {
+									const sourceId = entityMap.get(r.sourceName);
+									const targetId = entityMap.get(r.targetName);
+									if (sourceId && targetId) {
+										this.entityRepo.createRelation(sourceId, targetId, r.relationship, created.id);
+									}
+								}
+							}
+						} catch {
+							// Entity extraction failure must NOT block observation creation
 						}
 					}
 

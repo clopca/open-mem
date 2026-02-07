@@ -6,12 +6,14 @@
 import { parseArgs } from "node:util";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
+import { EntityExtractor } from "./ai/entity-extractor";
 import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
 import { getPidPath, removePid, writePid } from "./daemon/pid";
 import { DaemonWorker } from "./daemon/worker";
 import { Database, createDatabase } from "./db/database";
+import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
@@ -91,6 +93,17 @@ const conflictEvaluator =
 			})
 		: null;
 
+const entityExtractor =
+	config.entityExtractionEnabled && (!providerRequiresKey || config.apiKey)
+		? new EntityExtractor({
+				provider: config.provider,
+				apiKey: config.apiKey,
+				model: config.model,
+				rateLimitingEnabled: config.rateLimitingEnabled,
+			})
+		: null;
+const entityRepo = new EntityRepository(db);
+
 const queueProcessor = new QueueProcessor(
 	config,
 	compressor,
@@ -101,6 +114,8 @@ const queueProcessor = new QueueProcessor(
 	summaryRepo,
 	embeddingModel,
 	conflictEvaluator,
+	entityExtractor,
+	entityRepo,
 );
 
 const pidPath = getPidPath(config.dbPath);

@@ -7,12 +7,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
+import { EntityExtractor } from "./ai/entity-extractor";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
 import { Database, createDatabase } from "./db/database";
+import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
@@ -144,6 +146,17 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 				})
 			: null;
 
+	const entityExtractor =
+		config.entityExtractionEnabled && (!providerRequiresKey || config.apiKey)
+			? new EntityExtractor({
+					provider: config.provider,
+					apiKey: config.apiKey,
+					model: config.model,
+					rateLimitingEnabled: config.rateLimitingEnabled,
+				})
+			: null;
+	const entityRepo = new EntityRepository(db);
+
 	const queue = new QueueProcessor(
 		config,
 		compressor,
@@ -154,6 +167,8 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		summaryRepo,
 		embeddingModel,
 		conflictEvaluator,
+		entityExtractor,
+		entityRepo,
 	);
 	queue.start();
 
@@ -274,6 +289,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		db.hasVectorExtension,
 		reranker,
 		userObservationRepo,
+		entityRepo,
 	);
 
 	// 10. Build hooks

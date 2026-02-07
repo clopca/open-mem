@@ -9,6 +9,7 @@ import { parseArgs } from "node:util";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { resolveConfig } from "./config";
 import { Database, createDatabase } from "./db/database";
+import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
@@ -66,12 +67,15 @@ const reranker = createReranker(
 		: null,
 );
 
+const entityRepo = new EntityRepository(db);
+
 const searchOrchestrator = new SearchOrchestrator(
 	observations,
 	embeddingModel,
 	db.hasVectorExtension,
 	reranker,
 	userObservationRepo,
+	entityRepo,
 );
 
 const pkgJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
