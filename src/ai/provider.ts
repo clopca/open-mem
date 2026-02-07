@@ -2,7 +2,7 @@
 // open-mem — AI Provider Factory
 // =============================================================================
 
-import type { LanguageModel } from "ai";
+import type { EmbeddingModel, LanguageModel } from "ai";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -73,5 +73,33 @@ export function createModel(config: ModelConfig): LanguageModel {
 			throw new Error(
 				`Unknown provider: ${config.provider}. Supported: anthropic, bedrock, openai, google`,
 			);
+	}
+}
+
+export function createEmbeddingModel(config: ModelConfig): EmbeddingModel | null {
+	try {
+		switch (config.provider) {
+			case "google": {
+				const { createGoogleGenerativeAI } = require("@ai-sdk/google");
+				const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
+				return google.embedding("text-embedding-004");
+			}
+			case "openai": {
+				const { createOpenAI } = require("@ai-sdk/openai");
+				const openai = createOpenAI({ apiKey: config.apiKey });
+				return openai.embedding("text-embedding-3-small");
+			}
+			case "bedrock": {
+				const { createAmazonBedrock } = require("@ai-sdk/amazon-bedrock");
+				const bedrock = createAmazonBedrock();
+				return bedrock.embedding("amazon.titan-embed-text-v2:0");
+			}
+			case "anthropic":
+				return null;
+			default:
+				return null;
+		}
+	} catch {
+		return null;
 	}
 }

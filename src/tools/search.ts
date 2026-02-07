@@ -2,14 +2,29 @@
 // open-mem — mem-search Custom Tool
 // =============================================================================
 
+import type { EmbeddingModel } from "ai";
 import { z } from "zod";
 import type { ObservationRepository } from "../db/observations";
 import type { SummaryRepository } from "../db/summaries";
+import { hybridSearch } from "../search/hybrid";
 import type { SearchResult, SessionSummary, ToolDefinition } from "../types";
+
+const searchArgsSchema = z.object({
+	query: z.string().describe("Search query (supports keywords, phrases, file paths)"),
+	type: z
+		.enum(["decision", "bugfix", "feature", "refactor", "discovery", "change"])
+		.optional()
+		.describe("Filter by observation type"),
+	limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
+});
+
+type SearchArgs = z.infer<typeof searchArgsSchema>;
 
 export function createSearchTool(
 	observations: ObservationRepository,
 	summaries: SummaryRepository,
+	embeddingModel: EmbeddingModel | null = null,
+	projectPath = "",
 ): ToolDefinition {
 	return {
 		name: "mem-search",
@@ -22,28 +37,19 @@ Use this tool to find relevant context from previous sessions, including:
 - Concept-based knowledge retrieval
 
 Supports full-text search with FTS5.`,
-		args: {
-			query: z.string().describe("Search query (supports keywords, phrases, file paths)"),
-			type: z
-				.enum(["decision", "bugfix", "feature", "refactor", "discovery", "change"])
-				.optional()
-				.describe("Filter by observation type"),
-			limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
-		},
-		execute: async (args) => {
+		args: searchArgsSchema.shape,
+		execute: async (rawArgs) => {
 			try {
-				const query = args.query as string;
-				const type = args.type as string | undefined;
-				const limit = (args.limit as number) || 10;
+				const args: SearchArgs = searchArgsSchema.parse(rawArgs);
 
-				const results = observations.search({
-					query,
-					type: type as SearchResult["observation"]["type"],
-					limit,
+				const results = await hybridSearch(args.query, observations, embeddingModel, {
+					type: args.type,
+					limit: args.limit,
+					projectPath,
 				});
 
 				if (results.length === 0) {
-					const summaryResults = summaries.search(query, limit);
+					const summaryResults = summaries.search(args.query, args.limit);
 					if (summaryResults.length === 0) {
 						return "No matching observations or session summaries found.";
 					}
