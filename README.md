@@ -70,12 +70,16 @@ Without any provider configured, open-mem still works — it falls back to a bas
 
 ## Key Features
 
-- 🧠 **Automatic observation capture** from tool executions
+- 🧠 **Automatic observation capture** from tool executions and user prompts
 - 🤖 **AI-powered compression** via Vercel AI SDK — supports Anthropic, AWS Bedrock, OpenAI, Google (optional — works without API key)
-- 🔍 **SQLite + FTS5** full-text search for fast retrieval
-- 💡 **Progressive disclosure** with token-cost-aware context injection
+- 🔍 **Hybrid search** — FTS5 full-text search + vector embeddings with Reciprocal Rank Fusion
+- 💡 **Progressive disclosure** with token-cost-aware context injection and ROI tracking
 - 🔒 **Privacy controls** with `<private>` tag support
-- 🛠️ **Four custom tools**: mem-search, mem-save, mem-timeline, mem-recall
+- 🛠️ **Six custom tools**: mem-search, mem-save, mem-timeline, mem-recall, mem-export, mem-import
+- 🌐 **MCP server mode** — expose memory tools to any MCP-compatible AI client
+- 🌳 **Git worktree support** — shared memory across all worktrees
+- 📂 **AGENTS.md generation** — auto-generated folder-level context on session end
+- 📦 **Import/export** — portable JSON for backup and transfer between machines
 - ⚡ **Zero-config setup** — works out of the box
 - 📁 **All data stored locally** in your project directory
 
@@ -84,29 +88,40 @@ Without any provider configured, open-mem still works — it falls back to a bas
 open-mem runs in the background as an OpenCode plugin. When you use tools (reading files, running commands, editing code), it captures what happened. During idle time, it compresses those captures into structured observations using AI. At the start of your next session, it injects a compact memory index into the system prompt — so your agent knows what you've been working on.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     OpenCode                        │
-│                                                     │
-│  tool.execute.after ───> [Tool Capture Hook]        │
-│                                │                    │
-│                                v                    │
-│                       [Pending Queue]               │
-│                                │                    │
-│  session.idle ─────────> [Queue Processor]          │
-│                                │                    │
-│                                v                    │
-│                      [AI Compressor] ───> AI Provider │
-│                                │                    │
-│                                v                    │
-│                      [SQLite + FTS5]                │
-│                                │                    │
-│  system.transform <─── [Context Injector]           │
-│                                                     │
-│  mem-search ─────────> [FTS5 Search]                │
-│  mem-save ───────────> [Direct Save]                │
-│  mem-timeline ───────> [Session Query]              │
-│  mem-recall ─────────> [Full Observation Fetch]     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                        OpenCode                              │
+│                                                              │
+│  tool.execute.after ───> [Tool Capture Hook]                 │
+│  chat.message ─────────> [Chat Capture Hook]                 │
+│                                │                             │
+│                                v                             │
+│                       [Pending Queue]                        │
+│                                │                             │
+│  session.idle ─────────> [Queue Processor]                   │
+│                                │                             │
+│                          ┌─────┴─────┐                       │
+│                          v           v                       │
+│                  [AI Compressor]  [Embedding Gen]             │
+│                          │           │                       │
+│                          v           v                       │
+│                  [SQLite + FTS5 + Vectors]                   │
+│                                │                             │
+│  system.transform <─── [Context Injector + ROI Footer]       │
+│                                                              │
+│  session.end ──────────> [AGENTS.md Generation]              │
+│                                                              │
+│  mem-search ─────────> [Hybrid Search (FTS5 + Vector/RRF)]   │
+│  mem-save ───────────> [Direct Save]                         │
+│  mem-timeline ───────> [Session Query]                       │
+│  mem-recall ─────────> [Full Observation Fetch]              │
+│  mem-export ─────────> [JSON Export]                         │
+│  mem-import ─────────> [JSON Import]                         │
+│                                                              │
+│  ┌──────────────────────────────────────────┐                │
+│  │  MCP Server (stdin/stdout, JSON-RPC 2.0) │                │
+│  │  Exposes tools to any MCP-compatible AI   │                │
+│  └──────────────────────────────────────────┘                │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Observation Capture
@@ -142,11 +157,35 @@ Example of an injected index entry:
 
 During session compaction (`experimental.session.compacting`), open-mem injects memory context to preserve important information across compaction boundaries.
 
+### Hybrid Search
+
+When an AI provider with embedding support is configured (Google, OpenAI, or AWS Bedrock), open-mem generates vector embeddings for observations and uses Reciprocal Rank Fusion (RRF) to merge FTS5 text search with vector similarity search. This significantly improves search relevance.
+
+Embeddings are generated automatically during observation processing. If no embedding model is available (e.g., Anthropic, which doesn't offer embeddings), search falls back to FTS5-only — no degradation.
+
+### User Prompt Capture
+
+open-mem captures user messages via the `chat.message` hook, storing them as searchable observations. This preserves the *intent* behind tool executions — so future sessions can understand not just what happened, but why.
+
+### Git Worktree Support
+
+open-mem automatically detects git worktrees and resolves to the main repository root. All worktrees share the same memory database, so observations from one worktree are available in all others.
+
+### Folder-Level Context (AGENTS.md)
+
+On session end, open-mem auto-generates `AGENTS.md` files in project folders that were touched during the session. These files contain a managed section (between `<!-- open-mem-context -->` tags) with recent activity, key concepts, and decisions for that folder.
+
+User content outside the managed tags is preserved. Disable with `OPEN_MEM_FOLDER_CONTEXT=false`.
+
+### Token ROI Tracking
+
+The context injector includes a "Memory Economics" footer showing how much context compression saves: read cost vs. original discovery cost, with a savings percentage. This helps you understand the value of AI compression at a glance.
+
 ## Custom Tools
 
 ### mem-search
 
-Search through past observations and session summaries using FTS5 full-text search.
+Search through past observations and session summaries. Uses hybrid search (FTS5 + vector embeddings) when an embedding-capable provider is configured, or FTS5-only otherwise.
 
 | Argument | Type | Required | Description |
 |----------|------|----------|-------------|
@@ -184,6 +223,51 @@ Fetch full observation details by ID. Use after `mem-search` to get complete nar
 | `ids` | string[] | yes | Observation IDs to fetch |
 | `limit` | number | no | Maximum number of results (1–50, default: 10) |
 
+### mem-export
+
+Export project memories (observations and session summaries) as portable JSON for backup or transfer between machines.
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `format` | enum | no | Export format (currently `json` only) |
+| `type` | enum | no | Filter by observation type |
+| `limit` | number | no | Maximum observations to export |
+
+### mem-import
+
+Import observations and summaries from a JSON export. Skips duplicates by ID.
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `data` | string | yes | JSON string from a mem-export output |
+
+## MCP Server Mode
+
+open-mem includes a standalone MCP (Model Context Protocol) server that exposes memory tools to any MCP-compatible AI client — not just OpenCode.
+
+### Setup
+
+Run the MCP server:
+
+```bash
+bunx open-mem-mcp --project /path/to/your/project
+```
+
+Or add it to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "open-mem": {
+      "command": "bunx",
+      "args": ["open-mem-mcp", "--project", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+The server communicates over stdin/stdout using JSON-RPC 2.0 and exposes: `mem-search`, `mem-save`, `mem-timeline`, `mem-recall`.
+
 ## Configuration
 
 open-mem works out of the box with zero configuration. All settings can be customized via environment variables:
@@ -207,6 +291,8 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `OPEN_MEM_CONTEXT_TYPES` | all | Observation types to include in context injection |
 | `OPEN_MEM_CONTEXT_FULL_COUNT` | `3` | Number of recent observations shown in full |
 | `OPEN_MEM_MAX_OBSERVATIONS` | `50` | Maximum observations to consider for context |
+| `OPEN_MEM_FOLDER_CONTEXT` | `true` | Set to `false` to disable AGENTS.md generation |
+| `OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH` | `5` | Max folder depth for AGENTS.md generation |
 
 <details>
 <summary><strong>Programmatic Configuration Reference</strong></summary>
@@ -232,6 +318,8 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | `retentionDays` | number | `90` | Data retention period (0 = forever) |
 | `maxDatabaseSizeMb` | number | `500` | Maximum database size |
 | `logLevel` | string | `warn` | Log level: `debug`, `info`, `warn`, `error` |
+| `folderContextEnabled` | boolean | `true` | Auto-generate AGENTS.md in active folders |
+| `folderContextMaxDepth` | number | `5` | Max folder depth from project root |
 
 </details>
 

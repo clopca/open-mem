@@ -154,7 +154,7 @@ function buildRoiFooter(context: ProgressiveContext): string | null {
 	if (totalDiscoveryTokens === 0) return null;
 
 	const savedTokens = totalDiscoveryTokens - totalReadTokens;
-	const savingsPercent = Math.round((savedTokens / totalDiscoveryTokens) * 100);
+	const savingsPercent = Math.max(0, Math.round((savedTokens / totalDiscoveryTokens) * 100));
 
 	return `### 💰 Memory Economics\n**Read cost:** ~${totalReadTokens}t | **Discovery cost:** ~${totalDiscoveryTokens}t | **Savings:** ${savingsPercent}% (${savedTokens}t saved)`;
 }

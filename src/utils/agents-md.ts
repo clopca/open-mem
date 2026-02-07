@@ -102,7 +102,9 @@ export function generateFolderContext(
 	projectPath: string,
 ): string {
 	// Limit to most recent 10 observations
-	const recent = observations.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+	const recent = [...observations]
+		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+		.slice(0, 10);
 
 	const relFolder = relative(projectPath, folderPath) || ".";
 	const lines: string[] = [];
@@ -201,7 +203,7 @@ export function replaceTaggedContent(existingContent: string, newContent: string
 	const endIdx = existingContent.indexOf(END_TAG);
 
 	// Case 2: Has existing tags — replace only tagged section
-	if (startIdx !== -1 && endIdx !== -1) {
+	if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
 		const before = existingContent.substring(0, startIdx);
 		const after = existingContent.substring(endIdx + END_TAG.length);
 		return `${before}${START_TAG}\n${newContent}\n${END_TAG}${after}`;

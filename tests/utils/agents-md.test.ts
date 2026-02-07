@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Observation } from "../../src/types";
@@ -161,7 +161,7 @@ describe("updateAgentsMd", () => {
 		cleanupFiles.length = 0;
 		if (tempDir) {
 			try {
-				rmdirSync(tempDir, { recursive: true } as never);
+				rmSync(tempDir, { recursive: true, force: true });
 			} catch {
 				// ignore
 			}

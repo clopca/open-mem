@@ -71,6 +71,22 @@ Skips duplicate observations (by ID) and summaries (by session ID).`,
 				let summariesSkipped = 0;
 
 				for (const obs of exportData.observations) {
+					if (
+						!obs.id ||
+						typeof obs.id !== "string" ||
+						!obs.sessionId ||
+						typeof obs.sessionId !== "string" ||
+						!obs.type ||
+						typeof obs.type !== "string" ||
+						!obs.title ||
+						typeof obs.title !== "string" ||
+						!obs.createdAt ||
+						typeof obs.createdAt !== "string"
+					) {
+						skipped++;
+						continue;
+					}
+
 					const existing = observations.getById(obs.id);
 					if (existing) {
 						skipped++;

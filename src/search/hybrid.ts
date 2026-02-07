@@ -74,12 +74,12 @@ function runVectorSearch(
 			id: c.id,
 			similarity: cosineSimilarity(queryEmbedding, c.embedding),
 		}))
-		.sort((a, b) => b.similarity - a.similarity)
-		.slice(0, limit);
+		.filter(({ similarity }) => similarity >= 0.3)
+		.sort((a, b) => b.similarity - a.similarity);
 
 	const results: SearchResult[] = [];
 	for (const { id, similarity } of scored) {
-		if (similarity < 0.3) continue;
+		if (results.length >= limit) break;
 
 		const obs = observations.getById(id);
 		if (!obs) continue;

@@ -44,12 +44,21 @@ const server = new McpServer({
 	version: pkgJson.version,
 });
 
+let closed = false;
 const shutdown = () => {
-	db.close();
+	if (!closed) {
+		closed = true;
+		db.close();
+	}
 	process.exit(0);
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-process.on("beforeExit", () => db.close());
+process.on("beforeExit", () => {
+	if (!closed) {
+		closed = true;
+		db.close();
+	}
+});
 
 server.start();

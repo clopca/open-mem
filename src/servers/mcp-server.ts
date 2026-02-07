@@ -26,7 +26,7 @@ interface JsonRpcRequest {
 
 interface JsonRpcResponse {
 	jsonrpc: "2.0";
-	id: string | number;
+	id: string | number | null;
 	result?: unknown;
 	error?: { code: number; message: string; data?: unknown };
 }
@@ -129,7 +129,7 @@ export class McpServer {
 				} else {
 					this.sendResponse({
 						jsonrpc: "2.0",
-						id: 0,
+						id: null,
 						error: { code: -32600, message: "Invalid Request" },
 					});
 				}
@@ -137,7 +137,7 @@ export class McpServer {
 				// Malformed JSON — send parse error if we can
 				this.sendResponse({
 					jsonrpc: "2.0",
-					id: 0,
+					id: null,
 					error: { code: -32700, message: "Parse error" },
 				});
 			}
@@ -359,6 +359,40 @@ export class McpServer {
 					required: ["title", "type", "narrative"],
 				},
 			},
+			{
+				name: "mem-export",
+				description:
+					"Export project memories (observations and session summaries) as portable JSON. Use this to back up memories, transfer them between machines, or share context across environments.",
+				inputSchema: {
+					type: "object",
+					properties: {
+						type: {
+							type: "string",
+							enum: ["decision", "bugfix", "feature", "refactor", "discovery", "change"],
+							description: "Filter by observation type",
+						},
+						limit: {
+							type: "number",
+							description: "Maximum number of observations to export",
+						},
+					},
+				},
+			},
+			{
+				name: "mem-import",
+				description:
+					"Import observations and session summaries from a JSON export. Use this to restore memories from a backup, or import memories from another machine. Skips duplicate observations (by ID) and summaries (by session ID).",
+				inputSchema: {
+					type: "object",
+					properties: {
+						data: {
+							type: "string",
+							description: "JSON string from a mem-export output",
+						},
+					},
+					required: ["data"],
+				},
+			},
 		];
 	}
 
@@ -376,6 +410,10 @@ export class McpServer {
 				return this.execTimeline(args);
 			case "mem-save":
 				return this.execSave(args);
+			case "mem-export":
+				return this.execExport(args);
+			case "mem-import":
+				return this.execImport(args);
 			default:
 				return {
 					content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -391,7 +429,7 @@ export class McpServer {
 	private execSearch(args: Record<string, unknown>): McpToolResult {
 		const query = typeof args.query === "string" ? args.query : undefined;
 		const type = toObservationType(args.type);
-		const limit = typeof args.limit === "number" ? args.limit : 10;
+		const limit = typeof args.limit === "number" ? Math.max(1, Math.min(args.limit, 50)) : 10;
 
 		if (!query) {
 			return {
@@ -427,7 +465,7 @@ export class McpServer {
 
 	private execRecall(args: Record<string, unknown>): McpToolResult {
 		const ids = toStringArray(args.ids);
-		const limit = typeof args.limit === "number" ? args.limit : 10;
+		const limit = typeof args.limit === "number" ? Math.max(1, Math.min(args.limit, 50)) : 10;
 
 		if (ids.length === 0) {
 			return { content: [{ type: "text", text: "No observation IDs provided." }] };
@@ -482,7 +520,7 @@ export class McpServer {
 	// ---------------------------------------------------------------------------
 
 	private execTimeline(args: Record<string, unknown>): McpToolResult {
-		const limit = typeof args.limit === "number" ? args.limit : 5;
+		const limit = typeof args.limit === "number" ? Math.max(1, Math.min(args.limit, 20)) : 5;
 		const sessionId = typeof args.sessionId === "string" ? args.sessionId : undefined;
 
 		try {
@@ -602,6 +640,258 @@ export class McpServer {
 			};
 		} catch (error) {
 			return { content: [{ type: "text", text: `Save error: ${error}` }], isError: true };
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// mem-export
+	// ---------------------------------------------------------------------------
+
+	private execExport(args: Record<string, unknown>): McpToolResult {
+		const type = toObservationType(args.type);
+		const limit = typeof args.limit === "number" ? Math.max(1, args.limit) : undefined;
+
+		try {
+			const projectSessions = this.sessions.getAll(this.projectPath);
+			if (projectSessions.length === 0) {
+				return {
+					content: [
+						{ type: "text", text: "No sessions found for this project. Nothing to export." },
+					],
+				};
+			}
+
+			let allObservations: Array<Record<string, unknown>> = [];
+			for (const session of projectSessions) {
+				const obs = this.observations.getBySession(session.id);
+				for (const o of obs) {
+					const { rawToolOutput: _raw, ...rest } = o;
+					allObservations.push(rest as unknown as Record<string, unknown>);
+				}
+			}
+
+			if (type) {
+				allObservations = allObservations.filter((obs) => obs.type === type);
+			}
+
+			allObservations.sort((a, b) => {
+				const aDate = String(a.createdAt ?? "");
+				const bDate = String(b.createdAt ?? "");
+				return aDate.localeCompare(bDate);
+			});
+
+			if (limit && limit < allObservations.length) {
+				allObservations = allObservations.slice(0, limit);
+			}
+
+			const allSummaries: SessionSummary[] = [];
+			for (const session of projectSessions) {
+				const summary = this.summaries.getBySessionId(session.id);
+				if (summary) {
+					allSummaries.push(summary);
+				}
+			}
+
+			const exportData = {
+				version: 1,
+				exportedAt: new Date().toISOString(),
+				project: this.projectPath,
+				observations: allObservations,
+				summaries: allSummaries,
+			};
+
+			const json = JSON.stringify(exportData, null, 2);
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Exported ${allObservations.length} observation(s) and ${allSummaries.length} summary(ies).\n\n${json}`,
+					},
+				],
+			};
+		} catch (error) {
+			return { content: [{ type: "text", text: `Export error: ${error}` }], isError: true };
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// mem-import
+	// ---------------------------------------------------------------------------
+
+	private execImport(args: Record<string, unknown>): McpToolResult {
+		const data = typeof args.data === "string" ? args.data : undefined;
+
+		if (!data) {
+			return {
+				content: [{ type: "text", text: "Missing required argument: data" }],
+				isError: true,
+			};
+		}
+
+		try {
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(data);
+			} catch {
+				return {
+					content: [
+						{
+							type: "text",
+							text: "Import error: Invalid JSON. Please provide valid JSON from a mem-export.",
+						},
+					],
+					isError: true,
+				};
+			}
+
+			if (typeof parsed !== "object" || parsed === null) {
+				return {
+					content: [{ type: "text", text: "Import error: Invalid JSON structure." }],
+					isError: true,
+				};
+			}
+
+			const importData = parsed as Record<string, unknown>;
+
+			if (!importData.version || typeof importData.version !== "number") {
+				return {
+					content: [
+						{
+							type: "text",
+							text: "Import error: Missing or invalid 'version' field. This doesn't look like a mem-export file.",
+						},
+					],
+					isError: true,
+				};
+			}
+
+			if (importData.version !== 1) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Import error: Unsupported export version ${importData.version}. This tool supports version 1.`,
+						},
+					],
+					isError: true,
+				};
+			}
+
+			if (!Array.isArray(importData.observations)) {
+				return {
+					content: [
+						{ type: "text", text: "Import error: Missing or invalid 'observations' array." },
+					],
+					isError: true,
+				};
+			}
+
+			let imported = 0;
+			let skipped = 0;
+			let summariesImported = 0;
+			let summariesSkipped = 0;
+
+			const observations = importData.observations as Array<Record<string, unknown>>;
+			for (const obs of observations) {
+				const id = typeof obs.id === "string" ? obs.id : undefined;
+				const sessionId = typeof obs.sessionId === "string" ? obs.sessionId : undefined;
+				const obsType = typeof obs.type === "string" ? obs.type : undefined;
+				const title = typeof obs.title === "string" ? obs.title : undefined;
+				const createdAt = typeof obs.createdAt === "string" ? obs.createdAt : undefined;
+
+				if (!id || !sessionId || !obsType || !title || !createdAt) {
+					skipped++;
+					continue;
+				}
+
+				const existing = this.observations.getById(id);
+				if (existing) {
+					skipped++;
+					continue;
+				}
+
+				this.sessions.getOrCreate(sessionId, this.projectPath);
+
+				this.observations.importObservation({
+					id,
+					sessionId,
+					type: obsType as ObservationType,
+					title,
+					subtitle: typeof obs.subtitle === "string" ? obs.subtitle : "",
+					facts: Array.isArray(obs.facts) ? (obs.facts as string[]) : [],
+					narrative: typeof obs.narrative === "string" ? obs.narrative : "",
+					concepts: Array.isArray(obs.concepts) ? (obs.concepts as string[]) : [],
+					filesRead: Array.isArray(obs.filesRead) ? (obs.filesRead as string[]) : [],
+					filesModified: Array.isArray(obs.filesModified) ? (obs.filesModified as string[]) : [],
+					rawToolOutput: typeof obs.rawToolOutput === "string" ? obs.rawToolOutput : "",
+					toolName: typeof obs.toolName === "string" ? obs.toolName : "unknown",
+					createdAt,
+					tokenCount: typeof obs.tokenCount === "number" ? obs.tokenCount : 0,
+					discoveryTokens: typeof obs.discoveryTokens === "number" ? obs.discoveryTokens : 0,
+				});
+
+				this.sessions.incrementObservationCount(sessionId);
+				imported++;
+			}
+
+			const summariesArr = Array.isArray(importData.summaries)
+				? (importData.summaries as Array<Record<string, unknown>>)
+				: [];
+			for (const summary of summariesArr) {
+				const summarySessionId =
+					typeof summary.sessionId === "string" ? summary.sessionId : undefined;
+				const summaryId = typeof summary.id === "string" ? summary.id : undefined;
+
+				if (!summarySessionId || !summaryId) {
+					summariesSkipped++;
+					continue;
+				}
+
+				const existing = this.summaries.getBySessionId(summarySessionId);
+				if (existing) {
+					summariesSkipped++;
+					continue;
+				}
+
+				this.sessions.getOrCreate(summarySessionId, this.projectPath);
+
+				this.summaries.importSummary({
+					id: summaryId,
+					sessionId: summarySessionId,
+					summary: typeof summary.summary === "string" ? summary.summary : "",
+					keyDecisions: Array.isArray(summary.keyDecisions)
+						? (summary.keyDecisions as string[])
+						: [],
+					filesModified: Array.isArray(summary.filesModified)
+						? (summary.filesModified as string[])
+						: [],
+					concepts: Array.isArray(summary.concepts) ? (summary.concepts as string[]) : [],
+					createdAt:
+						typeof summary.createdAt === "string" ? summary.createdAt : new Date().toISOString(),
+					tokenCount: typeof summary.tokenCount === "number" ? summary.tokenCount : 0,
+					request: typeof summary.request === "string" ? summary.request : undefined,
+					investigated: typeof summary.investigated === "string" ? summary.investigated : undefined,
+					learned: typeof summary.learned === "string" ? summary.learned : undefined,
+					completed: typeof summary.completed === "string" ? summary.completed : undefined,
+					nextSteps: typeof summary.nextSteps === "string" ? summary.nextSteps : undefined,
+				});
+
+				this.sessions.setSummary(summarySessionId, summaryId);
+				summariesImported++;
+			}
+
+			const parts: string[] = [];
+			parts.push(`Imported ${imported} observation(s)`);
+			parts.push(`${summariesImported} summary(ies)`);
+			if (skipped > 0) parts.push(`Skipped ${skipped} duplicate/invalid observation(s)`);
+			if (summariesSkipped > 0) parts.push(`skipped ${summariesSkipped} duplicate summary(ies)`);
+
+			return {
+				content: [{ type: "text", text: `${parts.join(". ")}.` }],
+			};
+		} catch (error) {
+			return { content: [{ type: "text", text: `Import error: ${error}` }], isError: true };
 		}
 	}
 

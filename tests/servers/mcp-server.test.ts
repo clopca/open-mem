@@ -59,17 +59,19 @@ describe("McpServer", () => {
 		expect(response.result.serverInfo.name).toBe("open-mem");
 	});
 
-	test("handles tools/list and returns 4 tools", async () => {
+	test("handles tools/list and returns 6 tools", async () => {
 		const lines = await callServer([{ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }]);
 
 		expect(lines.length).toBeGreaterThanOrEqual(1);
 		const response = JSON.parse(lines[0]);
-		expect(response.result.tools).toHaveLength(4);
+		expect(response.result.tools).toHaveLength(6);
 		const toolNames = response.result.tools.map((t: { name: string }) => t.name);
 		expect(toolNames).toContain("mem-search");
 		expect(toolNames).toContain("mem-recall");
 		expect(toolNames).toContain("mem-timeline");
 		expect(toolNames).toContain("mem-save");
+		expect(toolNames).toContain("mem-export");
+		expect(toolNames).toContain("mem-import");
 	});
 
 	test("handles tools/call with mem-search", async () => {
