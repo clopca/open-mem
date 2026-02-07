@@ -2,11 +2,16 @@
 // open-mem — Context Injection Hook (experimental.chat.system.transform)
 // =============================================================================
 
-import { type ContextBuilderConfig, buildContextString } from "../context/builder";
+import {
+	type ContextBuilderConfig,
+	buildContextString,
+	buildUserContextSection,
+} from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
+import type { UserObservationRepository } from "../db/user-memory";
 import type { Observation, OpenMemConfig } from "../types";
 
 /**
@@ -23,6 +28,7 @@ export function createContextInjectionHook(
 	sessions: SessionRepository,
 	summaries: SummaryRepository,
 	projectPath: string,
+	userObservationRepo?: UserObservationRepository | null,
 ) {
 	return async (
 		_input: { sessionID?: string; model: string },
@@ -65,7 +71,21 @@ export function createContextInjectionHook(
 				fullObservationCount: config.contextFullObservationCount,
 				showLastSummary: config.contextShowLastSummary,
 			};
-			output.system.push(buildContextString(progressive, builderConfig));
+
+			let contextStr = buildContextString(progressive, builderConfig);
+
+			if (config.userMemoryEnabled && userObservationRepo) {
+				const userIndex = userObservationRepo.getIndex(config.maxObservations);
+				const userSection = buildUserContextSection(
+					userIndex,
+					config.userMemoryMaxContextTokens,
+				);
+				if (userSection) {
+					contextStr += `\n\n${userSection}`;
+				}
+			}
+
+			output.system.push(contextStr);
 		} catch (error) {
 			console.error("[open-mem] Context injection error:", error);
 		}

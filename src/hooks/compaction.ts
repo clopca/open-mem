@@ -2,27 +2,21 @@
 // open-mem — Compaction Hook (experimental.session.compacting)
 // =============================================================================
 
-import { buildCompactContext } from "../context/builder";
+import { buildCompactContext, buildUserCompactContext } from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
+import type { UserObservationRepository } from "../db/user-memory";
 import type { OpenMemConfig } from "../types";
 
-/**
- * Factory for the `experimental.session.compacting` hook.
- *
- * Injects a reduced-budget memory context during session compaction
- * so that memory survives across compaction boundaries.
- *
- * The handler NEVER throws.
- */
 export function createCompactionHook(
 	config: OpenMemConfig,
 	observations: ObservationRepository,
 	sessions: SessionRepository,
 	summaries: SummaryRepository,
 	projectPath: string,
+	userObservationRepo?: UserObservationRepository | null,
 ) {
 	return async (
 		_input: { sessionID: string },
@@ -49,7 +43,20 @@ export function createCompactionHook(
 				Math.floor(config.maxContextTokens / 2), // reduced budget
 			);
 
-			output.context.push(buildCompactContext(progressive));
+			let contextStr = buildCompactContext(progressive);
+
+			if (config.userMemoryEnabled && userObservationRepo) {
+				const userIndex = userObservationRepo.getIndex(10);
+				const userSection = buildUserCompactContext(
+					userIndex,
+					Math.floor(config.userMemoryMaxContextTokens / 2),
+				);
+				if (userSection) {
+					contextStr += userSection;
+				}
+			}
+
+			output.context.push(contextStr);
 		} catch (error) {
 			console.error("[open-mem] Compaction hook error:", error);
 		}
