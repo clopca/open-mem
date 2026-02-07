@@ -112,6 +112,34 @@ export class QueueProcessor {
 					const observation =
 						parsed ?? this.compressor.createFallbackObservation(item.toolName, item.toolOutput);
 
+					if (this.embeddingModel) {
+						try {
+							const dedupText = prepareObservationText({
+								title: observation.title,
+								narrative: observation.narrative,
+								concepts: observation.concepts,
+							});
+							const dedupEmbedding = await generateEmbedding(this.embeddingModel, dedupText);
+							if (dedupEmbedding) {
+								const similar = this.observationRepo.findSimilar(
+									dedupEmbedding,
+									observation.type,
+									0.92,
+									1,
+								);
+								if (similar.length > 0) {
+									console.log(
+										`[open-mem] Dedup: skipping duplicate of ${similar[0].id} (similarity: ${similar[0].similarity.toFixed(3)})`,
+									);
+									this.pendingRepo.markCompleted(item.id);
+									continue;
+								}
+							}
+						} catch {
+							// Dedup failure must not block observation creation
+						}
+					}
+
 					const created = this.observationRepo.create({
 						sessionId: item.sessionId,
 						type: observation.type,

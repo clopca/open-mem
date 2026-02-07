@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { randomUUID } from "node:crypto";
+import { cosineSimilarity } from "../search/embeddings";
 import type {
 	Observation,
 	ObservationIndex,
@@ -184,14 +185,20 @@ export class ObservationRepository {
 	// ---------------------------------------------------------------------------
 
 	search(query: SearchQuery): SearchResult[] {
+		const hasProjectPath = !!query.projectPath;
 		let sql = `
 			SELECT o.*, rank
 			FROM observations o
 			JOIN observations_fts fts ON o._rowid = fts.rowid
+			${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 			WHERE observations_fts MATCH ?
 		`;
 		const params: (string | number)[] = [query.query];
 
+		if (hasProjectPath && query.projectPath) {
+			sql += " AND s.project_path = ?";
+			params.push(query.projectPath);
+		}
 		if (query.sessionId) {
 			sql += " AND o.session_id = ?";
 			params.push(query.sessionId);
@@ -212,35 +219,42 @@ export class ObservationRepository {
 		}));
 	}
 
-	searchByConcept(concept: string, limit = 10): Observation[] {
-		return this.db
-			.all<ObservationRow>(
-				`SELECT o.*
+	searchByConcept(concept: string, limit = 10, projectPath?: string): Observation[] {
+		const hasProjectPath = !!projectPath;
+		const sql = `SELECT o.*
 				 FROM observations o
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
+				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
-				 LIMIT ?`,
-				[`concepts:${concept}`, limit],
-			)
-			.map((r) => this.mapRow(r));
+				 LIMIT ?`;
+		const params: (string | number)[] = [`concepts:${concept}`];
+		if (hasProjectPath && projectPath) {
+			params.push(projectPath);
+		}
+		params.push(limit);
+		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
 	}
 
-	searchByFile(filePath: string, limit = 10): Observation[] {
-		return this.db
-			.all<ObservationRow>(
-				`SELECT o.*
+	searchByFile(filePath: string, limit = 10, projectPath?: string): Observation[] {
+		const hasProjectPath = !!projectPath;
+		const sql = `SELECT o.*
 				 FROM observations o
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
+				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
-				 LIMIT ?`,
-				[
-					`files_read:"${filePath.replace(/"/g, '""')}" OR files_modified:"${filePath.replace(/"/g, '""')}"`,
-					limit,
-				],
-			)
-			.map((r) => this.mapRow(r));
+				 LIMIT ?`;
+		const params: (string | number)[] = [
+			`files_read:"${filePath.replace(/"/g, '""')}" OR files_modified:"${filePath.replace(/"/g, '""')}"`,
+		];
+		if (hasProjectPath && projectPath) {
+			params.push(projectPath);
+		}
+		params.push(limit);
+		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -280,6 +294,41 @@ export class ObservationRepository {
 				}
 			})
 			.filter((r): r is NonNullable<typeof r> => r !== null);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Embedding Similarity Search (for deduplication)
+	// ---------------------------------------------------------------------------
+
+	findSimilar(
+		embedding: number[],
+		type: ObservationType,
+		threshold: number,
+		limit: number,
+	): Array<{ id: string; similarity: number }> {
+		const rows = this.db.all<{ id: string; embedding: string }>(
+			`SELECT id, embedding FROM observations
+			 WHERE embedding IS NOT NULL AND type = ?
+			 ORDER BY created_at DESC
+			 LIMIT 200`,
+			[type],
+		);
+
+		const scored: Array<{ id: string; similarity: number }> = [];
+
+		for (const row of rows) {
+			try {
+				const stored: unknown = JSON.parse(row.embedding);
+				if (!Array.isArray(stored) || stored.length !== embedding.length) continue;
+
+				const similarity = cosineSimilarity(embedding, stored as number[]);
+				if (similarity >= threshold) {
+					scored.push({ id: row.id, similarity });
+				}
+			} catch {}
+		}
+
+		return scored.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -381,6 +430,59 @@ export class ObservationRepository {
 		} catch {
 			return [];
 		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Update / Delete
+	// ---------------------------------------------------------------------------
+
+	update(
+		id: string,
+		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance">>,
+	): Observation | null {
+		const existing = this.getById(id);
+		if (!existing) return null;
+
+		const setClauses: string[] = [];
+		const params: (string | number)[] = [];
+
+		if (data.title !== undefined) {
+			setClauses.push("title = ?");
+			params.push(data.title);
+		}
+		if (data.narrative !== undefined) {
+			setClauses.push("narrative = ?");
+			params.push(data.narrative);
+		}
+		if (data.type !== undefined) {
+			setClauses.push("type = ?");
+			params.push(data.type);
+		}
+		if (data.concepts !== undefined) {
+			setClauses.push("concepts = ?");
+			params.push(JSON.stringify(data.concepts));
+		}
+		if (data.importance !== undefined) {
+			setClauses.push("importance = ?");
+			params.push(data.importance);
+		}
+
+		if (setClauses.length === 0) return existing;
+
+		params.push(id);
+		this.db.run(`UPDATE observations SET ${setClauses.join(", ")} WHERE id = ?`, params);
+		return this.getById(id);
+	}
+
+	delete(id: string): boolean {
+		const result = this.db.all<{ id: string }>(
+			"DELETE FROM observations WHERE id = ? RETURNING id",
+			[id],
+		);
+		if (result.length === 0) return false;
+
+		this.deleteEmbeddingsForObservations([id]);
+		return true;
 	}
 
 	// ---------------------------------------------------------------------------
