@@ -267,6 +267,15 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE observations ADD COLUMN superseded_by TEXT;
 			ALTER TABLE observations ADD COLUMN superseded_at TEXT;
 			CREATE INDEX IF NOT EXISTS idx_observations_superseded ON observations(superseded_by);
+
+			-- Clean up superseded_by when the superseding observation is deleted
+			CREATE TRIGGER IF NOT EXISTS trg_clear_superseded_by
+			AFTER DELETE ON observations
+			BEGIN
+				UPDATE observations
+				SET superseded_by = NULL, superseded_at = NULL
+				WHERE superseded_by = OLD.id;
+			END;
 		`,
 	},
 

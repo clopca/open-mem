@@ -241,15 +241,18 @@ export class ObservationRepository {
 			params.push(query.createdBefore);
 		}
 		if (query.concepts && query.concepts.length > 0) {
-			const conceptClauses = query.concepts.map(() => "o.concepts LIKE ? ESCAPE '\\'");
+			const conceptClauses = query.concepts.map(
+				() => "EXISTS (SELECT 1 FROM json_each(o.concepts) WHERE LOWER(value) = LOWER(?))",
+			);
 			sql += ` AND (${conceptClauses.join(" OR ")})`;
 			for (const c of query.concepts) {
-				params.push(`%${escapeLike(c)}%`);
+				params.push(c);
 			}
 		}
 		if (query.files && query.files.length > 0) {
 			const fileClauses = query.files.map(
-				() => "(o.files_read LIKE ? ESCAPE '\\' OR o.files_modified LIKE ? ESCAPE '\\')",
+				() => `(EXISTS (SELECT 1 FROM json_each(o.files_read) WHERE LOWER(value) LIKE LOWER(?) ESCAPE '\\')
+             OR EXISTS (SELECT 1 FROM json_each(o.files_modified) WHERE LOWER(value) LIKE LOWER(?) ESCAPE '\\'))`,
 			);
 			sql += ` AND (${fileClauses.join(" OR ")})`;
 			for (const f of query.files) {
