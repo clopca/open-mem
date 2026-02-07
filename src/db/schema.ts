@@ -211,6 +211,24 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE session_summaries ADD COLUMN next_steps TEXT NOT NULL DEFAULT '';
 		`,
 	},
+
+	// v4 — Discovery tokens for ROI tracking
+	{
+		version: 4,
+		name: "add-discovery-tokens",
+		up: `
+			ALTER TABLE observations ADD COLUMN discovery_tokens INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
+
+	// v5 — Optional embedding column for vector-based semantic search
+	{
+		version: 5,
+		name: "add-embedding-column",
+		up: `
+			ALTER TABLE observations ADD COLUMN embedding TEXT;
+		`,
+	},
 ];
 
 // -----------------------------------------------------------------------------

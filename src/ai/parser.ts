@@ -21,6 +21,7 @@ export interface ParsedObservation {
 	concepts: string[];
 	filesRead: string[];
 	filesModified: string[];
+	discoveryTokens?: number;
 }
 
 export interface ParsedSummary {

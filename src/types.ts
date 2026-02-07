@@ -31,6 +31,7 @@ export interface Observation {
 	toolName: string; // Which tool generated this
 	createdAt: string; // ISO 8601
 	tokenCount: number; // Estimated tokens for budget management
+	discoveryTokens: number; // Original input size in tokens (for ROI tracking)
 }
 
 /** Lightweight index entry for progressive disclosure */
@@ -40,6 +41,7 @@ export interface ObservationIndex {
 	type: ObservationType;
 	title: string;
 	tokenCount: number;
+	discoveryTokens: number;
 	createdAt: string;
 }
 
@@ -150,6 +152,10 @@ export interface OpenMemConfig {
 
 	// Rate limiting
 	rateLimitingEnabled: boolean; // Enable rate limiting for Gemini free tier
+
+	// Folder context (AGENTS.md generation)
+	folderContextEnabled: boolean; // Auto-generate AGENTS.md in active folders
+	folderContextMaxDepth: number; // Max folder depth from project root
 }
 
 // -----------------------------------------------------------------------------
