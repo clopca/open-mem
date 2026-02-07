@@ -1,0 +1,51 @@
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+
+export function writePid(pidPath: string): void {
+	const lastSlash = pidPath.lastIndexOf("/");
+	if (lastSlash > 0) {
+		const dir = pidPath.substring(0, lastSlash);
+		mkdirSync(dir, { recursive: true });
+	}
+	writeFileSync(pidPath, String(process.pid), "utf-8");
+}
+
+export function readPid(pidPath: string): number | null {
+	if (!existsSync(pidPath)) {
+		return null;
+	}
+	const content = readFileSync(pidPath, "utf-8").trim();
+	const pid = Number.parseInt(content, 10);
+	if (Number.isNaN(pid)) {
+		return null;
+	}
+	return pid;
+}
+
+export function isProcessAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (err: unknown) {
+		// EPERM means the process exists but we lack permission to signal it
+		if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "EPERM") {
+			return true;
+		}
+		return false; // ESRCH or other → process does not exist
+	}
+}
+
+export function removePid(pidPath: string): void {
+	try {
+		unlinkSync(pidPath);
+	} catch {
+		// file may not exist
+	}
+}
+
+export function getPidPath(dbPath: string): string {
+	const lastSlash = dbPath.lastIndexOf("/");
+	if (lastSlash >= 0) {
+		return `${dbPath.substring(0, lastSlash)}/worker.pid`;
+	}
+	return "worker.pid";
+}

@@ -25,6 +25,7 @@ export function createSearchTool(
 	summaries: SummaryRepository,
 	embeddingModel: EmbeddingModel | null = null,
 	projectPath = "",
+	hasVectorExtension = false,
 ): ToolDefinition {
 	return {
 		name: "mem-search",
@@ -46,6 +47,7 @@ Supports full-text search with FTS5.`,
 					type: args.type,
 					limit: args.limit,
 					projectPath,
+					hasVectorExtension,
 				});
 
 				if (results.length === 0) {

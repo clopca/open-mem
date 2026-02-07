@@ -13,13 +13,16 @@
 		}
 	},
 	"bin": {
-		"open-mem-mcp": "./dist/mcp.js"
+		"open-mem-mcp": "./dist/mcp.js",
+		"open-mem-daemon": "./dist/daemon.js"
 	},
 	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
 	"scripts": {
-		"build": "bun run build:bundle && bun run build:mcp && bun run build:types",
-		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google",
-		"build:mcp": "bun build src/mcp.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google",
+		"build": "bun run build:bundle && bun run build:mcp && bun run build:daemon && bun run build:dashboard && bun run build:types",
+		"build:dashboard": "cd dashboard && bun install && bun run build && cp -r dist ../dist/dashboard",
+		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec",
+		"build:mcp": "bun build src/mcp.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec",
+		"build:daemon": "bun build src/daemon.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec",
 		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
 		"dev": "bun run --watch src/index.ts",
 		"test": "bun test",
@@ -57,11 +60,13 @@
 		"@ai-sdk/anthropic": "^3.0.38",
 		"@ai-sdk/google": "^3.0.22",
 		"ai": "^6.0.75",
+		"sqlite-vec": "^0.1.7-alpha.2",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
 		"@types/bun": "latest",
-		"typescript": "^5.7.0",
-		"@biomejs/biome": "^1.9.0"
+		"hono": "^4.11.8",
+		"typescript": "^5.7.0"
 	}
 }

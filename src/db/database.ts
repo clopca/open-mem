@@ -4,6 +4,7 @@
 
 import { Database as BunDatabase, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import * as sqliteVec from "sqlite-vec";
 
 /** Param array accepted by query helpers */
 type Params = SQLQueryBindings[];
@@ -30,6 +31,25 @@ export interface Migration {
 export class Database {
 	private db: BunDatabase;
 	private dbPath: string;
+	private _hasVectorExtension = false;
+
+	static enableExtensionSupport(): boolean {
+		const customPaths = [
+			"/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib",
+			"/usr/local/opt/sqlite/lib/libsqlite3.dylib",
+		];
+		for (const p of customPaths) {
+			try {
+				if (existsSync(p)) {
+					BunDatabase.setCustomSQLite(p);
+					return true;
+				}
+			} catch {
+				return false;
+			}
+		}
+		return false;
+	}
 
 	constructor(dbPath: string) {
 		this.dbPath = dbPath;
@@ -55,6 +75,7 @@ export class Database {
 	private configure(): void {
 		try {
 			this.applyPragmas();
+			this.loadExtensions();
 		} catch (firstError) {
 			// Step 1: Close connection, delete WAL/SHM sidecar files, retry
 			console.warn(
@@ -70,6 +91,7 @@ export class Database {
 			try {
 				this.db = this.open(this.dbPath);
 				this.applyPragmas();
+				this.loadExtensions();
 				console.warn("[open-mem] Recovery successful after removing WAL/SHM files");
 				return;
 			} catch (secondError) {
@@ -87,6 +109,7 @@ export class Database {
 				try {
 					this.db = this.open(this.dbPath);
 					this.applyPragmas();
+					this.loadExtensions();
 					console.warn("[open-mem] Recovery successful after full database recreation");
 					return;
 				} catch (thirdError) {
@@ -110,6 +133,19 @@ export class Database {
 		this.db.exec("PRAGMA foreign_keys = ON");
 		// Prevent "database is locked" errors during concurrent access
 		this.db.exec("PRAGMA busy_timeout = 5000");
+	}
+
+	private loadExtensions(): void {
+		try {
+			sqliteVec.load(this.db);
+			this._hasVectorExtension = true;
+		} catch {
+			this._hasVectorExtension = false;
+		}
+	}
+
+	public get hasVectorExtension(): boolean {
+		return this._hasVectorExtension;
 	}
 
 	private deleteSidecarFiles(): void {

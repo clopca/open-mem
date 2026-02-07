@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { resolveConfig } from "./config";
-import { createDatabase } from "./db/database";
+import { Database, createDatabase } from "./db/database";
 import { ObservationRepository } from "./db/observations";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
@@ -27,8 +27,12 @@ const projectPath = getCanonicalProjectPath(projectDir);
 
 const config = resolveConfig(projectPath);
 
+Database.enableExtensionSupport();
 const db = createDatabase(config.dbPath);
-initializeSchema(db);
+initializeSchema(db, {
+	hasVectorExtension: db.hasVectorExtension,
+	embeddingDimension: config.embeddingDimension,
+});
 
 const sessions = new SessionRepository(db);
 const observations = new ObservationRepository(db);
