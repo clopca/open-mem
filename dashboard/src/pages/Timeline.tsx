@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TimelineItem } from "../components/TimelineItem";
 import { useAPI } from "../hooks/useAPI";
 import { useSSE } from "../hooks/useSSE";
@@ -29,7 +29,11 @@ export function Timeline() {
 	const [newIds, setNewIds] = useState<Set<string>>(new Set());
 	const newIdTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-	const apiUrl = `/api/observations?limit=${PAGE_SIZE}&offset=${offset}${typeFilter ? `&type=${typeFilter}` : ""}`;
+	const apiUrl = useMemo(
+		() =>
+			`/api/observations?limit=${PAGE_SIZE}&offset=${offset}${typeFilter ? `&type=${typeFilter}` : ""}`,
+		[offset, typeFilter],
+	);
 	const { data, loading, error } = useAPI<Observation[]>(apiUrl);
 
 	const { events, clearEvents } = useSSE<SSEEvent>("/api/events");
@@ -109,6 +113,12 @@ export function Timeline() {
 		setOffset(0);
 		setAllObservations([]);
 		setHasMore(true);
+		// Clear highlight state and cancel pending timers
+		setNewIds(new Set());
+		for (const timer of newIdTimers.current.values()) {
+			clearTimeout(timer);
+		}
+		newIdTimers.current.clear();
 	}, []);
 
 	const handleLoadMore = useCallback(() => {
@@ -159,7 +169,7 @@ export function Timeline() {
 
 			{isInitialLoad && <LoadingSkeleton />}
 
-			{!isInitialLoad && allObservations.length === 0 && !error && (
+			{!isInitialLoad && !loading && allObservations.length === 0 && !error && (
 				<EmptyState filtered={!!typeFilter} />
 			)}
 

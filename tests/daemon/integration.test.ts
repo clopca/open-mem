@@ -35,7 +35,7 @@ describe("Daemon Integration", () => {
 	});
 
 	test("OPEN_MEM_DAEMON unset keeps daemon disabled", () => {
-		process.env.OPEN_MEM_DAEMON = undefined;
+		delete process.env.OPEN_MEM_DAEMON;
 		const config = resolveConfig("/tmp/test-project");
 		expect(config.daemonEnabled).toBe(false);
 	});
