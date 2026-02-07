@@ -4,9 +4,11 @@
 
 import type { EmbeddingModel } from "ai";
 import type { ObservationRepository } from "../db/observations";
+import type { UserObservationRepository, UserObservation } from "../db/user-memory";
 import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
 import { hybridSearch } from "./hybrid";
+import type { Reranker } from "./reranker";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -38,20 +40,43 @@ export class SearchOrchestrator {
 		private observations: ObservationRepository,
 		private embeddingModel: EmbeddingModel | null,
 		private hasVectorExtension: boolean,
+		private reranker: Reranker | null = null,
+		private userObservationRepo: UserObservationRepository | null = null,
 	) {}
 
 	async search(query: string, options: OrchestratedSearchOptions): Promise<SearchResult[]> {
 		const strategy = options.strategy ?? "hybrid";
 		const limit = options.limit ?? 10;
 
+		let results: SearchResult[];
 		switch (strategy) {
 			case "filter-only":
-				return this.filterOnlySearch(query, options, limit);
+				results = this.filterOnlySearch(query, options, limit);
+				break;
 			case "semantic":
-				return this.semanticSearch(query, options, limit);
+				results = await this.semanticSearch(query, options, limit);
+				break;
 			case "hybrid":
-				return this.hybridSearchStrategy(query, options, limit);
+				results = await this.hybridSearchStrategy(query, options, limit);
+				break;
 		}
+
+		// Label project results
+		for (const r of results) {
+			r.source = "project";
+		}
+
+		// Merge user-level results when available
+		if (this.userObservationRepo) {
+			const userResults = this.searchUserMemory(query, options, limit);
+			results = this.mergeResults(results, userResults, limit);
+		}
+
+		if (this.reranker && results.length > 1) {
+			return this.reranker.rerank(query, results, limit);
+		}
+
+		return results;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -210,6 +235,40 @@ export class SearchOrchestrator {
 
 		return results;
 	}
+
+	// ---------------------------------------------------------------------------
+	// User Memory Search
+	// ---------------------------------------------------------------------------
+
+	private searchUserMemory(
+		query: string,
+		options: OrchestratedSearchOptions,
+		limit: number,
+	): SearchResult[] {
+		if (!this.userObservationRepo) return [];
+
+		try {
+			const userResults = this.userObservationRepo.search({ query, limit });
+			return userResults.map(({ observation: userObs, rank }) => ({
+				observation: userObservationToObservation(userObs),
+				rank,
+				snippet: userObs.title,
+				source: "user" as const,
+			}));
+		} catch {
+			return [];
+		}
+	}
+
+	private mergeResults(
+		projectResults: SearchResult[],
+		userResults: SearchResult[],
+		limit: number,
+	): SearchResult[] {
+		const seenIds = new Set(projectResults.map((r) => r.observation.id));
+		const dedupedUserResults = userResults.filter((r) => !seenIds.has(r.observation.id));
+		return [...projectResults, ...dedupedUserResults].slice(0, limit);
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -246,4 +305,25 @@ function passesAdvancedFilters(obs: Observation, filters: AdvancedFilterOptions)
 		if (!hasFile) return false;
 	}
 	return true;
+}
+
+function userObservationToObservation(userObs: UserObservation): Observation {
+	return {
+		id: userObs.id,
+		sessionId: "",
+		type: userObs.type,
+		title: userObs.title,
+		subtitle: userObs.subtitle,
+		facts: userObs.facts,
+		narrative: userObs.narrative,
+		concepts: userObs.concepts,
+		filesRead: userObs.filesRead,
+		filesModified: userObs.filesModified,
+		rawToolOutput: "",
+		toolName: userObs.toolName,
+		createdAt: userObs.createdAt,
+		tokenCount: userObs.tokenCount,
+		discoveryTokens: 0,
+		importance: userObs.importance,
+	};
 }

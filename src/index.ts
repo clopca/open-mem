@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ObservationCompressor } from "./ai/compressor";
-import { createEmbeddingModel } from "./ai/provider";
+import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
@@ -17,6 +17,7 @@ import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
+import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
 import { type MemoryEventBus, createEventBus } from "./events/bus";
 import { createChatCaptureHook } from "./hooks/chat-capture";
 import { createCompactionHook } from "./hooks/compaction";
@@ -25,6 +26,7 @@ import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
 import { SearchOrchestrator } from "./search/orchestrator";
+import { createReranker } from "./search/reranker";
 import { createDashboardApp } from "./servers/http-server";
 import { SSEBroadcaster, createSSERoute } from "./servers/sse-broadcaster";
 import { createDeleteTool } from "./tools/delete";
@@ -103,6 +105,18 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const observationRepo = new ObservationRepository(db);
 	const summaryRepo = new SummaryRepository(db);
 	const pendingRepo = new PendingMessageRepository(db);
+
+	// 3b. User-level memory (cross-project)
+	let userMemoryDb: UserMemoryDatabase | null = null;
+	let userObservationRepo: UserObservationRepository | null = null;
+	if (config.userMemoryEnabled) {
+		try {
+			userMemoryDb = new UserMemoryDatabase(config.userMemoryDbPath);
+			userObservationRepo = new UserObservationRepository(userMemoryDb.database);
+		} catch (err) {
+			console.warn(`[open-mem] Failed to initialize user-level memory: ${err}`);
+		}
+	}
 
 	// 4. AI services
 	const compressor = new ObservationCompressor(config);
@@ -230,15 +244,24 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		queue.stop();
 		if (dashboardServer) dashboardServer.stop();
 		if (sseBroadcaster) sseBroadcaster.destroy();
+		if (userMemoryDb) userMemoryDb.close();
 		db.close();
 	};
 	process.on("beforeExit", cleanup);
 
 	// 9. Search orchestrator
+	const reranker = createReranker(
+		config,
+		config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
+			? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+			: null,
+	);
 	const searchOrchestrator = new SearchOrchestrator(
 		observationRepo,
 		embeddingModel,
 		db.hasVectorExtension,
+		reranker,
+		userObservationRepo,
 	);
 
 	// 10. Build hooks
@@ -274,9 +297,9 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		),
 		tools: [
 			createSearchTool(searchOrchestrator, summaryRepo, projectPath),
-			createSaveTool(observationRepo, sessionRepo, projectPath),
+			createSaveTool(observationRepo, sessionRepo, projectPath, userObservationRepo ?? undefined),
 			createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
-			createRecallTool(observationRepo),
+			createRecallTool(observationRepo, userObservationRepo ?? undefined),
 			createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
 			createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
 			createUpdateTool(observationRepo, sessionRepo, projectPath),
