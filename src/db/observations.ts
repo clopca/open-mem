@@ -33,6 +33,7 @@ interface ObservationRow {
 	token_count: number;
 	discovery_tokens: number;
 	embedding: string | null;
+	importance: number;
 }
 
 interface ObservationIndexRow {
@@ -43,6 +44,7 @@ interface ObservationIndexRow {
 	token_count: number;
 	discovery_tokens: number;
 	created_at: string;
+	importance: number;
 }
 
 interface ObservationSearchRow extends ObservationRow {
@@ -66,12 +68,13 @@ export class ObservationRepository {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		const discoveryTokens = data.discoveryTokens ?? 0;
+		const importance = data.importance ?? 3;
 		this.db.run(
 			`INSERT INTO observations
 				(id, session_id, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				id,
 				data.sessionId,
@@ -88,9 +91,10 @@ export class ObservationRepository {
 				now,
 				data.tokenCount,
 				discoveryTokens,
+				importance,
 			],
 		);
-		return { ...data, id, createdAt: now, discoveryTokens };
+		return { ...data, id, createdAt: now, discoveryTokens, importance };
 	}
 
 	importObservation(data: Observation): void {
@@ -98,8 +102,8 @@ export class ObservationRepository {
 			`INSERT INTO observations
 				(id, session_id, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				data.id,
 				data.sessionId,
@@ -116,6 +120,7 @@ export class ObservationRepository {
 				data.createdAt,
 				data.tokenCount,
 				data.discoveryTokens ?? 0,
+				data.importance ?? 3,
 			],
 		);
 	}
@@ -154,7 +159,7 @@ export class ObservationRepository {
 	getIndex(projectPath: string, limit = 20): ObservationIndex[] {
 		return this.db
 			.all<ObservationIndexRow>(
-				`SELECT o.id, o.session_id, o.type, o.title, o.token_count, o.discovery_tokens, o.created_at
+				`SELECT o.id, o.session_id, o.type, o.title, o.token_count, o.discovery_tokens, o.created_at, o.importance
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
 				 WHERE s.project_path = ?
@@ -170,6 +175,7 @@ export class ObservationRepository {
 				tokenCount: r.token_count,
 				discoveryTokens: r.discovery_tokens ?? 0,
 				createdAt: r.created_at,
+				importance: r.importance ?? 3,
 			}));
 	}
 
@@ -378,6 +384,36 @@ export class ObservationRepository {
 	}
 
 	// ---------------------------------------------------------------------------
+	// Retention / Cleanup
+	// ---------------------------------------------------------------------------
+
+	deleteOlderThan(days: number): number {
+		const deleted = this.db.all<{ id: string }>(
+			`DELETE FROM observations
+			 WHERE created_at < datetime('now', '-' || ? || ' days')
+			 AND session_id NOT IN (SELECT id FROM sessions WHERE status != 'completed')
+			 RETURNING id`,
+			[days],
+		);
+		return deleted.length;
+	}
+
+	deleteEmbeddingsForObservations(ids: string[]): void {
+		if (ids.length === 0) return;
+
+		const placeholders = ids.map(() => "?").join(",");
+		try {
+			this.db.run(
+				`DELETE FROM observation_embeddings WHERE observation_id IN (${placeholders})`,
+				ids,
+			);
+		} catch {
+			// vec0 table may not exist if sqlite-vec extension isn't loaded
+		}
+		this.db.run(`UPDATE observations SET embedding = NULL WHERE id IN (${placeholders})`, ids);
+	}
+
+	// ---------------------------------------------------------------------------
 	// Row Mapping
 	// ---------------------------------------------------------------------------
 
@@ -398,6 +434,7 @@ export class ObservationRepository {
 			createdAt: row.created_at,
 			tokenCount: row.token_count,
 			discoveryTokens: row.discovery_tokens ?? 0,
+			importance: row.importance ?? 3,
 		};
 	}
 }

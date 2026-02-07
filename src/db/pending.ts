@@ -103,6 +103,17 @@ export class PendingMessageRepository {
 		return result.length;
 	}
 
+	deleteCompletedOlderThan(days: number): number {
+		const result = this.db.all<{ id: string }>(
+			`DELETE FROM pending_messages
+			 WHERE status = 'completed'
+			 AND created_at < datetime('now', '-' || ? || ' days')
+			 RETURNING id`,
+			[days],
+		);
+		return result.length;
+	}
+
 	// ---------------------------------------------------------------------------
 	// Row Mapping
 	// ---------------------------------------------------------------------------
