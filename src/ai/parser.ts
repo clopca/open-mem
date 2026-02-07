@@ -12,6 +12,7 @@ import type { ObservationType } from "../types";
 // Parsed Result Types
 // -----------------------------------------------------------------------------
 
+/** Structured observation parsed from AI XML response. */
 export interface ParsedObservation {
 	type: ObservationType;
 	title: string;
@@ -25,6 +26,7 @@ export interface ParsedObservation {
 	importance?: number;
 }
 
+/** Structured session summary parsed from AI XML response. */
 export interface ParsedSummary {
 	summary: string;
 	keyDecisions: string[];
@@ -152,6 +154,176 @@ export function parseSummaryResponse(response: string): ParsedSummary | null {
 		completed,
 		nextSteps,
 	};
+}
+
+// -----------------------------------------------------------------------------
+// Reranking Parser
+// -----------------------------------------------------------------------------
+
+/** Parse an LLM reranking response into an ordered array of candidate indices. */
+export function parseRerankingResponse(response: string): number[] | null {
+	const block = extractTag(response, "reranked");
+	if (!block) return null;
+
+	const rawIndices = extractAllTags(block, "index");
+	if (rawIndices.length === 0) return null;
+
+	const indices: number[] = [];
+	for (const raw of rawIndices) {
+		const parsed = Number.parseInt(raw, 10);
+		if (Number.isNaN(parsed) || parsed < 0) return null;
+		indices.push(parsed);
+	}
+
+	return indices;
+}
+
+// -----------------------------------------------------------------------------
+// Conflict Evaluation Parser
+// -----------------------------------------------------------------------------
+
+/** Possible outcomes of a conflict evaluation. */
+export type ConflictOutcome = "new_fact" | "update" | "duplicate";
+
+/** Result of evaluating whether a new observation conflicts with existing ones. */
+export interface ConflictEvaluation {
+	outcome: ConflictOutcome;
+	supersedesId?: string;
+	reason: string;
+}
+
+const VALID_CONFLICT_OUTCOMES = new Set<string>(["new_fact", "update", "duplicate"]);
+
+/** Parse an LLM conflict evaluation response into a structured result. */
+export function parseConflictEvaluationResponse(response: string): ConflictEvaluation | null {
+	const block = extractTag(response, "evaluation");
+	if (!block) return null;
+
+	const rawOutcome = extractTag(block, "outcome").toLowerCase().trim();
+	if (!VALID_CONFLICT_OUTCOMES.has(rawOutcome)) return null;
+
+	const outcome = rawOutcome as ConflictOutcome;
+	const reason = extractTag(block, "reason");
+	if (!reason) return null;
+
+	const supersedes = extractTag(block, "supersedes");
+
+	const result: ConflictEvaluation = { outcome, reason };
+
+	if (outcome === "update" && supersedes) {
+		result.supersedesId = supersedes;
+	}
+
+	if (outcome === "update" && !result.supersedesId) {
+		return null; // "update" requires a supersedes target
+	}
+
+	return result;
+}
+
+// -----------------------------------------------------------------------------
+// Entity Extraction Parser
+// -----------------------------------------------------------------------------
+
+/** Classification of entity types extracted from observations. */
+export type EntityType =
+	| "technology"
+	| "library"
+	| "pattern"
+	| "concept"
+	| "file"
+	| "person"
+	| "project"
+	| "other";
+
+/** Types of relationships between extracted entities. */
+export type RelationshipType =
+	| "uses"
+	| "depends_on"
+	| "implements"
+	| "extends"
+	| "related_to"
+	| "replaces"
+	| "configures";
+
+/** An entity extracted from observation text. */
+export interface ParsedEntity {
+	name: string;
+	entityType: EntityType;
+}
+
+/** A relationship between two extracted entities. */
+export interface ParsedRelation {
+	sourceName: string;
+	targetName: string;
+	relationship: RelationshipType;
+}
+
+/** Complete result of entity extraction from an observation. */
+export interface ParsedEntityExtraction {
+	entities: ParsedEntity[];
+	relations: ParsedRelation[];
+}
+
+const VALID_ENTITY_TYPES = new Set<string>([
+	"technology",
+	"library",
+	"pattern",
+	"concept",
+	"file",
+	"person",
+	"project",
+	"other",
+]);
+
+const VALID_RELATIONSHIP_TYPES = new Set<string>([
+	"uses",
+	"depends_on",
+	"implements",
+	"extends",
+	"related_to",
+	"replaces",
+	"configures",
+]);
+
+/** Parse an LLM entity extraction response into entities and relations. */
+export function parseEntityExtractionResponse(
+	response: string,
+): ParsedEntityExtraction | null {
+	const extraction = extractTag(response, "extraction");
+	if (!extraction) return null;
+
+	const entitiesBlock = extractTag(extraction, "entities");
+	const relationsBlock = extractTag(extraction, "relations");
+
+	const rawEntities = extractAllTags(entitiesBlock, "entity");
+	const entities: ParsedEntity[] = [];
+	for (const raw of rawEntities) {
+		const name = extractTag(raw, "name");
+		if (!name) continue;
+		const rawType = extractTag(raw, "type").toLowerCase();
+		const entityType: EntityType = VALID_ENTITY_TYPES.has(rawType)
+			? (rawType as EntityType)
+			: "other";
+		entities.push({ name, entityType });
+	}
+
+	const rawRelations = extractAllTags(relationsBlock, "relation");
+	const relations: ParsedRelation[] = [];
+	for (const raw of rawRelations) {
+		const sourceName = extractTag(raw, "source");
+		const targetName = extractTag(raw, "target");
+		const rawRel = extractTag(raw, "relationship").toLowerCase();
+		if (!sourceName || !targetName || !rawRel) continue;
+		if (!VALID_RELATIONSHIP_TYPES.has(rawRel)) continue;
+		relations.push({
+			sourceName,
+			targetName,
+			relationship: rawRel as RelationshipType,
+		});
+	}
+
+	return { entities, relations };
 }
 
 // -----------------------------------------------------------------------------

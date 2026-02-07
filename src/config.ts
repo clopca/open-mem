@@ -65,6 +65,23 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 
 	// Embeddings
 	embeddingDimension: undefined,
+
+	// Conflict resolution
+	conflictResolutionEnabled: false,
+	conflictSimilarityBandLow: 0.7,
+	conflictSimilarityBandHigh: 0.92,
+
+	// User-level memory
+	userMemoryEnabled: false,
+	userMemoryDbPath: "~/.config/open-mem/user-memory.db",
+	userMemoryMaxContextTokens: 1000,
+
+	// Reranking
+	rerankingEnabled: false,
+	rerankingMaxCandidates: 20,
+
+	// Entity extraction
+	entityExtractionEnabled: false,
 };
 
 // -----------------------------------------------------------------------------
@@ -112,6 +129,30 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		env.dashboardPort = Number.parseInt(process.env.OPEN_MEM_DASHBOARD_PORT, 10);
 	if (process.env.OPEN_MEM_EMBEDDING_DIMENSION)
 		env.embeddingDimension = Number.parseInt(process.env.OPEN_MEM_EMBEDDING_DIMENSION, 10);
+	if (process.env.OPEN_MEM_CONFLICT_RESOLUTION === "true") env.conflictResolutionEnabled = true;
+	if (process.env.OPEN_MEM_CONFLICT_BAND_LOW) {
+		const v = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_LOW);
+		if (!Number.isNaN(v)) env.conflictSimilarityBandLow = v;
+	}
+	if (process.env.OPEN_MEM_CONFLICT_BAND_HIGH) {
+		const v = Number.parseFloat(process.env.OPEN_MEM_CONFLICT_BAND_HIGH);
+		if (!Number.isNaN(v)) env.conflictSimilarityBandHigh = v;
+	}
+	if (process.env.OPEN_MEM_USER_MEMORY === "true") env.userMemoryEnabled = true;
+	if (process.env.OPEN_MEM_USER_MEMORY_DB_PATH)
+		env.userMemoryDbPath = process.env.OPEN_MEM_USER_MEMORY_DB_PATH;
+	if (process.env.OPEN_MEM_USER_MEMORY_MAX_TOKENS)
+		env.userMemoryMaxContextTokens = Number.parseInt(
+			process.env.OPEN_MEM_USER_MEMORY_MAX_TOKENS,
+			10,
+		);
+	if (process.env.OPEN_MEM_RERANKING === "true") env.rerankingEnabled = true;
+	if (process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES)
+		env.rerankingMaxCandidates = Number.parseInt(
+			process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES,
+			10,
+		);
+	if (process.env.OPEN_MEM_ENTITY_EXTRACTION === "true") env.entityExtractionEnabled = true;
 
 	return env;
 }
@@ -120,6 +161,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 // Embedding Dimension Defaults
 // -----------------------------------------------------------------------------
 
+/** Get the default embedding dimension for a given AI provider. */
 export function getDefaultDimension(provider: string): number {
 	switch (provider) {
 		case "google":

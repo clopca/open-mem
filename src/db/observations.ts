@@ -14,6 +14,14 @@ import type {
 import type { Database } from "./database";
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+function escapeLike(value: string): string {
+	return value.replace(/[%_\\]/g, "\\$&");
+}
+
+// -----------------------------------------------------------------------------
 // DB Row Types (match SQLite column names exactly)
 // -----------------------------------------------------------------------------
 
@@ -35,6 +43,8 @@ interface ObservationRow {
 	discovery_tokens: number;
 	embedding: string | null;
 	importance: number;
+	superseded_by: string | null;
+	superseded_at: string | null;
 }
 
 interface ObservationIndexRow {
@@ -58,6 +68,7 @@ interface EmbeddingRow {
 	title: string;
 }
 
+/** Repository for observation CRUD, FTS5 search, and embedding operations. */
 export class ObservationRepository {
 	constructor(private db: Database) {}
 
@@ -65,7 +76,8 @@ export class ObservationRepository {
 	// Create
 	// ---------------------------------------------------------------------------
 
-	create(data: Omit<Observation, "id" | "createdAt">): Observation {
+	/** Create a new observation and return it with generated ID and timestamp. */
+	create(data: Omit<Observation, "id" | "createdAt" | "supersededBy" | "supersededAt">): Observation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		const discoveryTokens = data.discoveryTokens ?? 0;
@@ -95,9 +107,10 @@ export class ObservationRepository {
 				importance,
 			],
 		);
-		return { ...data, id, createdAt: now, discoveryTokens, importance };
+		return { ...data, id, createdAt: now, discoveryTokens, importance, supersededBy: null, supersededAt: null };
 	}
 
+	/** Import an observation with a pre-existing ID (for data migration). */
 	importObservation(data: Observation): void {
 		this.db.run(
 			`INSERT INTO observations
@@ -130,11 +143,13 @@ export class ObservationRepository {
 	// Read
 	// ---------------------------------------------------------------------------
 
+	/** Get an observation by its unique ID. */
 	getById(id: string): Observation | null {
 		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
 		return row ? this.mapRow(row) : null;
 	}
 
+	/** Get all observations for a session, ordered by creation time. */
 	getBySession(sessionId: string): Observation[] {
 		return this.db
 			.all<ObservationRow>(
@@ -144,6 +159,7 @@ export class ObservationRepository {
 			.map((r) => this.mapRow(r));
 	}
 
+	/** Get the total observation count, optionally filtered by session. */
 	getCount(sessionId?: string): number {
 		if (sessionId) {
 			const row = this.db.get<{ count: number }>(
@@ -163,7 +179,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.session_id, o.type, o.title, o.token_count, o.discovery_tokens, o.created_at, o.importance
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ?
+				 WHERE s.project_path = ? AND o.superseded_by IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -184,6 +200,7 @@ export class ObservationRepository {
 	// FTS5 Search
 	// ---------------------------------------------------------------------------
 
+	/** Search observations using FTS5 full-text search with optional filters. */
 	search(query: SearchQuery): SearchResult[] {
 		const hasProjectPath = !!query.projectPath;
 		let sql = `
@@ -191,7 +208,7 @@ export class ObservationRepository {
 			FROM observations o
 			JOIN observations_fts fts ON o._rowid = fts.rowid
 			${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
-			WHERE observations_fts MATCH ?
+			WHERE observations_fts MATCH ? AND o.superseded_by IS NULL
 		`;
 		const params: (string | number)[] = [query.query];
 
@@ -207,6 +224,42 @@ export class ObservationRepository {
 			sql += " AND o.type = ?";
 			params.push(query.type);
 		}
+		if (query.importanceMin !== undefined) {
+			sql += " AND o.importance >= ?";
+			params.push(query.importanceMin);
+		}
+		if (query.importanceMax !== undefined) {
+			sql += " AND o.importance <= ?";
+			params.push(query.importanceMax);
+		}
+		if (query.createdAfter) {
+			sql += " AND o.created_at >= ?";
+			params.push(query.createdAfter);
+		}
+		if (query.createdBefore) {
+			sql += " AND o.created_at <= ?";
+			params.push(query.createdBefore);
+		}
+		if (query.concepts && query.concepts.length > 0) {
+			const conceptClauses = query.concepts.map(
+				() => "EXISTS (SELECT 1 FROM json_each(o.concepts) WHERE LOWER(value) = LOWER(?))",
+			);
+			sql += ` AND (${conceptClauses.join(" OR ")})`;
+			for (const c of query.concepts) {
+				params.push(c);
+			}
+		}
+		if (query.files && query.files.length > 0) {
+			const fileClauses = query.files.map(
+				() => `(EXISTS (SELECT 1 FROM json_each(o.files_read) WHERE LOWER(value) LIKE LOWER(?) ESCAPE '\\')
+             OR EXISTS (SELECT 1 FROM json_each(o.files_modified) WHERE LOWER(value) LIKE LOWER(?) ESCAPE '\\'))`,
+			);
+			sql += ` AND (${fileClauses.join(" OR ")})`;
+			for (const f of query.files) {
+				const escaped = `%${escapeLike(f)}%`;
+				params.push(escaped, escaped);
+			}
+		}
 
 		sql += " ORDER BY rank LIMIT ? OFFSET ?";
 		params.push(query.limit ?? 10);
@@ -219,6 +272,7 @@ export class ObservationRepository {
 		}));
 	}
 
+	/** Search observations by concept tag using FTS5. */
 	searchByConcept(concept: string, limit = 10, projectPath?: string): Observation[] {
 		const hasProjectPath = !!projectPath;
 		const sql = `SELECT o.*
@@ -226,6 +280,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 AND o.superseded_by IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
@@ -237,6 +292,7 @@ export class ObservationRepository {
 		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
 	}
 
+	/** Search observations by file path using FTS5. */
 	searchByFile(filePath: string, limit = 10, projectPath?: string): Observation[] {
 		const hasProjectPath = !!projectPath;
 		const sql = `SELECT o.*
@@ -244,6 +300,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
+				 AND o.superseded_by IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
@@ -261,6 +318,7 @@ export class ObservationRepository {
 	// Embedding Support
 	// ---------------------------------------------------------------------------
 
+	/** Store an embedding vector for an observation. */
 	setEmbedding(id: string, embedding: number[]): void {
 		this.db.run("UPDATE observations SET embedding = ? WHERE id = ?", [
 			JSON.stringify(embedding),
@@ -268,6 +326,7 @@ export class ObservationRepository {
 		]);
 	}
 
+	/** Get observations with their embedding vectors for a project. */
 	getWithEmbeddings(
 		projectPath: string,
 		limit: number,
@@ -277,7 +336,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.embedding, o.title
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ? AND o.embedding IS NOT NULL
+				 WHERE s.project_path = ? AND o.embedding IS NOT NULL AND o.superseded_by IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -300,6 +359,7 @@ export class ObservationRepository {
 	// Embedding Similarity Search (for deduplication)
 	// ---------------------------------------------------------------------------
 
+	/** Find observations similar to a given embedding above a similarity threshold. */
 	findSimilar(
 		embedding: number[],
 		type: ObservationType,
@@ -308,7 +368,7 @@ export class ObservationRepository {
 	): Array<{ id: string; similarity: number }> {
 		const rows = this.db.all<{ id: string; embedding: string }>(
 			`SELECT id, embedding FROM observations
-			 WHERE embedding IS NOT NULL AND type = ?
+			 WHERE embedding IS NOT NULL AND type = ? AND superseded_by IS NULL
 			 ORDER BY created_at DESC
 			 LIMIT 200`,
 			[type],
@@ -335,6 +395,7 @@ export class ObservationRepository {
 	// Vec0 Embedding Support
 	// ---------------------------------------------------------------------------
 
+	/** Insert an embedding into the vec0 virtual table for native KNN search. */
 	insertVecEmbedding(observationId: string, embedding: number[]): void {
 		const float32 = new Float32Array(embedding);
 		this.db.run("BEGIN");
@@ -351,6 +412,7 @@ export class ObservationRepository {
 		}
 	}
 
+	/** Migrate existing JSON embeddings to the vec0 virtual table. */
 	migrateExistingEmbeddings(dimension: number): { migrated: number; skipped: number } {
 		const rows = this.db.all<{ id: string; embedding: string }>(
 			"SELECT id, embedding FROM observations WHERE embedding IS NOT NULL",
@@ -380,6 +442,7 @@ export class ObservationRepository {
 	// Vec0 KNN Search
 	// ---------------------------------------------------------------------------
 
+	/** Perform KNN search using the vec0 virtual table. */
 	getVecEmbeddingMatches(
 		queryEmbedding: number[],
 		limit: number,
@@ -402,6 +465,7 @@ export class ObservationRepository {
 		}
 	}
 
+	/** Search vec0 embeddings filtered to a subset of observation IDs. */
 	searchVecSubset(
 		queryEmbedding: number[],
 		observationIds: string[],
@@ -436,9 +500,10 @@ export class ObservationRepository {
 	// Update / Delete
 	// ---------------------------------------------------------------------------
 
+	/** Update selected fields of an observation. */
 	update(
 		id: string,
-		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance">>,
+		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
@@ -466,6 +531,22 @@ export class ObservationRepository {
 			setClauses.push("importance = ?");
 			params.push(data.importance);
 		}
+		if (data.facts !== undefined) {
+			setClauses.push("facts = ?");
+			params.push(JSON.stringify(data.facts));
+		}
+		if (data.subtitle !== undefined) {
+			setClauses.push("subtitle = ?");
+			params.push(data.subtitle);
+		}
+		if (data.filesRead !== undefined) {
+			setClauses.push("files_read = ?");
+			params.push(JSON.stringify(data.filesRead));
+		}
+		if (data.filesModified !== undefined) {
+			setClauses.push("files_modified = ?");
+			params.push(JSON.stringify(data.filesModified));
+		}
 
 		if (setClauses.length === 0) return existing;
 
@@ -474,6 +555,16 @@ export class ObservationRepository {
 		return this.getById(id);
 	}
 
+	/** Mark an observation as superseded by a newer one. */
+	supersede(observationId: string, newObservationId: string): void {
+		const now = new Date().toISOString();
+		this.db.run(
+			"UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?",
+			[newObservationId, now, observationId],
+		);
+	}
+
+	/** Delete an observation by ID, including its embeddings. */
 	delete(id: string): boolean {
 		const result = this.db.all<{ id: string }>(
 			"DELETE FROM observations WHERE id = ? RETURNING id",
@@ -489,6 +580,7 @@ export class ObservationRepository {
 	// Retention / Cleanup
 	// ---------------------------------------------------------------------------
 
+	/** Delete observations older than the specified number of days. */
 	deleteOlderThan(days: number): number {
 		const deleted = this.db.all<{ id: string }>(
 			`DELETE FROM observations
@@ -500,6 +592,7 @@ export class ObservationRepository {
 		return deleted.length;
 	}
 
+	/** Remove vec0 embeddings and clear JSON embedding column for given IDs. */
 	deleteEmbeddingsForObservations(ids: string[]): void {
 		if (ids.length === 0) return;
 
@@ -537,6 +630,8 @@ export class ObservationRepository {
 			tokenCount: row.token_count,
 			discoveryTokens: row.discovery_tokens ?? 0,
 			importance: row.importance ?? 3,
+			supersededBy: row.superseded_by ?? null,
+			supersededAt: row.superseded_at ?? null,
 		};
 	}
 }

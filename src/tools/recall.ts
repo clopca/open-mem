@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import type { ObservationRepository } from "../db/observations";
+import type { UserObservationRepository } from "../db/user-memory";
 import type { Observation, ToolDefinition } from "../types";
 
 const recallArgsSchema = z.object({
@@ -13,7 +14,11 @@ const recallArgsSchema = z.object({
 
 type RecallArgs = z.infer<typeof recallArgsSchema>;
 
-export function createRecallTool(observations: ObservationRepository): ToolDefinition {
+/** Create the mem-recall tool for fetching full observation details by ID. */
+export function createRecallTool(
+	observations: ObservationRepository,
+	userObservationRepo?: UserObservationRepository,
+): ToolDefinition {
 	return {
 		name: "mem-recall",
 		description:
@@ -30,6 +35,18 @@ export function createRecallTool(observations: ObservationRepository): ToolDefin
 					const obs = observations.getById(id);
 					if (obs) {
 						results.push(formatObservation(obs));
+					} else if (userObservationRepo) {
+						const userObs = userObservationRepo.getById(id);
+						if (userObs) {
+							results.push(formatObservation({
+								...userObs,
+								sessionId: "",
+								rawToolOutput: "",
+								discoveryTokens: 0,
+							}, "user"));
+						} else {
+							results.push(`## ID: ${id}\n*Not found*`);
+						}
 					} else {
 						results.push(`## ID: ${id}\n*Not found*`);
 					}
@@ -51,10 +68,11 @@ export function createRecallTool(observations: ObservationRepository): ToolDefin
 // Formatter
 // ---------------------------------------------------------------------------
 
-function formatObservation(obs: Observation): string {
+function formatObservation(obs: Observation, source?: "project" | "user"): string {
 	const lines: string[] = [];
+	const sourceLabel = source === "user" ? " [USER]" : "";
 
-	lines.push(`## [${obs.type.toUpperCase()}] ${obs.title}`);
+	lines.push(`## [${obs.type.toUpperCase()}]${sourceLabel} ${obs.title}`);
 	if (obs.subtitle) lines.push(`*${obs.subtitle}*`);
 	lines.push(`\n${obs.narrative}`);
 

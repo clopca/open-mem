@@ -9,6 +9,7 @@ import type { Observation, Session, SessionSummary } from "../types";
 // Event Type Definitions
 // -----------------------------------------------------------------------------
 
+/** Map of event names to their payload types. */
 export type MemoryEventMap = {
 	"observation:created": Observation;
 	"observation:updated": Observation;
@@ -19,12 +20,14 @@ export type MemoryEventMap = {
 	"pending:processed": number;
 };
 
+/** Union of all valid memory event names. */
 export type MemoryEventName = keyof MemoryEventMap;
 
 // -----------------------------------------------------------------------------
 // Typed EventEmitter
 // -----------------------------------------------------------------------------
 
+/** Typed event emitter for memory repository change notifications. */
 export interface MemoryEventBus {
 	on<K extends MemoryEventName>(event: K, listener: (payload: MemoryEventMap[K]) => void): this;
 	off<K extends MemoryEventName>(event: K, listener: (payload: MemoryEventMap[K]) => void): this;
@@ -38,6 +41,7 @@ export interface MemoryEventBus {
 // Factory
 // -----------------------------------------------------------------------------
 
+/** Create a new typed event bus backed by Node's EventEmitter. */
 export function createEventBus(): MemoryEventBus {
 	return new EventEmitter() as MemoryEventBus;
 }

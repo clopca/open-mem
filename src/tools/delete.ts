@@ -9,6 +9,7 @@ const deleteArgsSchema = z.object({
 
 type DeleteArgs = z.infer<typeof deleteArgsSchema>;
 
+/** Create the mem-delete tool for removing observations from memory. */
 export function createDeleteTool(
 	observations: ObservationRepository,
 	sessions: SessionRepository,

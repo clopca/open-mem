@@ -5,6 +5,7 @@
 import { existsSync } from "node:fs";
 import { getPidPath, isProcessAlive, readPid, removePid } from "./pid";
 
+/** Result of an orphan daemon reap operation. */
 export interface ReapResult {
 	reaped: number;
 	errors: string[];

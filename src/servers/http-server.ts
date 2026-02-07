@@ -17,6 +17,7 @@ import type { ObservationType, OpenMemConfig } from "../types";
 // Dependency Injection
 // -----------------------------------------------------------------------------
 
+/** Dependencies injected into the dashboard HTTP server. */
 export interface DashboardDeps {
 	observationRepo: ObservationRepository;
 	sessionRepo: SessionRepository;

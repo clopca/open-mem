@@ -1,5 +1,6 @@
 import { type EmbeddingModel, embed } from "ai";
 
+/** Generate a vector embedding for the given text, returning null on failure. */
 export async function generateEmbedding(
 	model: EmbeddingModel,
 	text: string,
@@ -12,6 +13,7 @@ export async function generateEmbedding(
 	}
 }
 
+/** Compute cosine similarity between two equal-length vectors. */
 export function cosineSimilarity(a: number[], b: number[]): number {
 	if (a.length !== b.length || a.length === 0) return 0;
 
@@ -31,6 +33,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 	return dotProduct / denominator;
 }
 
+/** Concatenate observation title, narrative, and concepts into embeddable text. */
 export function prepareObservationText(obs: {
 	title: string;
 	narrative: string;

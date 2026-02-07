@@ -6,10 +6,12 @@
 // Types
 // -----------------------------------------------------------------------------
 
+/** Contract for a component that can process a batch of queued items. */
 export interface BatchProcessor {
 	processBatch(): Promise<number>;
 }
 
+/** Configuration for the daemon polling worker. */
 export interface DaemonWorkerOptions {
 	queueProcessor: BatchProcessor;
 	pollIntervalMs: number;
@@ -21,6 +23,7 @@ export interface DaemonWorkerOptions {
 
 const AUTO_EXIT_IDLE_MS = 60_000;
 
+/** Polling worker that periodically processes queued observations. */
 export class DaemonWorker {
 	private queueProcessor: BatchProcessor;
 	private pollIntervalMs: number;

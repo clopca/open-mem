@@ -4,7 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { getDefaultConfig } from "../../src/config";
-import { buildCompactContext, buildContextString } from "../../src/context/builder";
+import {
+	buildCompactContext,
+	buildContextString,
+	buildUserCompactContext,
+	buildUserContextSection,
+} from "../../src/context/builder";
 import { type ProgressiveContext, buildProgressiveContext } from "../../src/context/progressive";
 import { createCompactionHook } from "../../src/hooks/compaction";
 import { createContextInjectionHook } from "../../src/hooks/context-inject";
@@ -296,5 +301,289 @@ describe("createCompactionHook", () => {
 
 		expect(output.context).toHaveLength(1);
 		expect(output.context[0]).toContain("[open-mem] Memory context:");
+	});
+});
+
+// =============================================================================
+// User-Level Context Section (buildUserContextSection)
+// =============================================================================
+
+describe("buildUserContextSection", () => {
+	test("returns empty string when no entries", () => {
+		expect(buildUserContextSection([], 1000)).toBe("");
+	});
+
+	test("renders Cross-Project Memory header and table", () => {
+		const entries: ObservationIndex[] = [
+			makeIndexEntry({ id: "user-1", title: "Global preference: dark mode", tokenCount: 10 }),
+			makeIndexEntry({ id: "user-2", title: "Prefers TypeScript strict mode", tokenCount: 8 }),
+		];
+		const result = buildUserContextSection(entries, 1000);
+		expect(result).toContain("### Cross-Project Memory");
+		expect(result).toContain("user-1");
+		expect(result).toContain("Global preference: dark mode");
+		expect(result).toContain("user-2");
+		expect(result).toContain("~10");
+		expect(result).toContain("~8");
+	});
+
+	test("respects token budget", () => {
+		const entries: ObservationIndex[] = [
+			makeIndexEntry({ id: "u1", title: "First", tokenCount: 8 }),
+			makeIndexEntry({ id: "u2", title: "Second", tokenCount: 8 }),
+			makeIndexEntry({ id: "u3", title: "Third", tokenCount: 8 }),
+		];
+		const result = buildUserContextSection(entries, 15);
+		expect(result).toContain("u1");
+		expect(result).not.toContain("u2");
+		expect(result).not.toContain("u3");
+	});
+
+	test("returns empty string when budget is zero", () => {
+		const entries: ObservationIndex[] = [
+			makeIndexEntry({ id: "u1", title: "First", tokenCount: 10 }),
+		];
+		expect(buildUserContextSection(entries, 0)).toBe("");
+	});
+});
+
+// =============================================================================
+// User-Level Compact Context (buildUserCompactContext)
+// =============================================================================
+
+describe("buildUserCompactContext", () => {
+	test("returns empty string when no entries", () => {
+		expect(buildUserCompactContext([], 1000)).toBe("");
+	});
+
+	test("renders cross-project observations in plain text", () => {
+		const entries: ObservationIndex[] = [
+			makeIndexEntry({ id: "u1", title: "User prefers tabs", tokenCount: 5 }),
+		];
+		const result = buildUserCompactContext(entries, 1000);
+		expect(result).toContain("Cross-project observations");
+		expect(result).toContain("User prefers tabs");
+		expect(result).toContain("🔵");
+	});
+
+	test("respects token budget", () => {
+		const entries: ObservationIndex[] = [
+			makeIndexEntry({ id: "u1", title: "First", tokenCount: 10 }),
+			makeIndexEntry({ id: "u2", title: "Second", tokenCount: 10 }),
+		];
+		const result = buildUserCompactContext(entries, 15);
+		expect(result).toContain("First");
+		expect(result).not.toContain("Second");
+	});
+});
+
+// =============================================================================
+// Context Injection Hook — User-Level Memory
+// =============================================================================
+
+describe("createContextInjectionHook — user-level memory", () => {
+	function makeConfig(overrides?: Partial<OpenMemConfig>): OpenMemConfig {
+		return {
+			...getDefaultConfig(),
+			contextInjectionEnabled: true,
+			maxContextTokens: 1000,
+			maxIndexEntries: 20,
+			...overrides,
+		};
+	}
+
+	function makeMockRepos(data?: {
+		sessions?: Session[];
+		summaries?: SessionSummary[];
+		index?: ObservationIndex[];
+	}) {
+		return {
+			observations: {
+				getIndex: () => data?.index ?? [],
+				getById: (_id: string) => null,
+			},
+			sessions: {
+				getRecent: () => data?.sessions ?? [],
+			},
+			summaries: {
+				getBySessionId: (id: string) => data?.summaries?.find((s) => s.sessionId === id) ?? null,
+			},
+		};
+	}
+
+	test("includes Cross-Project Memory section when user memory enabled", async () => {
+		const repos = makeMockRepos({
+			sessions: [makeSession()],
+			summaries: [makeSummary()],
+			index: [makeIndexEntry()],
+		});
+		const userRepo = {
+			getIndex: () => [
+				makeIndexEntry({ id: "user-obs-1", title: "User prefers dark mode", tokenCount: 10 }),
+			],
+		};
+		const hook = createContextInjectionHook(
+			makeConfig({ userMemoryEnabled: true, userMemoryMaxContextTokens: 500 }),
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			userRepo as never,
+		);
+
+		const output = { system: ["existing prompt"] };
+		await hook({ model: "claude-sonnet-4-20250514" }, output);
+
+		expect(output.system).toHaveLength(2);
+		expect(output.system[1]).toContain("### Cross-Project Memory");
+		expect(output.system[1]).toContain("User prefers dark mode");
+	});
+
+	test("omits Cross-Project Memory when userMemoryEnabled is false", async () => {
+		const repos = makeMockRepos({
+			sessions: [makeSession()],
+			summaries: [makeSummary()],
+			index: [makeIndexEntry()],
+		});
+		const userRepo = {
+			getIndex: () => [
+				makeIndexEntry({ id: "user-obs-1", title: "Should not appear", tokenCount: 10 }),
+			],
+		};
+		const hook = createContextInjectionHook(
+			makeConfig({ userMemoryEnabled: false }),
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			userRepo as never,
+		);
+
+		const output = { system: ["existing prompt"] };
+		await hook({ model: "claude-sonnet-4-20250514" }, output);
+
+		expect(output.system).toHaveLength(2);
+		expect(output.system[1]).not.toContain("Cross-Project Memory");
+		expect(output.system[1]).not.toContain("Should not appear");
+	});
+
+	test("omits Cross-Project Memory when no userObservationRepo provided", async () => {
+		const repos = makeMockRepos({
+			sessions: [makeSession()],
+			summaries: [makeSummary()],
+			index: [makeIndexEntry()],
+		});
+		const hook = createContextInjectionHook(
+			makeConfig({ userMemoryEnabled: true }),
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			null,
+		);
+
+		const output = { system: ["existing prompt"] };
+		await hook({ model: "claude-sonnet-4-20250514" }, output);
+
+		expect(output.system).toHaveLength(2);
+		expect(output.system[1]).not.toContain("Cross-Project Memory");
+	});
+
+	test("omits Cross-Project Memory when user index is empty", async () => {
+		const repos = makeMockRepos({
+			sessions: [makeSession()],
+			summaries: [makeSummary()],
+			index: [makeIndexEntry()],
+		});
+		const userRepo = { getIndex: () => [] };
+		const hook = createContextInjectionHook(
+			makeConfig({ userMemoryEnabled: true, userMemoryMaxContextTokens: 500 }),
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			userRepo as never,
+		);
+
+		const output = { system: ["existing prompt"] };
+		await hook({ model: "claude-sonnet-4-20250514" }, output);
+
+		expect(output.system).toHaveLength(2);
+		expect(output.system[1]).not.toContain("Cross-Project Memory");
+	});
+});
+
+// =============================================================================
+// Compaction Hook — User-Level Memory
+// =============================================================================
+
+describe("createCompactionHook — user-level memory", () => {
+	test("includes cross-project context when user memory enabled", async () => {
+		const config: OpenMemConfig = {
+			...getDefaultConfig(),
+			contextInjectionEnabled: true,
+			maxContextTokens: 1000,
+			userMemoryEnabled: true,
+			userMemoryMaxContextTokens: 500,
+		};
+		const repos = {
+			observations: { getIndex: () => [makeIndexEntry()] },
+			sessions: { getRecent: () => [makeSession()] },
+			summaries: { getBySessionId: () => makeSummary() },
+		};
+		const userRepo = {
+			getIndex: () => [
+				makeIndexEntry({ id: "u1", title: "Cross-project fact", tokenCount: 5 }),
+			],
+		};
+		const hook = createCompactionHook(
+			config,
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			userRepo as never,
+		);
+
+		const output = { context: [] as string[] };
+		await hook({ sessionID: "s1" }, output);
+
+		expect(output.context).toHaveLength(1);
+		expect(output.context[0]).toContain("Cross-project observations");
+		expect(output.context[0]).toContain("Cross-project fact");
+	});
+
+	test("omits cross-project context when user memory disabled", async () => {
+		const config: OpenMemConfig = {
+			...getDefaultConfig(),
+			contextInjectionEnabled: true,
+			maxContextTokens: 1000,
+			userMemoryEnabled: false,
+		};
+		const repos = {
+			observations: { getIndex: () => [makeIndexEntry()] },
+			sessions: { getRecent: () => [makeSession()] },
+			summaries: { getBySessionId: () => makeSummary() },
+		};
+		const userRepo = {
+			getIndex: () => [
+				makeIndexEntry({ id: "u1", title: "Should not appear", tokenCount: 5 }),
+			],
+		};
+		const hook = createCompactionHook(
+			config,
+			repos.observations as never,
+			repos.sessions as never,
+			repos.summaries as never,
+			"/tmp/proj",
+			userRepo as never,
+		);
+
+		const output = { context: [] as string[] };
+		await hook({ sessionID: "s1" }, output);
+
+		expect(output.context).toHaveLength(1);
+		expect(output.context[0]).not.toContain("Cross-project");
+		expect(output.context[0]).not.toContain("Should not appear");
 	});
 });

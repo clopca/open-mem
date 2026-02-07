@@ -2,6 +2,7 @@
 // open-mem — Context String Builder
 // =============================================================================
 
+import { estimateTokens } from "../ai/parser";
 import type { Observation, ObservationIndex, ObservationType } from "../types";
 import type { ProgressiveContext } from "./progressive";
 
@@ -9,6 +10,7 @@ import type { ProgressiveContext } from "./progressive";
 // Builder Configuration
 // -----------------------------------------------------------------------------
 
+/** Configuration for how context strings are built and formatted. */
 export interface ContextBuilderConfig {
 	showTokenCosts: boolean;
 	observationTypes: ObservationType[] | "all";
@@ -40,6 +42,7 @@ const TYPE_ICONS: Record<ObservationType, string> = {
 // Markdown Format (for system.transform injection)
 // -----------------------------------------------------------------------------
 
+/** Build a Markdown context string for system prompt injection. */
 export function buildContextString(
 	context: ProgressiveContext,
 	config: ContextBuilderConfig = DEFAULT_BUILDER_CONFIG,
@@ -194,6 +197,7 @@ function groupByFile(
 // Plain-text Format (for session compaction)
 // -----------------------------------------------------------------------------
 
+/** Build a plain-text context string for session compaction. */
 export function buildCompactContext(context: ProgressiveContext): string {
 	const parts: string[] = [];
 
@@ -211,6 +215,76 @@ export function buildCompactContext(context: ProgressiveContext): string {
 		for (const entry of context.observationIndex) {
 			parts.push(`- ${TYPE_ICONS[entry.type] || "📝"} ${entry.title}`);
 		}
+	}
+
+	return parts.join("\n");
+}
+
+// -----------------------------------------------------------------------------
+// User-Level Cross-Project Context Section
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a Markdown section for user-level (cross-project) observations.
+ * Fits entries within the given token budget using progressive disclosure.
+ */
+export function buildUserContextSection(
+	userIndex: ObservationIndex[],
+	maxTokens: number,
+): string {
+	if (userIndex.length === 0) return "";
+
+	let budget = maxTokens;
+	const included: ObservationIndex[] = [];
+
+	for (const entry of userIndex) {
+		const tokens = entry.tokenCount || estimateTokens(entry.title);
+		if (budget - tokens < 0) break;
+		included.push(entry);
+		budget -= tokens;
+	}
+
+	if (included.length === 0) return "";
+
+	const parts: string[] = [];
+	parts.push("### Cross-Project Memory");
+	parts.push("");
+	parts.push("| ID | Type | Title | ~Tokens |");
+	parts.push("|----|------|-------|---------|");
+
+	for (const entry of included) {
+		const icon = TYPE_ICONS[entry.type] || "📝";
+		parts.push(`| ${entry.id} | ${icon} | ${entry.title} | ~${entry.tokenCount} |`);
+	}
+
+	return parts.join("\n");
+}
+
+/**
+ * Build a plain-text section for user-level context (used in compaction).
+ */
+export function buildUserCompactContext(
+	userIndex: ObservationIndex[],
+	maxTokens: number,
+): string {
+	if (userIndex.length === 0) return "";
+
+	let budget = maxTokens;
+	const included: ObservationIndex[] = [];
+
+	for (const entry of userIndex) {
+		const tokens = entry.tokenCount || estimateTokens(entry.title);
+		if (budget - tokens < 0) break;
+		included.push(entry);
+		budget -= tokens;
+	}
+
+	if (included.length === 0) return "";
+
+	const parts: string[] = [];
+	parts.push(`\nCross-project observations (${included.length} entries):`);
+	for (const entry of included) {
+		parts.push(`- ${TYPE_ICONS[entry.type] || "📝"} ${entry.title}`);
 	}
 
 	return parts.join("\n");

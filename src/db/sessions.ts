@@ -15,6 +15,7 @@ interface SessionRow {
 	summary_id: string | null;
 }
 
+/** Repository for session lifecycle and query operations. */
 export class SessionRepository {
 	constructor(private db: Database) {}
 

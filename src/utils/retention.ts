@@ -2,6 +2,7 @@ import type { ObservationRepository } from "../db/observations";
 import type { PendingMessageRepository } from "../db/pending";
 import type { OpenMemConfig } from "../types";
 
+/** Delete observations and pending messages older than the configured retention period. */
 export function enforceRetention(
 	config: OpenMemConfig,
 	observations: ObservationRepository,

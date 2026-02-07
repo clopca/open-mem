@@ -33,6 +33,8 @@ export interface Observation {
 	tokenCount: number; // Estimated tokens for budget management
 	discoveryTokens: number; // Original input size in tokens (for ROI tracking)
 	importance: number; // AI-assigned importance score (1-5, default 3)
+	supersededBy?: string | null;
+	supersededAt?: string | null;
 }
 
 /** Lightweight index entry for progressive disclosure */
@@ -51,6 +53,7 @@ export interface ObservationIndex {
 // Session Types
 // -----------------------------------------------------------------------------
 
+/** An active or completed coding session. */
 export interface Session {
 	id: string; // OpenCode session ID
 	projectPath: string; // Project directory
@@ -61,6 +64,7 @@ export interface Session {
 	summaryId: string | null; // Reference to session summary
 }
 
+/** AI-generated summary of a coding session. */
 export interface SessionSummary {
 	id: string;
 	sessionId: string;
@@ -81,6 +85,7 @@ export interface SessionSummary {
 // Queue Types
 // -----------------------------------------------------------------------------
 
+/** A pending tool output awaiting AI compression. */
 export interface PendingMessage {
 	id: string;
 	sessionId: string;
@@ -93,6 +98,7 @@ export interface PendingMessage {
 	error: string | null;
 }
 
+/** Queued work item for the background processor. */
 export type QueueItem =
 	| {
 			type: "compress";
@@ -111,6 +117,7 @@ export type QueueItem =
 // Configuration Types
 // -----------------------------------------------------------------------------
 
+/** Full configuration for the open-mem plugin. */
 export interface OpenMemConfig {
 	// Storage
 	dbPath: string; // Path to SQLite database file
@@ -168,6 +175,23 @@ export interface OpenMemConfig {
 
 	// Embeddings
 	embeddingDimension?: number; // Embedding vector dimension (auto-detected from provider)
+
+	// Conflict resolution
+	conflictResolutionEnabled: boolean;
+	conflictSimilarityBandLow: number;
+	conflictSimilarityBandHigh: number;
+
+	// User-level memory (cross-project)
+	userMemoryEnabled: boolean; // Enable user-level cross-project memory
+	userMemoryDbPath: string; // Path to user-level memory database
+	userMemoryMaxContextTokens: number; // Token budget for user-level context
+
+	// Reranking
+	rerankingEnabled: boolean; // Enable LLM-based reranking of search results (default: false)
+	rerankingMaxCandidates: number; // Max candidates to consider for reranking (default: 20)
+
+	// Entity extraction (graph memory)
+	entityExtractionEnabled: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -220,11 +244,13 @@ export interface Hooks {
 	tools?: ToolDefinition[];
 }
 
+/** An event emitted by OpenCode (e.g. tool execution, session lifecycle). */
 export interface OpenCodeEvent {
 	type: string;
 	properties: Record<string, unknown>;
 }
 
+/** Schema for a custom tool exposed to the AI agent. */
 export interface ToolDefinition {
 	name: string;
 	description: string;
@@ -232,6 +258,7 @@ export interface ToolDefinition {
 	execute: (args: Record<string, unknown>, context: ToolContext) => Promise<string>;
 }
 
+/** Runtime context passed to a tool's execute function. */
 export interface ToolContext {
 	sessionID: string;
 	abort: AbortSignal;
@@ -244,6 +271,7 @@ export type Plugin = (input: PluginInput) => Promise<Hooks>;
 // Search / Query Types
 // -----------------------------------------------------------------------------
 
+/** FTS5 search query parameters with optional filters. */
 export interface SearchQuery {
 	query: string;
 	sessionId?: string;
@@ -251,14 +279,23 @@ export interface SearchQuery {
 	limit?: number;
 	offset?: number;
 	projectPath?: string;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string; // ISO 8601 date
+	createdBefore?: string; // ISO 8601 date
+	concepts?: string[]; // Filter by concepts (match any)
+	files?: string[]; // Filter by file paths (match any)
 }
 
+/** A search result pairing an observation with its relevance rank. */
 export interface SearchResult {
 	observation: Observation;
 	rank: number; // FTS5 rank score
 	snippet: string; // FTS5 highlighted snippet
+	source?: "project" | "user";
 }
 
+/** A session with its summary and observation count for timeline display. */
 export interface TimelineEntry {
 	session: Session;
 	summary: SessionSummary | null;

@@ -17,6 +17,7 @@ const updateArgsSchema = z.object({
 
 type UpdateArgs = z.infer<typeof updateArgsSchema>;
 
+/** Create the mem-update tool for modifying existing observations. */
 export function createUpdateTool(
 	observations: ObservationRepository,
 	sessions: SessionRepository,

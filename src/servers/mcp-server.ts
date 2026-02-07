@@ -11,6 +11,7 @@ import { estimateTokens } from "../ai/parser";
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
+import type { SearchOrchestrator } from "../search/orchestrator";
 import type { ObservationType, SearchResult, SessionSummary } from "../types";
 
 // -----------------------------------------------------------------------------
@@ -54,10 +55,12 @@ interface McpToolResult {
 // MCP Server
 // -----------------------------------------------------------------------------
 
+/** Dependencies required to initialize the MCP server. */
 export interface McpServerDeps {
 	observations: ObservationRepository;
 	sessions: SessionRepository;
 	summaries: SummaryRepository;
+	searchOrchestrator?: SearchOrchestrator;
 	projectPath: string;
 	version: string;
 }
@@ -93,17 +96,24 @@ function toStringArray(value: unknown): string[] {
 		: [];
 }
 
+/**
+ * MCP server exposing memory tools over stdin/stdout JSON-RPC 2.0.
+ * Implements the Model Context Protocol for any MCP-compatible AI client.
+ */
 export class McpServer {
 	private observations: ObservationRepository;
 	private sessions: SessionRepository;
 	private summaries: SummaryRepository;
+	private searchOrchestrator: SearchOrchestrator | null;
 	private projectPath: string;
 	private version: string;
+	private pendingOps: Promise<void>[] = [];
 
 	constructor(deps: McpServerDeps) {
 		this.observations = deps.observations;
 		this.sessions = deps.sessions;
 		this.summaries = deps.summaries;
+		this.searchOrchestrator = deps.searchOrchestrator ?? null;
 		this.projectPath = deps.projectPath;
 		this.version = deps.version;
 	}
@@ -112,6 +122,7 @@ export class McpServer {
 	// Start listening on stdin/stdout
 	// ---------------------------------------------------------------------------
 
+	/** Start listening for JSON-RPC messages on stdin. */
 	start(): void {
 		const rl = createInterface({
 			input: process.stdin,
@@ -134,7 +145,6 @@ export class McpServer {
 					});
 				}
 			} catch {
-				// Malformed JSON — send parse error if we can
 				this.sendResponse({
 					jsonrpc: "2.0",
 					id: null,
@@ -144,7 +154,9 @@ export class McpServer {
 		});
 
 		rl.on("close", () => {
-			process.exit(0);
+			Promise.allSettled(this.pendingOps).then(() => {
+				process.exit(0);
+			});
 		});
 	}
 
@@ -167,9 +179,15 @@ export class McpServer {
 			case "tools/list":
 				this.handleToolsList(id);
 				break;
-			case "tools/call":
-				this.handleToolsCall(id, msg.params);
+			case "tools/call": {
+				const op = this.handleToolsCall(id, msg.params);
+				this.pendingOps.push(op);
+				op.finally(() => {
+					const idx = this.pendingOps.indexOf(op);
+					if (idx >= 0) this.pendingOps.splice(idx, 1);
+				});
 				break;
+			}
 			case "ping":
 				this.sendResponse({ jsonrpc: "2.0", id, result: {} });
 				break;
@@ -221,7 +239,7 @@ export class McpServer {
 	// tools/call
 	// ---------------------------------------------------------------------------
 
-	private handleToolsCall(id: string | number, params?: Record<string, unknown>): void {
+	private async handleToolsCall(id: string | number, params?: Record<string, unknown>): Promise<void> {
 		const toolName = typeof params?.name === "string" ? params.name : undefined;
 		const toolArgs =
 			params?.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
@@ -238,7 +256,7 @@ export class McpServer {
 		}
 
 		try {
-			const result = this.executeTool(toolName, toolArgs);
+			const result = await this.executeTool(toolName, toolArgs);
 			this.sendResponse({
 				jsonrpc: "2.0",
 				id,
@@ -452,7 +470,7 @@ export class McpServer {
 	// Tool Execution
 	// ---------------------------------------------------------------------------
 
-	private executeTool(name: string, args: Record<string, unknown>): McpToolResult {
+	private async executeTool(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
 		switch (name) {
 			case "mem-search":
 				return this.execSearch(args);
@@ -482,7 +500,7 @@ export class McpServer {
 	// mem-search
 	// ---------------------------------------------------------------------------
 
-	private execSearch(args: Record<string, unknown>): McpToolResult {
+	private async execSearch(args: Record<string, unknown>): Promise<McpToolResult> {
 		const query = typeof args.query === "string" ? args.query : undefined;
 		const type = toObservationType(args.type);
 		const limit = typeof args.limit === "number" ? Math.max(1, Math.min(args.limit, 50)) : 10;
@@ -495,7 +513,17 @@ export class McpServer {
 		}
 
 		try {
-			const results = this.observations.search({ query, type, limit });
+			let results: SearchResult[];
+
+			if (this.searchOrchestrator) {
+				results = await this.searchOrchestrator.search(query, {
+					type,
+					limit,
+					projectPath: this.projectPath,
+				});
+			} else {
+				results = this.observations.search({ query, type, limit, projectPath: this.projectPath });
+			}
 
 			if (results.length === 0) {
 				const summaryResults = this.summaries.search(query, limit);

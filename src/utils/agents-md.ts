@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import type { Observation, ObservationType } from "../types";
 
@@ -22,6 +22,9 @@ const TYPE_ICONS: Record<ObservationType, string> = {
 	discovery: "🔵",
 	decision: "⚖️",
 };
+
+/** Per-folder lock to serialize concurrent writes and prevent ENOENT race conditions */
+const folderLocks = new Map<string, Promise<void>>();
 
 /** Directories that should never get AGENTS.md files */
 const EXCLUDED_DIRS = new Set([
@@ -163,27 +166,39 @@ export function generateFolderContext(
  * @param contextBlock - New content for the managed section
  */
 export async function updateAgentsMd(folderPath: string, contextBlock: string): Promise<void> {
-	// Only write to folders that already exist
 	if (!existsSync(folderPath)) return;
 
-	const agentsMdPath = join(folderPath, "AGENTS.md");
-	const tempPath = join(folderPath, ".AGENTS.md.tmp");
+	// Serialize concurrent writes to the same folder
+	const previousLock = folderLocks.get(folderPath) ?? Promise.resolve();
+	const currentOp = previousLock.then(async () => {
+		const agentsMdPath = join(folderPath, "AGENTS.md");
+		const tempPath = join(folderPath, ".AGENTS.md.tmp");
 
-	// Read existing content
-	let existingContent = "";
-	try {
-		existingContent = await readFile(agentsMdPath, "utf-8");
-	} catch {
-		// File doesn't exist yet — that's fine
-	}
+		let existingContent = "";
+		try {
+			existingContent = await readFile(agentsMdPath, "utf-8");
+		} catch {
+			// File doesn't exist yet
+		}
 
-	// Replace tagged content, preserving user content
-	const finalContent = replaceTaggedContent(existingContent, contextBlock);
+		const finalContent = replaceTaggedContent(existingContent, contextBlock);
 
-	// Atomic write: temp file + rename
-	await mkdir(dirname(tempPath), { recursive: true });
-	await writeFile(tempPath, finalContent, "utf-8");
-	await rename(tempPath, agentsMdPath);
+		try {
+			await mkdir(dirname(tempPath), { recursive: true });
+			await writeFile(tempPath, finalContent, "utf-8");
+			await rename(tempPath, agentsMdPath);
+		} catch (error) {
+			try {
+				await unlink(tempPath);
+			} catch {
+				// Temp file already gone
+			}
+			throw error;
+		}
+	});
+
+	folderLocks.set(folderPath, currentOp.catch(() => {}));
+	return currentOp;
 }
 
 /**

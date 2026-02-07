@@ -13,6 +13,7 @@ import { enforceRateLimit } from "./rate-limiter";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Configuration for the AI session summarizer. */
 export interface SummarizerConfig {
 	provider: string;
 	apiKey: string | undefined;

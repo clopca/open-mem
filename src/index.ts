@@ -6,17 +6,21 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ObservationCompressor } from "./ai/compressor";
-import { createEmbeddingModel } from "./ai/provider";
+import { ConflictEvaluator } from "./ai/conflict-evaluator";
+import { EntityExtractor } from "./ai/entity-extractor";
+import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
 import { Database, createDatabase } from "./db/database";
+import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
+import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
 import { type MemoryEventBus, createEventBus } from "./events/bus";
 import { createChatCaptureHook } from "./hooks/chat-capture";
 import { createCompactionHook } from "./hooks/compaction";
@@ -25,6 +29,7 @@ import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
 import { SearchOrchestrator } from "./search/orchestrator";
+import { createReranker } from "./search/reranker";
 import { createDashboardApp } from "./servers/http-server";
 import { SSEBroadcaster, createSSERoute } from "./servers/sse-broadcaster";
 import { createDeleteTool } from "./tools/delete";
@@ -78,6 +83,10 @@ function getDistDir(): string {
 // Plugin Factory
 // -----------------------------------------------------------------------------
 
+/**
+ * Main open-mem plugin entry point.
+ * Initializes the database, hooks, tools, and context injection pipeline.
+ */
 export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const distDir = getDistDir();
 	const projectPath = getCanonicalProjectPath(input.directory);
@@ -104,6 +113,18 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const summaryRepo = new SummaryRepository(db);
 	const pendingRepo = new PendingMessageRepository(db);
 
+	// 3b. User-level memory (cross-project)
+	let userMemoryDb: UserMemoryDatabase | null = null;
+	let userObservationRepo: UserObservationRepository | null = null;
+	if (config.userMemoryEnabled) {
+		try {
+			userMemoryDb = new UserMemoryDatabase(config.userMemoryDbPath);
+			userObservationRepo = new UserObservationRepository(userMemoryDb.database);
+		} catch (err) {
+			console.warn(`[open-mem] Failed to initialize user-level memory: ${err}`);
+		}
+	}
+
 	// 4. AI services
 	const compressor = new ObservationCompressor(config);
 	const summarizer = new SessionSummarizer(config);
@@ -119,6 +140,27 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			: null;
 
 	// 5. Queue processor
+	const conflictEvaluator =
+		config.conflictResolutionEnabled && (!providerRequiresKey || config.apiKey)
+			? new ConflictEvaluator({
+					provider: config.provider,
+					apiKey: config.apiKey,
+					model: config.model,
+					rateLimitingEnabled: config.rateLimitingEnabled,
+				})
+			: null;
+
+	const entityExtractor =
+		config.entityExtractionEnabled && (!providerRequiresKey || config.apiKey)
+			? new EntityExtractor({
+					provider: config.provider,
+					apiKey: config.apiKey,
+					model: config.model,
+					rateLimitingEnabled: config.rateLimitingEnabled,
+				})
+			: null;
+	const entityRepo = new EntityRepository(db);
+
 	const queue = new QueueProcessor(
 		config,
 		compressor,
@@ -128,6 +170,9 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		sessionRepo,
 		summaryRepo,
 		embeddingModel,
+		conflictEvaluator,
+		entityExtractor,
+		entityRepo,
 	);
 	queue.start();
 
@@ -230,15 +275,25 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		queue.stop();
 		if (dashboardServer) dashboardServer.stop();
 		if (sseBroadcaster) sseBroadcaster.destroy();
+		if (userMemoryDb) userMemoryDb.close();
 		db.close();
 	};
 	process.on("beforeExit", cleanup);
 
 	// 9. Search orchestrator
+	const reranker = createReranker(
+		config,
+		config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
+			? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+			: null,
+	);
 	const searchOrchestrator = new SearchOrchestrator(
 		observationRepo,
 		embeddingModel,
 		db.hasVectorExtension,
+		reranker,
+		userObservationRepo,
+		entityRepo,
 	);
 
 	// 10. Build hooks
@@ -264,6 +319,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			sessionRepo,
 			summaryRepo,
 			projectPath,
+			userObservationRepo,
 		),
 		"experimental.session.compacting": createCompactionHook(
 			config,
@@ -271,12 +327,13 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			sessionRepo,
 			summaryRepo,
 			projectPath,
+			userObservationRepo,
 		),
 		tools: [
 			createSearchTool(searchOrchestrator, summaryRepo, projectPath),
-			createSaveTool(observationRepo, sessionRepo, projectPath),
+			createSaveTool(observationRepo, sessionRepo, projectPath, userObservationRepo ?? undefined),
 			createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
-			createRecallTool(observationRepo),
+			createRecallTool(observationRepo, userObservationRepo ?? undefined),
 			createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
 			createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
 			createUpdateTool(observationRepo, sessionRepo, projectPath),
@@ -289,10 +346,12 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 // Re-exports for consumers
 // -----------------------------------------------------------------------------
 
+/** Re-exported core types for library consumers. */
 export type {
 	OpenMemConfig,
 	Observation,
 	Session,
 	SessionSummary,
 } from "./types";
+/** Re-exported configuration helpers. */
 export { resolveConfig, getDefaultConfig } from "./config";

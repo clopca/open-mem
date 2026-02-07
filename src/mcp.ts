@@ -6,12 +6,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { createEmbeddingModel, createModel } from "./ai/provider";
 import { resolveConfig } from "./config";
 import { Database, createDatabase } from "./db/database";
+import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
+import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
+import { SearchOrchestrator } from "./search/orchestrator";
+import { createReranker } from "./search/reranker";
 import { McpServer } from "./servers/mcp-server";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
@@ -38,12 +43,48 @@ const sessions = new SessionRepository(db);
 const observations = new ObservationRepository(db);
 const summaries = new SummaryRepository(db);
 
+let userMemoryDb: UserMemoryDatabase | null = null;
+let userObservationRepo: UserObservationRepository | null = null;
+if (config.userMemoryEnabled) {
+	try {
+		userMemoryDb = new UserMemoryDatabase(config.userMemoryDbPath);
+		userObservationRepo = new UserObservationRepository(userMemoryDb.database);
+	} catch (err) {
+		console.error(`[open-mem-mcp] Failed to initialize user-level memory: ${err}`);
+	}
+}
+
+const providerRequiresKey = config.provider !== "bedrock";
+const embeddingModel =
+	config.compressionEnabled && (!providerRequiresKey || config.apiKey)
+		? createEmbeddingModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+		: null;
+
+const reranker = createReranker(
+	config,
+	config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
+		? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+		: null,
+);
+
+const entityRepo = new EntityRepository(db);
+
+const searchOrchestrator = new SearchOrchestrator(
+	observations,
+	embeddingModel,
+	db.hasVectorExtension,
+	reranker,
+	userObservationRepo,
+	entityRepo,
+);
+
 const pkgJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 
 const server = new McpServer({
 	observations,
 	sessions,
 	summaries,
+	searchOrchestrator,
 	projectPath,
 	version: pkgJson.version,
 });
@@ -52,6 +93,7 @@ let closed = false;
 const shutdown = () => {
 	if (!closed) {
 		closed = true;
+		if (userMemoryDb) userMemoryDb.close();
 		db.close();
 	}
 	process.exit(0);
@@ -61,6 +103,7 @@ process.on("SIGTERM", shutdown);
 process.on("beforeExit", () => {
 	if (!closed) {
 		closed = true;
+		if (userMemoryDb) userMemoryDb.close();
 		db.close();
 	}
 });

@@ -12,6 +12,7 @@ import type { ObservationIndex, ObservationType } from "../types";
 // Types
 // -----------------------------------------------------------------------------
 
+/** Parameters that influence observation relevance scoring. */
 export interface ScoringContext {
 	/** Boost observations from the current session */
 	currentSessionId?: string;
