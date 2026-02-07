@@ -10,7 +10,7 @@ import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
 import { getPidPath, removePid, writePid } from "./daemon/pid";
 import { DaemonWorker } from "./daemon/worker";
-import { createDatabase } from "./db/database";
+import { Database, createDatabase } from "./db/database";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
@@ -55,8 +55,12 @@ if (Number.isNaN(pollIntervalMs) || pollIntervalMs < 100) {
 const projectPath = getCanonicalProjectPath(projectDir);
 const config = resolveConfig(projectPath);
 
+Database.enableExtensionSupport();
 const db = createDatabase(config.dbPath);
-initializeSchema(db);
+initializeSchema(db, {
+	hasVectorExtension: db.hasVectorExtension,
+	embeddingDimension: config.embeddingDimension,
+});
 
 const pendingRepo = new PendingMessageRepository(db);
 const observationRepo = new ObservationRepository(db);

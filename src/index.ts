@@ -7,7 +7,7 @@ import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
-import { createDatabase } from "./db/database";
+import { Database, createDatabase } from "./db/database";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
@@ -47,8 +47,12 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 
 	// 2. Database
 	await ensureDbDirectory(config);
+	Database.enableExtensionSupport();
 	const db = createDatabase(config.dbPath);
-	initializeSchema(db);
+	initializeSchema(db, {
+		hasVectorExtension: db.hasVectorExtension,
+		embeddingDimension: config.embeddingDimension,
+	});
 
 	// 3. Repositories
 	const sessionRepo = new SessionRepository(db);
@@ -204,7 +208,13 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 		),
 		tools: [
-			createSearchTool(observationRepo, summaryRepo, embeddingModel, projectPath),
+			createSearchTool(
+				observationRepo,
+				summaryRepo,
+				embeddingModel,
+				projectPath,
+				db.hasVectorExtension,
+			),
 			createSaveTool(observationRepo, sessionRepo, projectPath),
 			createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
 			createRecallTool(observationRepo),
