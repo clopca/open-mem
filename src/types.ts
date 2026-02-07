@@ -160,6 +160,9 @@ export interface OpenMemConfig {
 	// Dashboard
 	dashboardEnabled: boolean; // Enable web dashboard (default: false)
 	dashboardPort: number; // Dashboard HTTP port (default: 3737)
+
+	// Embeddings
+	embeddingDimension?: number; // Embedding vector dimension (auto-detected from provider)
 }
 
 // -----------------------------------------------------------------------------

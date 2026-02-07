@@ -59,6 +59,9 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	// Dashboard
 	dashboardEnabled: false,
 	dashboardPort: 3737,
+
+	// Embeddings
+	embeddingDimension: undefined,
 };
 
 // -----------------------------------------------------------------------------
@@ -103,8 +106,29 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_DASHBOARD === "true") env.dashboardEnabled = true;
 	if (process.env.OPEN_MEM_DASHBOARD_PORT)
 		env.dashboardPort = Number.parseInt(process.env.OPEN_MEM_DASHBOARD_PORT, 10);
+	if (process.env.OPEN_MEM_EMBEDDING_DIMENSION)
+		env.embeddingDimension = Number.parseInt(process.env.OPEN_MEM_EMBEDDING_DIMENSION, 10);
 
 	return env;
+}
+
+// -----------------------------------------------------------------------------
+// Embedding Dimension Defaults
+// -----------------------------------------------------------------------------
+
+export function getDefaultDimension(provider: string): number {
+	switch (provider) {
+		case "google":
+			return 768;
+		case "openai":
+			return 1536;
+		case "bedrock":
+			return 1024;
+		case "anthropic":
+			return 0;
+		default:
+			return 768;
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -163,6 +187,10 @@ export function resolveConfig(
 			case "bedrock":
 				break;
 		}
+	}
+
+	if (config.embeddingDimension === undefined) {
+		config.embeddingDimension = getDefaultDimension(config.provider);
 	}
 
 	return config;
