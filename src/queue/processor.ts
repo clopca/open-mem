@@ -16,6 +16,8 @@ import { generateEmbedding, prepareObservationText } from "../search/embeddings"
 // Config subset needed by the processor
 // -----------------------------------------------------------------------------
 
+export type ProcessingMode = "in-process" | "enqueue-only";
+
 export interface QueueProcessorConfig {
 	batchSize: number;
 	batchIntervalMs: number;
@@ -37,6 +39,7 @@ export interface QueueProcessorConfig {
 export class QueueProcessor {
 	private processing = false;
 	private timer: ReturnType<typeof setInterval> | null = null;
+	private mode: ProcessingMode = "in-process";
 
 	constructor(
 		private config: QueueProcessorConfig,
@@ -48,6 +51,17 @@ export class QueueProcessor {
 		private summaryRepo: SummaryRepository,
 		private embeddingModel: EmbeddingModel | null = null,
 	) {}
+
+	setMode(mode: ProcessingMode): void {
+		this.mode = mode;
+		if (mode === "enqueue-only") {
+			this.stop();
+		}
+	}
+
+	getMode(): ProcessingMode {
+		return this.mode;
+	}
 
 	// ---------------------------------------------------------------------------
 	// Enqueue
@@ -68,6 +82,7 @@ export class QueueProcessor {
 	 * via a simple `processing` flag.
 	 */
 	async processBatch(): Promise<number> {
+		if (this.mode === "enqueue-only") return 0;
 		if (this.processing) return 0;
 
 		this.processing = true;
@@ -172,6 +187,7 @@ export class QueueProcessor {
 
 	/** Start periodic batch processing */
 	start(): void {
+		if (this.mode === "enqueue-only") return;
 		if (this.timer) return;
 		this.timer = setInterval(async () => {
 			try {
