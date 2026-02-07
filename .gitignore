@@ -37,3 +37,6 @@ coverage/
 .sisyphus/
 .orchestrator/
 .opencode/
+
+# Auto-generated context files (open-mem plugin)
+**/AGENTS.md

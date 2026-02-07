@@ -8,7 +8,7 @@
         "@ai-sdk/anthropic": "^3.0.38",
         "@ai-sdk/google": "^3.0.22",
         "ai": "^6.0.77",
-        "open-mem": "0.6.0",
+        "open-mem": "0.6.1",
         "sqlite-vec": "^0.1.7-alpha.2",
         "zod": "^4.3.6",
       },
@@ -91,7 +91,7 @@
 
     "json-schema": ["json-schema@0.4.0", "", {}, "sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA=="],
 
-    "open-mem": ["open-mem@0.6.0", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "open-mem": "^0.5.4", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js" } }, "sha512-ehGLq1juXc7iTLawszEAFxMEnxKaliqeYhrk+NiV3scm7e7FqoQi8cXsSktZ3Q41N1ik9JBYXdVqOqsvuJrIOw=="],
+    "open-mem": ["open-mem@0.6.1", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "open-mem": "0.6.0", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js" } }, "sha512-7YeUHGzPh4hVSvvJGyeNW4Fw2Vr8EDv5dt9gqZg/5tzzbit3LKcecvgPAfQ91cTuDIwv2bDHFiW9eP8Qs2jdXw=="],
 
     "sqlite-vec": ["sqlite-vec@0.1.7-alpha.2", "", { "optionalDependencies": { "sqlite-vec-darwin-arm64": "0.1.7-alpha.2", "sqlite-vec-darwin-x64": "0.1.7-alpha.2", "sqlite-vec-linux-arm64": "0.1.7-alpha.2", "sqlite-vec-linux-x64": "0.1.7-alpha.2", "sqlite-vec-windows-x64": "0.1.7-alpha.2" } }, "sha512-rNgRCv+4V4Ed3yc33Qr+nNmjhtrMnnHzXfLVPeGb28Dx5mmDL3Ngw/Wk8vhCGjj76+oC6gnkmMG8y73BZWGBwQ=="],
 
@@ -115,9 +115,11 @@
 
     "@aws-crypto/util/@smithy/util-utf8": ["@smithy/util-utf8@2.3.0", "", { "dependencies": { "@smithy/util-buffer-from": "^2.2.0", "tslib": "^2.6.2" } }, "sha512-R8Rdn8Hy72KKcebgLiv8jQcQkXoLMOGGv5uI1/k0l+snqkOzQ1R0ChUBCxWMlBsFMekWjq0wRudIweFs7sKT5A=="],
 
-    "open-mem/open-mem": ["open-mem@0.5.5", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "open-mem": "^0.5.4", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js" } }, "sha512-oPz1TGAFkUadM9YpzpgIW9+3wMFBBEuKx7/lbPA8Dx8FhvdmqXYDe96/glRfS+0BBqbhJbZpksD95k0eon0J3w=="],
+    "open-mem/open-mem": ["open-mem@0.6.0", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "open-mem": "^0.5.4", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js" } }, "sha512-ehGLq1juXc7iTLawszEAFxMEnxKaliqeYhrk+NiV3scm7e7FqoQi8cXsSktZ3Q41N1ik9JBYXdVqOqsvuJrIOw=="],
 
     "@aws-crypto/util/@smithy/util-utf8/@smithy/util-buffer-from": ["@smithy/util-buffer-from@2.2.0", "", { "dependencies": { "@smithy/is-array-buffer": "^2.2.0", "tslib": "^2.6.2" } }, "sha512-IJdWBbTcMQ6DA0gdNhh/BwrLkDR+ADW5Kr1aZmd4k3DIF6ezMV4R2NIAmT08wQJ3yUK82thHWmC/TnK/wpMMIA=="],
+
+    "open-mem/open-mem/open-mem": ["open-mem@0.5.5", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "open-mem": "^0.5.4", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js" } }, "sha512-oPz1TGAFkUadM9YpzpgIW9+3wMFBBEuKx7/lbPA8Dx8FhvdmqXYDe96/glRfS+0BBqbhJbZpksD95k0eon0J3w=="],
 
     "@aws-crypto/util/@smithy/util-utf8/@smithy/util-buffer-from/@smithy/is-array-buffer": ["@smithy/is-array-buffer@2.2.0", "", { "dependencies": { "tslib": "^2.6.2" } }, "sha512-GGP3O9QFD24uGeAXYUjwSTXARoqpZykHadOmA8G5vfJPK0/DC67qa//0qvqrJzL1xc8WQWX7/yc7fwudjPHPhA=="],
   }
