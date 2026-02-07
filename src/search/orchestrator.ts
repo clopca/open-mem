@@ -4,7 +4,7 @@
 
 import type { EmbeddingModel } from "ai";
 import type { ObservationRepository } from "../db/observations";
-import type { ObservationType, SearchResult } from "../types";
+import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
 import { hybridSearch } from "./hybrid";
 
@@ -15,12 +15,18 @@ import { hybridSearch } from "./hybrid";
 export type SearchStrategy = "filter-only" | "semantic" | "hybrid";
 
 export interface OrchestratedSearchOptions {
-	strategy?: SearchStrategy; // default: 'hybrid'
+	strategy?: SearchStrategy;
 	type?: ObservationType;
 	file?: string;
 	concept?: string;
 	limit?: number;
 	projectPath: string;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string;
+	createdBefore?: string;
+	concepts?: string[];
+	files?: string[];
 }
 
 // -----------------------------------------------------------------------------
@@ -87,6 +93,12 @@ export class SearchOrchestrator {
 			type: options.type,
 			limit,
 			projectPath: options.projectPath,
+			importanceMin: options.importanceMin,
+			importanceMax: options.importanceMax,
+			createdAfter: options.createdAfter,
+			createdBefore: options.createdBefore,
+			concepts: options.concepts,
+			files: options.files,
 		});
 	}
 
@@ -122,6 +134,12 @@ export class SearchOrchestrator {
 			limit,
 			projectPath: options.projectPath,
 			hasVectorExtension: this.hasVectorExtension,
+			importanceMin: options.importanceMin,
+			importanceMax: options.importanceMax,
+			createdAfter: options.createdAfter,
+			createdBefore: options.createdBefore,
+			concepts: options.concepts,
+			files: options.files,
 		});
 	}
 
@@ -144,7 +162,7 @@ export class SearchOrchestrator {
 
 				const obs = this.observations.getById(observationId);
 				if (!obs) continue;
-				if (options.type && obs.type !== options.type) continue;
+				if (!passesAdvancedFilters(obs, options)) continue;
 
 				results.push({
 					observation: obs,
@@ -181,7 +199,7 @@ export class SearchOrchestrator {
 
 			const obs = this.observations.getById(id);
 			if (!obs) continue;
-			if (options.type && obs.type !== options.type) continue;
+			if (!passesAdvancedFilters(obs, options)) continue;
 
 			results.push({
 				observation: obs,
@@ -192,4 +210,40 @@ export class SearchOrchestrator {
 
 		return results;
 	}
+}
+
+// -----------------------------------------------------------------------------
+// Filter Helpers
+// -----------------------------------------------------------------------------
+
+interface AdvancedFilterOptions {
+	type?: ObservationType;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string;
+	createdBefore?: string;
+	concepts?: string[];
+	files?: string[];
+}
+
+function passesAdvancedFilters(obs: Observation, filters: AdvancedFilterOptions): boolean {
+	if (filters.type && obs.type !== filters.type) return false;
+	if (filters.importanceMin !== undefined && obs.importance < filters.importanceMin) return false;
+	if (filters.importanceMax !== undefined && obs.importance > filters.importanceMax) return false;
+	if (filters.createdAfter && obs.createdAt < filters.createdAfter) return false;
+	if (filters.createdBefore && obs.createdAt > filters.createdBefore) return false;
+	if (filters.concepts && filters.concepts.length > 0) {
+		const hasConcept = filters.concepts.some((c) =>
+			obs.concepts.some((oc) => oc.toLowerCase().includes(c.toLowerCase())),
+		);
+		if (!hasConcept) return false;
+	}
+	if (filters.files && filters.files.length > 0) {
+		const allFiles = [...obs.filesRead, ...obs.filesModified];
+		const hasFile = filters.files.some((f) =>
+			allFiles.some((af) => af.toLowerCase().includes(f.toLowerCase())),
+		);
+		if (!hasFile) return false;
+	}
+	return true;
 }

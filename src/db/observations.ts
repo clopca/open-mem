@@ -14,6 +14,14 @@ import type {
 import type { Database } from "./database";
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+function escapeLike(value: string): string {
+	return value.replace(/[%_\\]/g, "\\$&");
+}
+
+// -----------------------------------------------------------------------------
 // DB Row Types (match SQLite column names exactly)
 // -----------------------------------------------------------------------------
 
@@ -35,6 +43,8 @@ interface ObservationRow {
 	discovery_tokens: number;
 	embedding: string | null;
 	importance: number;
+	superseded_by: string | null;
+	superseded_at: string | null;
 }
 
 interface ObservationIndexRow {
@@ -65,7 +75,7 @@ export class ObservationRepository {
 	// Create
 	// ---------------------------------------------------------------------------
 
-	create(data: Omit<Observation, "id" | "createdAt">): Observation {
+	create(data: Omit<Observation, "id" | "createdAt" | "supersededBy" | "supersededAt">): Observation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		const discoveryTokens = data.discoveryTokens ?? 0;
@@ -95,7 +105,7 @@ export class ObservationRepository {
 				importance,
 			],
 		);
-		return { ...data, id, createdAt: now, discoveryTokens, importance };
+		return { ...data, id, createdAt: now, discoveryTokens, importance, supersededBy: null, supersededAt: null };
 	}
 
 	importObservation(data: Observation): void {
@@ -163,7 +173,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.session_id, o.type, o.title, o.token_count, o.discovery_tokens, o.created_at, o.importance
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ?
+				 WHERE s.project_path = ? AND o.superseded_by IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -191,7 +201,7 @@ export class ObservationRepository {
 			FROM observations o
 			JOIN observations_fts fts ON o._rowid = fts.rowid
 			${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
-			WHERE observations_fts MATCH ?
+			WHERE observations_fts MATCH ? AND o.superseded_by IS NULL
 		`;
 		const params: (string | number)[] = [query.query];
 
@@ -206,6 +216,39 @@ export class ObservationRepository {
 		if (query.type) {
 			sql += " AND o.type = ?";
 			params.push(query.type);
+		}
+		if (query.importanceMin !== undefined) {
+			sql += " AND o.importance >= ?";
+			params.push(query.importanceMin);
+		}
+		if (query.importanceMax !== undefined) {
+			sql += " AND o.importance <= ?";
+			params.push(query.importanceMax);
+		}
+		if (query.createdAfter) {
+			sql += " AND o.created_at >= ?";
+			params.push(query.createdAfter);
+		}
+		if (query.createdBefore) {
+			sql += " AND o.created_at <= ?";
+			params.push(query.createdBefore);
+		}
+		if (query.concepts && query.concepts.length > 0) {
+			const conceptClauses = query.concepts.map(() => "o.concepts LIKE ? ESCAPE '\\'");
+			sql += ` AND (${conceptClauses.join(" OR ")})`;
+			for (const c of query.concepts) {
+				params.push(`%${escapeLike(c)}%`);
+			}
+		}
+		if (query.files && query.files.length > 0) {
+			const fileClauses = query.files.map(
+				() => "(o.files_read LIKE ? ESCAPE '\\' OR o.files_modified LIKE ? ESCAPE '\\')",
+			);
+			sql += ` AND (${fileClauses.join(" OR ")})`;
+			for (const f of query.files) {
+				const escaped = `%${escapeLike(f)}%`;
+				params.push(escaped, escaped);
+			}
 		}
 
 		sql += " ORDER BY rank LIMIT ? OFFSET ?";
@@ -277,7 +320,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.embedding, o.title
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ? AND o.embedding IS NOT NULL
+				 WHERE s.project_path = ? AND o.embedding IS NOT NULL AND o.superseded_by IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -308,7 +351,7 @@ export class ObservationRepository {
 	): Array<{ id: string; similarity: number }> {
 		const rows = this.db.all<{ id: string; embedding: string }>(
 			`SELECT id, embedding FROM observations
-			 WHERE embedding IS NOT NULL AND type = ?
+			 WHERE embedding IS NOT NULL AND type = ? AND superseded_by IS NULL
 			 ORDER BY created_at DESC
 			 LIMIT 200`,
 			[type],
@@ -438,7 +481,7 @@ export class ObservationRepository {
 
 	update(
 		id: string,
-		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance">>,
+		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
@@ -466,12 +509,36 @@ export class ObservationRepository {
 			setClauses.push("importance = ?");
 			params.push(data.importance);
 		}
+		if (data.facts !== undefined) {
+			setClauses.push("facts = ?");
+			params.push(JSON.stringify(data.facts));
+		}
+		if (data.subtitle !== undefined) {
+			setClauses.push("subtitle = ?");
+			params.push(data.subtitle);
+		}
+		if (data.filesRead !== undefined) {
+			setClauses.push("files_read = ?");
+			params.push(JSON.stringify(data.filesRead));
+		}
+		if (data.filesModified !== undefined) {
+			setClauses.push("files_modified = ?");
+			params.push(JSON.stringify(data.filesModified));
+		}
 
 		if (setClauses.length === 0) return existing;
 
 		params.push(id);
 		this.db.run(`UPDATE observations SET ${setClauses.join(", ")} WHERE id = ?`, params);
 		return this.getById(id);
+	}
+
+	supersede(observationId: string, newObservationId: string): void {
+		const now = new Date().toISOString();
+		this.db.run(
+			"UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?",
+			[newObservationId, now, observationId],
+		);
 	}
 
 	delete(id: string): boolean {
@@ -537,6 +604,8 @@ export class ObservationRepository {
 			tokenCount: row.token_count,
 			discoveryTokens: row.discovery_tokens ?? 0,
 			importance: row.importance ?? 3,
+			supersededBy: row.superseded_by ?? null,
+			supersededAt: row.superseded_at ?? null,
 		};
 	}
 }

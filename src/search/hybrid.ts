@@ -1,6 +1,6 @@
 import type { EmbeddingModel } from "ai";
 import type { ObservationRepository } from "../db/observations";
-import type { ObservationType, SearchResult } from "../types";
+import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
 
 const RRF_K = 60;
@@ -10,6 +10,12 @@ interface HybridSearchOptions {
 	limit?: number;
 	projectPath: string;
 	hasVectorExtension?: boolean;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string;
+	createdBefore?: string;
+	concepts?: string[];
+	files?: string[];
 }
 
 export async function hybridSearch(
@@ -20,7 +26,7 @@ export async function hybridSearch(
 ): Promise<SearchResult[]> {
 	const limit = options.limit ?? 10;
 
-	const ftsResults = safelyRunFts(observations, query, options.type, limit);
+	const ftsResults = safelyRunFts(observations, query, options, limit);
 
 	if (!embeddingModel) {
 		return ftsResults;
@@ -37,7 +43,7 @@ export async function hybridSearch(
 		observations,
 		queryEmbedding,
 		options.projectPath,
-		options.type,
+		options,
 		limit,
 		options.hasVectorExtension ?? false,
 		ftsObservationIds,
@@ -53,35 +59,67 @@ export async function hybridSearch(
 function safelyRunFts(
 	observations: ObservationRepository,
 	query: string,
-	type: ObservationType | undefined,
+	options: HybridSearchOptions,
 	limit: number,
 ): SearchResult[] {
 	try {
-		return observations.search({ query, type, limit });
+		return observations.search({
+			query,
+			type: options.type,
+			limit,
+			importanceMin: options.importanceMin,
+			importanceMax: options.importanceMax,
+			createdAfter: options.createdAfter,
+			createdBefore: options.createdBefore,
+			concepts: options.concepts,
+			files: options.files,
+		});
 	} catch {
 		return [];
 	}
+}
+
+function passesFilters(obs: Observation, options: HybridSearchOptions): boolean {
+	if (options.type && obs.type !== options.type) return false;
+	if (options.importanceMin !== undefined && obs.importance < options.importanceMin) return false;
+	if (options.importanceMax !== undefined && obs.importance > options.importanceMax) return false;
+	if (options.createdAfter && obs.createdAt < options.createdAfter) return false;
+	if (options.createdBefore && obs.createdAt > options.createdBefore) return false;
+	if (options.concepts && options.concepts.length > 0) {
+		const hasConcept = options.concepts.some((c) =>
+			obs.concepts.some((oc) => oc.toLowerCase().includes(c.toLowerCase())),
+		);
+		if (!hasConcept) return false;
+	}
+	if (options.files && options.files.length > 0) {
+		const allFiles = [...obs.filesRead, ...obs.filesModified];
+		const hasFile = options.files.some((f) =>
+			allFiles.some((af) => af.toLowerCase().includes(f.toLowerCase())),
+		);
+		if (!hasFile) return false;
+	}
+	return true;
 }
 
 function runVectorSearch(
 	observations: ObservationRepository,
 	queryEmbedding: number[],
 	projectPath: string,
-	type: ObservationType | undefined,
+	options: HybridSearchOptions,
 	limit: number,
 	hasVectorExtension: boolean,
 	ftsObservationIds: string[],
 ): SearchResult[] {
 	if (hasVectorExtension) {
-		return runNativeVectorSearch(observations, queryEmbedding, type, limit, ftsObservationIds);
+		return runNativeVectorSearch(observations, queryEmbedding, options, limit, ftsObservationIds);
 	}
-	return runJsFallbackVectorSearch(observations, queryEmbedding, projectPath, type, limit);
+	return runJsFallbackVectorSearch(observations, queryEmbedding, projectPath, options, limit);
 }
 
 function runNativeVectorSearch(
 	observations: ObservationRepository,
 	queryEmbedding: number[],
-	type: ObservationType | undefined,
+	options: HybridSearchOptions,
 	limit: number,
 	ftsObservationIds: string[],
 ): SearchResult[] {
@@ -105,7 +143,7 @@ function runNativeVectorSearch(
 
 			const obs = observations.getById(observationId);
 			if (!obs) continue;
-			if (type && obs.type !== type) continue;
+			if (!passesFilters(obs, options)) continue;
 
 			results.push({
 				observation: obs,
@@ -124,7 +162,7 @@ function runJsFallbackVectorSearch(
 	observations: ObservationRepository,
 	queryEmbedding: number[],
 	projectPath: string,
-	type: ObservationType | undefined,
+	options: HybridSearchOptions,
 	limit: number,
 ): SearchResult[] {
 	const candidates = observations.getWithEmbeddings(projectPath, limit * 10);
@@ -144,7 +182,7 @@ function runJsFallbackVectorSearch(
 
 		const obs = observations.getById(id);
 		if (!obs) continue;
-		if (type && obs.type !== type) continue;
+		if (!passesFilters(obs, options)) continue;
 
 		results.push({
 			observation: obs,

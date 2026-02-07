@@ -14,6 +14,12 @@ const searchArgsSchema = z.object({
 		.optional()
 		.describe("Filter by observation type"),
 	limit: z.number().min(1).max(50).default(10).describe("Maximum number of results"),
+	importance_min: z.number().min(1).max(5).optional().describe("Minimum importance (1-5)"),
+	importance_max: z.number().min(1).max(5).optional().describe("Maximum importance (1-5)"),
+	after: z.string().optional().describe("Only observations after this date (ISO 8601)"),
+	before: z.string().optional().describe("Only observations before this date (ISO 8601)"),
+	concepts: z.array(z.string()).optional().describe("Filter by concepts"),
+	files: z.array(z.string()).optional().describe("Filter by file paths"),
 });
 
 type SearchArgs = z.infer<typeof searchArgsSchema>;
@@ -44,6 +50,12 @@ Supports full-text search with FTS5 and optional vector similarity.`,
 					type: args.type,
 					limit: args.limit,
 					projectPath,
+					importanceMin: args.importance_min,
+					importanceMax: args.importance_max,
+					createdAfter: args.after,
+					createdBefore: args.before,
+					concepts: args.concepts,
+					files: args.files,
 				});
 
 				if (results.length === 0) {
