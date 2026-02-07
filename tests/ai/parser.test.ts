@@ -138,6 +138,67 @@ describe("parseObservationResponse", () => {
 		const result = parseObservationResponse(xml);
 		expect(result?.title).toBe("Untitled observation");
 	});
+
+	test("extracts importance tag", () => {
+		const xml = `
+<observation>
+  <type>decision</type>
+  <title>Critical architecture decision</title>
+  <importance>5</importance>
+</observation>`;
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(5);
+	});
+
+	test("defaults importance to 3 when tag is missing", () => {
+		const xml = "<observation><type>discovery</type><title>Test</title></observation>";
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(3);
+	});
+
+	test("clamps importance above 5 to 5", () => {
+		const xml = `
+<observation>
+  <type>discovery</type>
+  <title>Test</title>
+  <importance>10</importance>
+</observation>`;
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(5);
+	});
+
+	test("clamps importance below 1 to 1", () => {
+		const xml = `
+<observation>
+  <type>discovery</type>
+  <title>Test</title>
+  <importance>0</importance>
+</observation>`;
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(1);
+	});
+
+	test("defaults importance to 3 for non-numeric value", () => {
+		const xml = `
+<observation>
+  <type>discovery</type>
+  <title>Test</title>
+  <importance>high</importance>
+</observation>`;
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(3);
+	});
+
+	test("clamps negative importance to 1", () => {
+		const xml = `
+<observation>
+  <type>discovery</type>
+  <title>Test</title>
+  <importance>-3</importance>
+</observation>`;
+		const result = parseObservationResponse(xml);
+		expect(result?.importance).toBe(1);
+	});
 });
 
 // =============================================================================

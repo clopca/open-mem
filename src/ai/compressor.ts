@@ -178,6 +178,7 @@ export class ObservationCompressor {
 			filesRead: type === "discovery" ? filePaths : [],
 			filesModified: type === "change" ? filePaths : [],
 			discoveryTokens: estimateTokens(toolOutput),
+			importance: 2,
 		};
 	}
 

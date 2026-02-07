@@ -4,6 +4,7 @@
 
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
+import { redactSensitive, stripPrivateBlocks } from "../utils/privacy";
 
 const MIN_MESSAGE_LENGTH = 20;
 const MAX_NARRATIVE_LENGTH = 2000;
@@ -59,6 +60,7 @@ export function createChatCaptureHook(
 	observations: ObservationRepository,
 	sessions: SessionRepository,
 	projectPath: string,
+	sensitivePatterns: string[] = [],
 ) {
 	return async (
 		input: {
@@ -76,18 +78,23 @@ export function createChatCaptureHook(
 			if (agent !== undefined && agent !== "user") return;
 
 			const text = extractTextFromParts(output.parts);
-			if (text.length < MIN_MESSAGE_LENGTH) return;
+
+			// Strip private blocks and redact sensitive content before any processing
+			const processedText = redactSensitive(stripPrivateBlocks(text), sensitivePatterns);
+			if (processedText.length < MIN_MESSAGE_LENGTH) return;
 
 			sessions.getOrCreate(sessionID, projectPath);
 
 			const truncatedContent =
-				text.length > MAX_TITLE_CONTENT_LENGTH
-					? `${text.slice(0, MAX_TITLE_CONTENT_LENGTH)}...`
-					: text;
+				processedText.length > MAX_TITLE_CONTENT_LENGTH
+					? `${processedText.slice(0, MAX_TITLE_CONTENT_LENGTH)}...`
+					: processedText;
 			const title = `User request: ${truncatedContent}`;
 
 			const narrative =
-				text.length > MAX_NARRATIVE_LENGTH ? `${text.slice(0, MAX_NARRATIVE_LENGTH)}...` : text;
+				processedText.length > MAX_NARRATIVE_LENGTH
+					? `${processedText.slice(0, MAX_NARRATIVE_LENGTH)}...`
+					: processedText;
 
 			observations.create({
 				sessionId: sessionID,
@@ -96,13 +103,14 @@ export function createChatCaptureHook(
 				subtitle: "",
 				facts: [],
 				narrative,
-				concepts: extractConcepts(text),
+				concepts: extractConcepts(processedText),
 				filesRead: [],
 				filesModified: [],
 				rawToolOutput: "",
 				toolName: "chat.message",
 				tokenCount: Math.ceil(narrative.length / 4),
 				discoveryTokens: 0,
+				importance: 3,
 			});
 		} catch (error) {
 			console.error("[open-mem] Chat capture error:", error);

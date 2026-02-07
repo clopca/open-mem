@@ -16,6 +16,13 @@ const saveArgsSchema = z.object({
 	narrative: z.string().describe("Detailed description of what to remember"),
 	concepts: z.array(z.string()).optional().describe("Related concepts/tags"),
 	files: z.array(z.string()).optional().describe("Related file paths"),
+	importance: z
+		.number()
+		.int()
+		.min(1)
+		.max(5)
+		.optional()
+		.describe("Importance score (1-5, default 3)"),
 });
 
 type SaveArgs = z.infer<typeof saveArgsSchema>;
@@ -51,6 +58,7 @@ that should be remembered across sessions.`,
 					toolName: "mem-save",
 					tokenCount: estimateTokens(`${args.title} ${args.narrative}`),
 					discoveryTokens: 0,
+					importance: args.importance ?? 3,
 				});
 
 				sessions.incrementObservationCount(context.sessionID);

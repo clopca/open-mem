@@ -243,6 +243,15 @@ export const MIGRATIONS: Migration[] = [
 			);
 		`,
 	},
+
+	// v7 — AI-assigned importance score for observations
+	{
+		version: 7,
+		name: "add-importance-column",
+		up: `
+			ALTER TABLE observations ADD COLUMN importance INTEGER NOT NULL DEFAULT 3;
+		`,
+	},
 ];
 
 // -----------------------------------------------------------------------------

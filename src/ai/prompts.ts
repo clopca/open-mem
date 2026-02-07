@@ -43,6 +43,7 @@ Respond with EXACTLY this XML format:
   <type>decision|bugfix|feature|refactor|discovery|change</type>
   <title>Brief descriptive title (max 80 chars)</title>
   <subtitle>One-line elaboration</subtitle>
+  <importance>1-5 (1=trivial/routine, 2=low, 3=normal, 4=significant, 5=critical decision or discovery)</importance>
   <facts>
     <fact>Specific factual detail 1</fact>
     <fact>Specific factual detail 2</fact>

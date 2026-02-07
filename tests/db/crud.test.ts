@@ -264,6 +264,52 @@ describe("ObservationRepository", () => {
 		expect(observations.getCount("sess-2")).toBe(1);
 	});
 
+	test("create stores and retrieves importance", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData({ importance: 5 }));
+		const fetched = observations.getById(obs.id);
+		expect(fetched?.importance).toBe(5);
+	});
+
+	test("importance defaults to 3 when not provided", () => {
+		const { observations } = createSessionAndObs(db);
+		const obs = observations.create(makeObservationData());
+		const fetched = observations.getById(obs.id);
+		expect(fetched?.importance).toBe(3);
+	});
+
+	test("getIndex includes importance field", () => {
+		const { observations } = createSessionAndObs(db);
+		observations.create(makeObservationData({ importance: 4 }));
+		const index = observations.getIndex("/tmp/project");
+		expect(index).toHaveLength(1);
+		expect(index[0].importance).toBe(4);
+	});
+
+	test("importObservation preserves importance", () => {
+		const { observations } = createSessionAndObs(db);
+		observations.importObservation({
+			id: "import-1",
+			sessionId: "sess-1",
+			type: "discovery",
+			title: "Imported obs",
+			subtitle: "",
+			facts: [],
+			narrative: "test",
+			concepts: [],
+			filesRead: [],
+			filesModified: [],
+			rawToolOutput: "raw",
+			toolName: "Read",
+			createdAt: new Date().toISOString(),
+			tokenCount: 100,
+			discoveryTokens: 50,
+			importance: 5,
+		});
+		const fetched = observations.getById("import-1");
+		expect(fetched?.importance).toBe(5);
+	});
+
 	test("JSON round-trip preserves arrays", () => {
 		const { observations } = createSessionAndObs(db);
 		const data = makeObservationData({

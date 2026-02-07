@@ -32,6 +32,7 @@ export interface Observation {
 	createdAt: string; // ISO 8601
 	tokenCount: number; // Estimated tokens for budget management
 	discoveryTokens: number; // Original input size in tokens (for ROI tracking)
+	importance: number; // AI-assigned importance score (1-5, default 3)
 }
 
 /** Lightweight index entry for progressive disclosure */
@@ -43,6 +44,7 @@ export interface ObservationIndex {
 	tokenCount: number;
 	discoveryTokens: number;
 	createdAt: string;
+	importance: number;
 }
 
 // -----------------------------------------------------------------------------

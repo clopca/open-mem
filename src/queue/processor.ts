@@ -128,6 +128,7 @@ export class QueueProcessor {
 							`${observation.title} ${observation.narrative} ${observation.facts.join(" ")}`,
 						),
 						discoveryTokens: observation.discoveryTokens ?? estimateTokens(item.toolOutput),
+						importance: observation.importance ?? 3,
 					});
 
 					if (this.embeddingModel) {

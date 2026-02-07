@@ -629,6 +629,7 @@ export class McpServer {
 				toolName: "mem-save",
 				tokenCount: estimateTokens(`${title} ${narrative}`),
 				discoveryTokens: 0,
+				importance: 3,
 			});
 
 			this.sessions.incrementObservationCount(sessionId);
@@ -829,6 +830,7 @@ export class McpServer {
 					createdAt,
 					tokenCount: typeof obs.tokenCount === "number" ? obs.tokenCount : 0,
 					discoveryTokens: typeof obs.discoveryTokens === "number" ? obs.discoveryTokens : 0,
+					importance: typeof obs.importance === "number" ? obs.importance : 3,
 				});
 
 				this.sessions.incrementObservationCount(sessionId);

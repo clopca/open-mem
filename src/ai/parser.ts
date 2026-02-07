@@ -22,6 +22,7 @@ export interface ParsedObservation {
 	filesRead: string[];
 	filesModified: string[];
 	discoveryTokens?: number;
+	importance?: number;
 }
 
 export interface ParsedSummary {
@@ -98,6 +99,12 @@ export function parseObservationResponse(response: string): ParsedObservation | 
 	const filesRead = extractAllTags(extractTag(observation, "files_read"), "file");
 	const filesModified = extractAllTags(extractTag(observation, "files_modified"), "file");
 
+	const rawImportance = extractTag(observation, "importance");
+	const parsedImportance = Number.parseInt(rawImportance, 10);
+	const importance = Number.isNaN(parsedImportance)
+		? 3
+		: Math.max(1, Math.min(5, parsedImportance));
+
 	return {
 		type,
 		title,
@@ -107,6 +114,7 @@ export function parseObservationResponse(response: string): ParsedObservation | 
 		concepts,
 		filesRead,
 		filesModified,
+		importance,
 	};
 }
 

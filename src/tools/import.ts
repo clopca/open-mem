@@ -111,6 +111,7 @@ Skips duplicate observations (by ID) and summaries (by session ID).`,
 						createdAt: obs.createdAt,
 						tokenCount: obs.tokenCount ?? 0,
 						discoveryTokens: obs.discoveryTokens ?? 0,
+						importance: obs.importance ?? 3,
 					});
 
 					sessions.incrementObservationCount(obs.sessionId);
