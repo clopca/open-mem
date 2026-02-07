@@ -157,6 +157,9 @@ export interface OpenMemConfig {
 	folderContextEnabled: boolean; // Auto-generate AGENTS.md in active folders
 	folderContextMaxDepth: number; // Max folder depth from project root
 
+	// Daemon
+	daemonEnabled: boolean; // Enable background daemon for queue processing (default: false)
+
 	// Dashboard
 	dashboardEnabled: boolean; // Enable web dashboard (default: false)
 	dashboardPort: number; // Dashboard HTTP port (default: 3737)

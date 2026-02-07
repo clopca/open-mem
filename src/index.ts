@@ -6,6 +6,7 @@ import { ObservationCompressor } from "./ai/compressor";
 import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
+import { DaemonManager } from "./daemon/manager";
 import { createDatabase } from "./db/database";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
@@ -82,7 +83,41 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	);
 	queue.start();
 
-	// 6. Dashboard (opt-in)
+	// 6. Daemon mode (opt-in)
+	let daemonManager: DaemonManager | null = null;
+	let daemonLivenessTimer: ReturnType<typeof setInterval> | null = null;
+
+	if (config.daemonEnabled) {
+		const { join } = await import("node:path");
+		daemonManager = new DaemonManager({
+			dbPath: config.dbPath,
+			projectPath,
+			daemonScript: join(__dirname, "daemon.ts"),
+		});
+
+		const started = daemonManager.start();
+		if (started) {
+			queue.setMode("enqueue-only");
+			console.log("[open-mem] Background daemon started — processing delegated");
+
+			daemonLivenessTimer = setInterval(() => {
+				if (daemonManager && !daemonManager.isRunning()) {
+					console.warn("[open-mem] Daemon died, falling back to in-process processing");
+					queue.setMode("in-process");
+					queue.start();
+					if (daemonLivenessTimer) {
+						clearInterval(daemonLivenessTimer);
+						daemonLivenessTimer = null;
+					}
+				}
+			}, 30_000);
+		} else {
+			console.warn("[open-mem] Daemon failed to start — using in-process processing");
+			daemonManager = null;
+		}
+	}
+
+	// 7. Dashboard (opt-in)
 	let dashboardServer: ReturnType<typeof Bun.serve> | null = null;
 	let eventBus: MemoryEventBus | null = null;
 	let sseBroadcaster: SSEBroadcaster | null = null;
@@ -136,8 +171,10 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		};
 	}
 
-	// 7. Shutdown handler
+	// 8. Shutdown handler
 	const cleanup = () => {
+		if (daemonLivenessTimer) clearInterval(daemonLivenessTimer);
+		if (daemonManager) daemonManager.stop();
 		queue.stop();
 		if (dashboardServer) dashboardServer.stop();
 		if (sseBroadcaster) sseBroadcaster.destroy();
@@ -145,7 +182,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	};
 	process.on("beforeExit", cleanup);
 
-	// 8. Build hooks
+	// 9. Build hooks
 	return {
 		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
 		"chat.message": createChatCaptureHook(observationRepo, sessionRepo, projectPath),
