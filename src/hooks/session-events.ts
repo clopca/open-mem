@@ -49,10 +49,16 @@ export function createEventHandler(
 				}
 
 				case "session.idle": {
-					await queue.processBatch();
+					void queue.processBatch().catch((error) => {
+						console.error("[open-mem] Background processing error:", error);
+					});
 					if (sessionId) {
 						sessions.updateStatus(sessionId, "idle");
-						await triggerFolderContext(sessionId, projectPath, config, observations);
+						void triggerFolderContext(sessionId, projectPath, config, observations).catch(
+							(error) => {
+								console.error("[open-mem] Folder context error:", error);
+							},
+						);
 					}
 					break;
 				}
