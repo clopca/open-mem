@@ -11,7 +11,7 @@ import type { MemoryEventBus, MemoryEventMap, MemoryEventName } from "../events/
 // -----------------------------------------------------------------------------
 
 /** Writer function that sends an SSE event to a connected client */
-export type SSEWriter = (event: string, data: string) => void;
+export type SSEWriter = (event: string, data: string) => void | Promise<void>;
 
 // -----------------------------------------------------------------------------
 // SSE Broadcaster
@@ -80,7 +80,11 @@ export class SSEBroadcaster {
 		const json = JSON.stringify(data);
 		for (const writer of this.clients) {
 			try {
-				writer(eventName, json);
+				const result = writer(eventName, json);
+				// If the writer returned a promise, catch its rejection
+				if (result && typeof result.catch === "function") {
+					result.catch(() => this.clients.delete(writer));
+				}
 			} catch {
 				this.clients.delete(writer);
 			}

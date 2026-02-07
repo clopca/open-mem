@@ -282,11 +282,18 @@ export class ObservationRepository {
 
 	insertVecEmbedding(observationId: string, embedding: number[]): void {
 		const float32 = new Float32Array(embedding);
-		this.db.run("DELETE FROM observation_embeddings WHERE observation_id = ?", [observationId]);
-		this.db.run("INSERT INTO observation_embeddings (observation_id, embedding) VALUES (?, ?)", [
-			observationId,
-			float32,
-		]);
+		this.db.run("BEGIN");
+		try {
+			this.db.run("DELETE FROM observation_embeddings WHERE observation_id = ?", [observationId]);
+			this.db.run("INSERT INTO observation_embeddings (observation_id, embedding) VALUES (?, ?)", [
+				observationId,
+				float32,
+			]);
+			this.db.run("COMMIT");
+		} catch (e) {
+			this.db.run("ROLLBACK");
+			throw e;
+		}
 	}
 
 	migrateExistingEmbeddings(dimension: number): { migrated: number; skipped: number } {

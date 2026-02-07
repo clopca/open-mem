@@ -268,7 +268,17 @@ export function initializeVec0Table(db: Database, dimension: number): void {
 	const exists = db.get<{ name: string }>(
 		"SELECT name FROM sqlite_master WHERE type='table' AND name='observation_embeddings'",
 	);
-	if (!exists) {
+	if (exists) {
+		const meta = db.get<{ value: string }>(
+			"SELECT value FROM _embedding_meta WHERE key = 'dimension'",
+		);
+		if (meta && Number(meta.value) !== dimension) {
+			console.warn(
+				`[open-mem] vec0 table exists with dimension ${meta.value}, but config specifies ${dimension}. Drop observation_embeddings to re-create with new dimension.`,
+			);
+			return;
+		}
+	} else {
 		db.exec(
 			`CREATE VIRTUAL TABLE observation_embeddings USING vec0(
 				observation_id TEXT PRIMARY KEY,

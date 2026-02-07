@@ -2,6 +2,7 @@
 // open-mem — Hono HTTP Server for Web Dashboard
 // =============================================================================
 
+import { normalize, resolve } from "node:path";
 import type { EmbeddingModel } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -254,8 +255,13 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		}
 
 		const dashboardDir = new URL("../../dist/dashboard/", import.meta.url).pathname;
+		const normalizedDir = normalize(dashboardDir);
 		const cleanPath = path === "/" ? "index.html" : path.replace(/^\//, "");
-		const filePath = `${dashboardDir}${cleanPath}`;
+		const filePath = resolve(dashboardDir, cleanPath);
+
+		if (!filePath.startsWith(normalizedDir)) {
+			return c.json({ error: "Not found" }, 404);
+		}
 
 		try {
 			const file = Bun.file(filePath);
@@ -264,8 +270,13 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			}
 		} catch {}
 
+		const indexPath = resolve(dashboardDir, "index.html");
+		if (!indexPath.startsWith(normalizedDir)) {
+			return c.json({ error: "Not found" }, 404);
+		}
+
 		try {
-			const indexFile = Bun.file(`${dashboardDir}index.html`);
+			const indexFile = Bun.file(indexPath);
 			if (await indexFile.exists()) {
 				return new Response(indexFile, {
 					headers: { "Content-Type": "text/html; charset=utf-8" },

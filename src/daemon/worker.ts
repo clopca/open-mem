@@ -26,6 +26,7 @@ export class DaemonWorker {
 	private pollIntervalMs: number;
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private lastActiveAt: number = Date.now();
+	private processing = false;
 
 	constructor(options: DaemonWorkerOptions) {
 		this.queueProcessor = options.queueProcessor;
@@ -37,6 +38,8 @@ export class DaemonWorker {
 		this.lastActiveAt = Date.now();
 
 		this.timer = setInterval(async () => {
+			if (this.processing) return;
+			this.processing = true;
 			try {
 				const processed = await this.queueProcessor.processBatch();
 				if (processed > 0) {
@@ -44,6 +47,8 @@ export class DaemonWorker {
 				}
 			} catch {
 				// Swallow — polling errors must not crash the loop
+			} finally {
+				this.processing = false;
 			}
 		}, this.pollIntervalMs);
 	}
@@ -71,7 +76,18 @@ export class DaemonWorker {
 		if (message === "SHUTDOWN") {
 			this.stop();
 		} else if (message === "PROCESS_NOW") {
-			this.queueProcessor.processBatch().catch(() => {});
+			if (!this.processing) {
+				this.processing = true;
+				this.queueProcessor
+					.processBatch()
+					.then((processed) => {
+						if (processed > 0) this.lastActiveAt = Date.now();
+					})
+					.catch(() => {})
+					.finally(() => {
+						this.processing = false;
+					});
+			}
 		}
 	}
 }

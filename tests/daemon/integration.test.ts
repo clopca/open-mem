@@ -13,7 +13,7 @@ describe("Daemon Integration", () => {
 	afterEach(() => {
 		for (const key of Object.keys(process.env)) {
 			if (!(key in savedEnv)) {
-				process.env[key] = undefined;
+				delete process.env[key];
 			}
 		}
 		Object.assign(process.env, savedEnv);

@@ -32,7 +32,7 @@ export function Timeline() {
 	const apiUrl = `/api/observations?limit=${PAGE_SIZE}&offset=${offset}${typeFilter ? `&type=${typeFilter}` : ""}`;
 	const { data, loading, error } = useAPI<Observation[]>(apiUrl);
 
-	const { events } = useSSE<SSEEvent>("/api/events");
+	const { events, clearEvents } = useSSE<SSEEvent>("/api/events");
 	const processedEventCount = useRef(0);
 
 	useEffect(() => {
@@ -90,7 +90,11 @@ export function Timeline() {
 				}, 2000),
 			);
 		}
-	}, [events, typeFilter]);
+
+		// Clear processed events to prevent unbounded memory growth
+		clearEvents();
+		processedEventCount.current = 0;
+	}, [events, typeFilter, clearEvents]);
 
 	useEffect(() => {
 		return () => {

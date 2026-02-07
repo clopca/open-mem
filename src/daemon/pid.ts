@@ -25,8 +25,12 @@ export function isProcessAlive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
-	} catch {
-		return false;
+	} catch (err: unknown) {
+		// EPERM means the process exists but we lack permission to signal it
+		if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "EPERM") {
+			return true;
+		}
+		return false; // ESRCH or other → process does not exist
 	}
 }
 
