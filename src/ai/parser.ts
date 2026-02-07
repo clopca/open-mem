@@ -155,6 +155,27 @@ export function parseSummaryResponse(response: string): ParsedSummary | null {
 }
 
 // -----------------------------------------------------------------------------
+// Reranking Parser
+// -----------------------------------------------------------------------------
+
+export function parseRerankingResponse(response: string): number[] | null {
+	const block = extractTag(response, "reranked");
+	if (!block) return null;
+
+	const rawIndices = extractAllTags(block, "index");
+	if (rawIndices.length === 0) return null;
+
+	const indices: number[] = [];
+	for (const raw of rawIndices) {
+		const parsed = Number.parseInt(raw, 10);
+		if (Number.isNaN(parsed) || parsed < 0) return null;
+		indices.push(parsed);
+	}
+
+	return indices;
+}
+
+// -----------------------------------------------------------------------------
 // Token Estimation
 // -----------------------------------------------------------------------------
 

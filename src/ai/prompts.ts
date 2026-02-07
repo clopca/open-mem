@@ -115,3 +115,31 @@ Respond with EXACTLY this XML format:
 </session_summary>
 </instructions>`;
 }
+
+export function buildRerankingPrompt(
+	query: string,
+	candidates: ReadonlyArray<{ title: string; narrative: string }>,
+): string {
+	const candidateList = candidates
+		.map(
+			(c, i) =>
+				`  <candidate index="${i}"><title>${c.title}</title><narrative>${c.narrative}</narrative></candidate>`,
+		)
+		.join("\n");
+
+	return `<rerank_request>
+<query>${query}</query>
+<candidates>
+${candidateList}
+</candidates>
+<instructions>Reorder the candidates by relevance to the query. Return indices from most to least relevant.
+
+Respond with EXACTLY this XML format:
+<reranked>
+  <index>3</index>
+  <index>1</index>
+  <index>0</index>
+</reranked>
+</instructions>
+</rerank_request>`;
+}
