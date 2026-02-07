@@ -252,6 +252,17 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE observations ADD COLUMN importance INTEGER NOT NULL DEFAULT 3;
 		`,
 	},
+
+	// v8 — Conflict resolution columns for observation superseding
+	{
+		version: 8,
+		name: "add-conflict-resolution-columns",
+		up: `
+			ALTER TABLE observations ADD COLUMN superseded_by TEXT;
+			ALTER TABLE observations ADD COLUMN superseded_at TEXT;
+			CREATE INDEX IF NOT EXISTS idx_observations_superseded ON observations(superseded_by);
+		`,
+	},
 ];
 
 // -----------------------------------------------------------------------------
