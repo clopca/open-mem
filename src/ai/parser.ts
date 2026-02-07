@@ -212,6 +212,105 @@ export function parseConflictEvaluationResponse(response: string): ConflictEvalu
 }
 
 // -----------------------------------------------------------------------------
+// Entity Extraction Parser
+// -----------------------------------------------------------------------------
+
+export type EntityType =
+	| "technology"
+	| "library"
+	| "pattern"
+	| "concept"
+	| "file"
+	| "person"
+	| "project"
+	| "other";
+
+export type RelationshipType =
+	| "uses"
+	| "depends_on"
+	| "implements"
+	| "extends"
+	| "related_to"
+	| "replaces"
+	| "configures";
+
+export interface ParsedEntity {
+	name: string;
+	entityType: EntityType;
+}
+
+export interface ParsedRelation {
+	sourceName: string;
+	targetName: string;
+	relationship: RelationshipType;
+}
+
+export interface ParsedEntityExtraction {
+	entities: ParsedEntity[];
+	relations: ParsedRelation[];
+}
+
+const VALID_ENTITY_TYPES = new Set<string>([
+	"technology",
+	"library",
+	"pattern",
+	"concept",
+	"file",
+	"person",
+	"project",
+	"other",
+]);
+
+const VALID_RELATIONSHIP_TYPES = new Set<string>([
+	"uses",
+	"depends_on",
+	"implements",
+	"extends",
+	"related_to",
+	"replaces",
+	"configures",
+]);
+
+export function parseEntityExtractionResponse(
+	response: string,
+): ParsedEntityExtraction | null {
+	const extraction = extractTag(response, "extraction");
+	if (!extraction) return null;
+
+	const entitiesBlock = extractTag(extraction, "entities");
+	const relationsBlock = extractTag(extraction, "relations");
+
+	const rawEntities = extractAllTags(entitiesBlock, "entity");
+	const entities: ParsedEntity[] = [];
+	for (const raw of rawEntities) {
+		const name = extractTag(raw, "name");
+		if (!name) continue;
+		const rawType = extractTag(raw, "type").toLowerCase();
+		const entityType: EntityType = VALID_ENTITY_TYPES.has(rawType)
+			? (rawType as EntityType)
+			: "other";
+		entities.push({ name, entityType });
+	}
+
+	const rawRelations = extractAllTags(relationsBlock, "relation");
+	const relations: ParsedRelation[] = [];
+	for (const raw of rawRelations) {
+		const sourceName = extractTag(raw, "source");
+		const targetName = extractTag(raw, "target");
+		const rawRel = extractTag(raw, "relationship").toLowerCase();
+		if (!sourceName || !targetName || !rawRel) continue;
+		if (!VALID_RELATIONSHIP_TYPES.has(rawRel)) continue;
+		relations.push({
+			sourceName,
+			targetName,
+			relationship: rawRel as RelationshipType,
+		});
+	}
+
+	return { entities, relations };
+}
+
+// -----------------------------------------------------------------------------
 // Token Estimation
 // -----------------------------------------------------------------------------
 

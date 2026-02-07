@@ -185,6 +185,63 @@ Respond with EXACTLY this XML format:
 // Reranking Prompt
 // -----------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------
+// Entity Extraction Prompt
+// -----------------------------------------------------------------------------
+
+export interface EntityExtractionObservation {
+	title: string;
+	type: string;
+	narrative: string;
+	facts: string[];
+	concepts: string[];
+	filesRead: string[];
+	filesModified: string[];
+}
+
+/**
+ * Build a prompt that instructs the AI to extract entities and relationships
+ * from an observation.
+ */
+export function buildEntityExtractionPrompt(
+	obs: EntityExtractionObservation,
+): string {
+	const allFiles = [...obs.filesRead, ...obs.filesModified];
+
+	return `<entity_extraction>
+<observation>
+  <title>${obs.title}</title>
+  <type>${obs.type}</type>
+  <narrative>${obs.narrative}</narrative>
+  <facts>${obs.facts.join("\n")}</facts>
+  <files>${allFiles.join("\n")}</files>
+  <concepts>${obs.concepts.join(", ")}</concepts>
+</observation>
+<instructions>
+Extract entities and relationships from this observation.
+
+Entity types: technology, library, pattern, concept, file, person, project, other
+Relationship types: uses, depends_on, implements, extends, related_to, replaces, configures
+
+Only extract entities that are clearly mentioned. Do not infer.
+Respond with EXACTLY this XML format:
+<extraction>
+  <entities>
+    <entity><name>React</name><type>library</type></entity>
+    <entity><name>useState</name><type>pattern</type></entity>
+  </entities>
+  <relations>
+    <relation><source>React</source><relationship>uses</relationship><target>useState</target></relation>
+  </relations>
+</extraction>
+</instructions>
+</entity_extraction>`;
+}
+
+// -----------------------------------------------------------------------------
+// Reranking Prompt
+// -----------------------------------------------------------------------------
+
 export function buildRerankingPrompt(
 	query: string,
 	candidates: ReadonlyArray<{ title: string; narrative: string }>,
