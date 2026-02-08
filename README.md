@@ -75,6 +75,19 @@ export OPEN_MEM_MODEL=google/gemini-2.5-flash-lite
 
 Without any provider configured, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
 
+## Why open-mem?
+
+- **Native vector search** — sqlite-vec embedded directly in SQLite, no external vector database required
+- **Knowledge graph** — automatic entity extraction with relationships, graph-augmented search via traversal
+- **5 AI providers + fallback chain** — Google, Anthropic, AWS Bedrock, OpenAI, OpenRouter with automatic failover
+- **Advanced search** — FTS5 full-text + vector similarity + Reciprocal Rank Fusion + graph traversal + reranking
+- **Revision lineage** — immutable history with audit trail; revisions never overwrite, they supersede
+- **User-level memory** — cross-project memories stored in a separate user-scoped database
+- **Web dashboard** — 6-page management UI with real-time SSE streaming and config control plane
+- **Multi-platform** — native adapters for OpenCode, Claude Code, and Cursor
+- **MIT license** — enterprise-friendly, no AGPL restrictions
+- **Well-tested** — 71 test files covering core logic, adapters, and integration scenarios
+
 ## Key Features
 
 - 🧠 **Automatic observation capture** from tool executions and user prompts
@@ -84,8 +97,11 @@ Without any provider configured, open-mem still works — it falls back to a bas
 - 🔒 **Privacy controls** with `<private>` tag support
 - 🛠️ **Nine custom tools**: memory.find, memory.create, memory.history, memory.get, memory.transfer.export, memory.transfer.import, memory.revise, memory.remove, memory.help
 - 🌐 **MCP server mode** — expose memory tools to any MCP-compatible AI client
+- 🔗 **Knowledge graph** — entity extraction with relationships, graph-augmented search
+- 🔄 **Multi-platform** — native adapters for OpenCode, Claude Code, and Cursor
 - 🌳 **Git worktree support** — shared memory across all worktrees
 - 📂 **AGENTS.md generation** — auto-generated folder-level context on session end
+- 📊 **Web dashboard** — 6-page management UI with real-time streaming
 - 📦 **Import/export** — portable JSON for backup and transfer between machines
 - ⚡ **Zero-config setup** — works out of the box
 - 📁 **All data stored locally** in your project directory
@@ -196,6 +212,29 @@ Configure via `OPEN_MEM_FOLDER_CONTEXT_MODE=single` or `OPEN_MEM_FOLDER_CONTEXT_
 ### Token ROI Tracking
 
 The context injector includes a "Memory Economics" footer showing how much context compression saves: read cost vs. original discovery cost, with a savings percentage. This helps you understand the value of AI compression at a glance.
+
+## Web Dashboard
+
+open-mem includes a built-in web dashboard for memory management and observability. It provides six pages:
+
+| Page | Description |
+|------|-------------|
+| **Timeline** | Chronological view of all observations with type filtering |
+| **Sessions** | Browse past coding sessions and their observations |
+| **Search** | Full-text and semantic search across all memories |
+| **Stats** | Database statistics, observation counts, and memory economics |
+| **Operations** | Queue status, maintenance actions, folder context management |
+| **Settings** | Config control plane with live preview, mode presets, and audit log |
+
+### Enable the Dashboard
+
+```bash
+export OPEN_MEM_DASHBOARD=true
+```
+
+Access at `http://localhost:3737` (configurable via `OPEN_MEM_DASHBOARD_PORT`). The dashboard streams real-time updates via Server-Sent Events — new observations appear as they are captured.
+
+The [Config Control Plane](#config-control-plane) is accessible through the Settings page, allowing you to preview, apply, and roll back configuration changes without restarting.
 
 ## Custom Tools
 
@@ -320,9 +359,9 @@ Lifecycle behavior:
 - `notifications/initialized` is supported
 - strict mode requires initialize before `tools/list`/`tools/call`
 
-## Platform Adapter Workers (Claude Code / Cursor)
+## Platform Adapters (Claude Code / Cursor)
 
-open-mem now includes dedicated adapter workers that ingest JSON events over stdin:
+open-mem works beyond OpenCode. Dedicated adapter workers bring the same memory capabilities to Claude Code and Cursor, ingesting JSON events over stdin:
 
 ```bash
 # Claude Code adapter worker
@@ -423,6 +462,8 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `OPEN_MEM_MCP_COMPAT_MODE` | `strict` | MCP mode: `strict` or `legacy` |
 | `OPEN_MEM_MCP_PROTOCOL_VERSION` | `2024-11-05` | Preferred MCP protocol version |
 | `OPEN_MEM_MCP_SUPPORTED_PROTOCOLS` | `2024-11-05` | Comma-separated supported protocol versions |
+| `OPEN_MEM_DASHBOARD` | `false` | Set to `true` to enable the web dashboard |
+| `OPEN_MEM_DASHBOARD_PORT` | `3737` | Dashboard HTTP port |
 
 <details>
 <summary><strong>Programmatic Configuration Reference</strong></summary>
@@ -555,6 +596,19 @@ export OPEN_MEM_MAX_CONTEXT_TOKENS=2000
 
 - [Getting Started](docs/getting-started.md) — installation, configuration, and first steps
 - [Architecture](docs/architecture.md) — internal design, data flow, and source layout
+
+## Feature Highlights
+
+| Feature | open-mem | Typical alternatives |
+|---------|----------|---------------------|
+| Vector search | Native (sqlite-vec) | External service (Chroma) |
+| AI providers | 5 with fallback chain | 1–3 |
+| Search | FTS5 + Vector + RRF + Graph | FTS5 only |
+| Knowledge graph | Entities + relationships | No |
+| Revision history | Immutable lineage | No |
+| Dashboard | 6-page web UI with SSE | No |
+| License | MIT | AGPL / proprietary |
+| Data locality | Project-local `.open-mem/` | Global |
 
 ## Contributing
 
