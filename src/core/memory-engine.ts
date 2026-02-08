@@ -27,13 +27,18 @@ import type {
 import { cleanFolderContext, rebuildFolderContext } from "../utils/folder-context-maintenance";
 import type {
 	FolderContextMaintenanceResult,
+	HealthStatus,
+	LineageNode,
 	MemoryEngine,
 	MemoryExportOptions,
 	MemoryImportOptions,
+	MetricsSnapshot,
 	MemorySaveInput,
 	MemorySearchFilters,
 	MemoryStats,
 	MemoryUpdatePatch,
+	PlatformInfo,
+	RuntimeStatusSnapshot,
 	TimelineResult,
 } from "./contracts";
 
@@ -45,6 +50,7 @@ interface EngineDeps {
 	projectPath: string;
 	config: OpenMemConfig;
 	userObservationRepo?: UserObservationStore | null;
+	runtimeSnapshotProvider?: (() => RuntimeStatusSnapshot) | null;
 }
 
 interface ExportData {
@@ -69,6 +75,20 @@ interface ExportData {
 	}>;
 }
 
+interface ObservationStoreWithHistory {
+	getByIdIncludingArchived?: (id: string) => Observation | null;
+	listByProject?: (
+		projectPath: string,
+		options?: {
+			limit?: number;
+			offset?: number;
+			type?: Observation["type"];
+			state?: "current" | "superseded" | "tombstoned";
+			sessionId?: string;
+		},
+	) => Observation[];
+}
+
 export class DefaultMemoryEngine implements MemoryEngine {
 	private observations: ObservationStore;
 	private sessions: SessionStore;
@@ -77,6 +97,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	private projectPath: string;
 	private config: OpenMemConfig;
 	private userObservationRepo: UserObservationStore | null;
+	private runtimeSnapshotProvider: (() => RuntimeStatusSnapshot) | null;
 	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
 	private configAuditLog: ConfigAuditEvent[] = [];
 	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
@@ -90,6 +111,32 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		this.projectPath = deps.projectPath;
 		this.config = deps.config;
 		this.userObservationRepo = deps.userObservationRepo ?? null;
+		this.runtimeSnapshotProvider = deps.runtimeSnapshotProvider ?? null;
+	}
+
+	private getByIdIncludingArchived(id: string): Observation | null {
+		const store = this.observations as ObservationStoreWithHistory;
+		return store.getByIdIncludingArchived ? store.getByIdIncludingArchived(id) : this.observations.getById(id);
+	}
+
+	private listByProjectWithState(input: {
+		limit?: number;
+		offset?: number;
+		type?: Observation["type"];
+		state: "current" | "superseded" | "tombstoned";
+		sessionId?: string;
+	}): Observation[] {
+		const store = this.observations as ObservationStoreWithHistory;
+		if (store.listByProject) {
+			return store.listByProject(this.projectPath, input);
+		}
+		if (input.state !== "current") return [];
+		return this.listObservations({
+			limit: input.limit,
+			offset: input.offset,
+			type: input.type,
+			sessionId: input.sessionId,
+		});
 	}
 
 	async ingest(_input: {
@@ -419,7 +466,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		const { limit = 50, offset = 0, type, sessionId, state } = input;
 
 		if (state) {
-			return this.observations.listByProject(this.projectPath, {
+			return this.listByProjectWithState({
 				limit,
 				offset,
 				type,
@@ -446,8 +493,47 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return this.observations.getById(id);
 	}
 
-	getObservationLineage(id: string): Observation[] {
-		return this.observations.getLineage(id);
+	getLineage(id: string): LineageNode[] | null {
+		const MAX_LINEAGE_HOPS = 256;
+		const anchor = this.getByIdIncludingArchived(id);
+		if (!anchor) return null;
+
+		let root = anchor;
+		let hops = 0;
+		const reverseSeen = new Set<string>([anchor.id]);
+		while (root.revisionOf && hops < MAX_LINEAGE_HOPS) {
+			const previous = this.getByIdIncludingArchived(root.revisionOf);
+			if (!previous || reverseSeen.has(previous.id)) break;
+			root = previous;
+			reverseSeen.add(previous.id);
+			hops += 1;
+		}
+
+		const chain: LineageNode[] = [];
+		let cursor: Observation | null = root;
+		const forwardSeen = new Set<string>();
+		let forwardHops = 0;
+		while (cursor && !forwardSeen.has(cursor.id) && forwardHops < MAX_LINEAGE_HOPS) {
+			forwardSeen.add(cursor.id);
+			const state: LineageNode["state"] = cursor.deletedAt
+				? "tombstoned"
+				: cursor.supersededBy
+					? "superseded"
+					: "current";
+			chain.push({
+				id: cursor.id,
+				revisionOf: cursor.revisionOf ?? null,
+				supersededBy: cursor.supersededBy ?? null,
+				supersededAt: cursor.supersededAt ?? null,
+				deletedAt: cursor.deletedAt ?? null,
+				state,
+				observation: cursor,
+			});
+			cursor = cursor.supersededBy ? this.getByIdIncludingArchived(cursor.supersededBy) : null;
+			forwardHops += 1;
+		}
+
+		return chain;
 	}
 
 	listSessions(input: { limit?: number; projectPath?: string }): Array<{
@@ -516,40 +602,87 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	}
 
 	getRevisionDiff(id: string, againstId: string): RevisionDiff | null {
-		const base = this.observations.getByIdIncludingArchived(id);
-		const against = this.observations.getByIdIncludingArchived(againstId);
-		if (!base || !against) return null;
+		const current = this.getByIdIncludingArchived(id);
+		const against = this.getByIdIncludingArchived(againstId);
+		if (!current || !against) return null;
 
-		const DIFF_FIELDS: Array<{ key: keyof Observation; label: string }> = [
-			{ key: "title", label: "title" },
-			{ key: "narrative", label: "narrative" },
-			{ key: "type", label: "type" },
-			{ key: "importance", label: "importance" },
-			{ key: "subtitle", label: "subtitle" },
-		];
-		const ARRAY_DIFF_FIELDS: Array<{ key: keyof Observation; label: string }> = [
-			{ key: "concepts", label: "concepts" },
-			{ key: "facts", label: "facts" },
-			{ key: "filesRead", label: "filesRead" },
-			{ key: "filesModified", label: "filesModified" },
-		];
-
-		const changes: Array<{ field: string; before: unknown; after: unknown }> = [];
-
-		for (const { key, label } of DIFF_FIELDS) {
-			if (base[key] !== against[key]) {
-				changes.push({ field: label, before: base[key], after: against[key] });
+		const changedFields: RevisionDiff["changedFields"] = [];
+		const pushIfChanged = (
+			field: RevisionDiff["changedFields"][number]["field"],
+			before: unknown,
+			after: unknown,
+		) => {
+			if (JSON.stringify(before) !== JSON.stringify(after)) {
+				changedFields.push({ field, before, after });
 			}
-		}
-		for (const { key, label } of ARRAY_DIFF_FIELDS) {
-			const a = JSON.stringify(base[key]);
-			const b = JSON.stringify(against[key]);
-			if (a !== b) {
-				changes.push({ field: label, before: base[key], after: against[key] });
-			}
-		}
+		};
 
-		return { baseId: id, againstId, changes };
+		pushIfChanged("title", against.title, current.title);
+		pushIfChanged("subtitle", against.subtitle, current.subtitle);
+		pushIfChanged("narrative", against.narrative, current.narrative);
+		pushIfChanged("type", against.type, current.type);
+		pushIfChanged("facts", against.facts, current.facts);
+		pushIfChanged("concepts", against.concepts, current.concepts);
+		pushIfChanged("filesRead", against.filesRead, current.filesRead);
+		pushIfChanged("filesModified", against.filesModified, current.filesModified);
+		pushIfChanged("importance", against.importance, current.importance);
+
+		const summary =
+			changedFields.length === 0
+				? "No material changes between revisions."
+				: `Changed ${changedFields.length} field${changedFields.length === 1 ? "" : "s"}: ${changedFields
+						.map((f) => f.field)
+						.join(", ")}.`;
+
+		return {
+			fromId: againstId,
+			toId: id,
+			summary,
+			changedFields,
+		};
+	}
+
+	getHealth(): HealthStatus {
+		const runtime = this.runtimeSnapshotProvider?.();
+		const queueStatus: "ok" | "degraded" =
+			runtime && runtime.queue.lastError ? "degraded" : "ok";
+
+		return {
+			status: runtime?.status ?? "ok",
+			timestamp: runtime?.timestamp ?? new Date().toISOString(),
+			components: {
+				database: { status: "ok" },
+				search: { status: "ok" },
+				config: { status: "ok" },
+				queue: {
+					status: queueStatus,
+					detail: runtime?.queue.lastError ?? undefined,
+				},
+			},
+		};
+	}
+
+	getMetrics(): MetricsSnapshot {
+		const stats = this.stats();
+		const runtime = this.runtimeSnapshotProvider?.();
+		return {
+			timestamp: runtime?.timestamp ?? new Date().toISOString(),
+			memory: {
+				totalObservations: stats.totalObservations,
+				totalSessions: stats.totalSessions,
+				totalTokensSaved: stats.totalTokensSaved,
+				averageObservationSize: stats.averageObservationSize,
+			},
+		};
+	}
+
+	getPlatforms(): PlatformInfo {
+		return {
+			name: "open-mem",
+			provider: this.config.provider,
+			dashboardEnabled: this.config.dashboardEnabled,
+			vectorEnabled: Boolean(this.config.embeddingDimension && this.config.embeddingDimension > 0),
+		};
 	}
 
 	getAdapterStatuses(): AdapterStatus[] {

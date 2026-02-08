@@ -12,37 +12,15 @@ import {
 	readProjectConfig,
 } from "../../config/store";
 import { fail, observationTypeSchema, ok } from "../../contracts/api";
-import type { MemoryEngine } from "../../core/contracts";
+import type { MemoryEngine, RuntimeStatusSnapshot } from "../../core/contracts";
 import type { ObservationType, OpenMemConfig } from "../../types";
-import { BUILTIN_PLATFORM_ADAPTERS } from "../platform/builtin";
 
 export interface DashboardDeps {
 	config: OpenMemConfig;
 	projectPath: string;
 	embeddingModel: EmbeddingModel | null;
 	memoryEngine: MemoryEngine;
-	runtimeStatusProvider?: () => {
-		status: "ok" | "degraded";
-		timestamp: string;
-		uptimeMs: number;
-		queue: {
-			mode: string;
-			running: boolean;
-			processing: boolean;
-			pending: number;
-			lastBatchDurationMs: number;
-			lastProcessedAt: string | null;
-			lastFailedAt: string | null;
-			lastError: string | null;
-		};
-		batches: {
-			total: number;
-			processedItems: number;
-			failedItems: number;
-			avgDurationMs: number;
-		};
-		enqueueCount: number;
-	};
+	runtimeStatusProvider?: () => RuntimeStatusSnapshot;
 	sseHandler?: (c: Context) => Response | Promise<Response>;
 	dashboardDir?: string;
 }
@@ -137,8 +115,8 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 
 	app.get("/v1/memory/observations/:id/lineage", (c) => {
 		const id = c.req.param("id");
-		const lineage = memoryEngine.getObservationLineage(id);
-		if (lineage.length === 0) return c.json(fail("NOT_FOUND", "Observation not found"), 404);
+		const lineage = memoryEngine.getLineage(id);
+		if (!lineage) return c.json(fail("NOT_FOUND", "Observation not found"), 404);
 		return c.json(
 			ok({
 				observationId: id,
@@ -249,10 +227,12 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.get("/v1/health", (c) => {
-		const stats = memoryEngine.stats();
-		const runtime = runtimeStatusProvider?.() ?? {
-			status: "ok" as const,
-			timestamp: new Date().toISOString(),
+		const health = memoryEngine.getHealth();
+		const metrics = memoryEngine.getMetrics();
+		const runtime = runtimeStatusProvider?.();
+		const runtimeFallback = {
+			status: health.status,
+			timestamp: health.timestamp,
 			uptimeMs: process.uptime() * 1000,
 			queue: {
 				mode: "in-process",
@@ -266,26 +246,29 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			},
 			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
 			enqueueCount: 0,
-		};
+		} satisfies RuntimeStatusSnapshot;
+		const runtimeSnapshot = runtime ?? runtimeFallback;
 
 		return c.json(
 			ok({
-				status: runtime.status,
-				timestamp: runtime.timestamp,
-				uptimeMs: runtime.uptimeMs,
-				queue: runtime.queue,
+				status: runtimeSnapshot.status,
+				timestamp: runtimeSnapshot.timestamp,
+				uptimeMs: runtimeSnapshot.uptimeMs,
+				queue: runtimeSnapshot.queue,
 				memory: {
-					totalObservations: stats.totalObservations,
-					totalSessions: stats.totalSessions,
+					totalObservations: metrics.memory.totalObservations,
+					totalSessions: metrics.memory.totalSessions,
 				},
 			}),
 		);
 	});
 
 	app.get("/v1/metrics", (c) => {
-		const runtime = runtimeStatusProvider?.() ?? {
-			status: "ok" as const,
-			timestamp: new Date().toISOString(),
+		const health = memoryEngine.getHealth();
+		const runtime = runtimeStatusProvider?.();
+		const runtimeSnapshot = runtime ?? {
+			status: health.status,
+			timestamp: health.timestamp,
 			uptimeMs: process.uptime() * 1000,
 			queue: {
 				mode: "in-process",
@@ -300,21 +283,17 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
 			enqueueCount: 0,
 		};
-		return c.json(ok(runtime));
+		return c.json(ok(runtimeSnapshot));
 	});
 
 	app.get("/v1/platforms", (c) => {
-		const enabled = {
-			opencode: deps.config.platformOpenCodeEnabled ?? true,
-			"claude-code": deps.config.platformClaudeCodeEnabled ?? false,
-			cursor: deps.config.platformCursorEnabled ?? false,
-		};
+		const adapters = memoryEngine.getAdapterStatuses();
 		return c.json(
 			ok({
-				platforms: BUILTIN_PLATFORM_ADAPTERS.map((adapter) => ({
+				platforms: adapters.map((adapter) => ({
 					name: adapter.name,
 					version: adapter.version,
-					enabled: enabled[adapter.name],
+					enabled: adapter.enabled,
 					capabilities: adapter.capabilities,
 				})),
 			}),

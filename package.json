@@ -37,6 +37,8 @@
 		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
 		"dev": "bun run --watch src/index.ts",
 		"test": "bun test",
+		"test:repo": "cd tests && bun test",
+		"test:servers": "cd tests && bun test servers/http-server.test.ts servers/mcp-server.test.ts servers/mcp-transcripts.test.ts servers/sse.test.ts",
 		"test:mcp:transcripts": "bun test tests/servers/mcp-transcripts.test.ts",
 		"typecheck": "bun x tsc --noEmit",
 		"check:boundaries": "bun run scripts/check-import-boundaries.ts && bun run scripts/check-deprecated-paths.ts",
@@ -52,7 +54,7 @@
 		"lint": "bun x biome check src/",
 		"clean": "rm -rf dist",
 		"prepare": "test -d src && bun run build || true",
-		"prepublishOnly": "bun run check:boundaries && bun run quality:gate && bun run build && bun test"
+		"prepublishOnly": "bun run check:boundaries && bun run quality:gate && bun run build && bun run test:repo"
 	},
 	"keywords": [
 		"opencode",

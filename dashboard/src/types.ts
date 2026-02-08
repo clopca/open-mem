@@ -30,6 +30,16 @@ export interface Observation {
 	supersededAt?: string | null;
 }
 
+export interface LineageNode {
+	id: string;
+	revisionOf: string | null;
+	supersededBy: string | null;
+	supersededAt: string | null;
+	deletedAt: string | null;
+	state: "current" | "superseded" | "tombstoned";
+	observation: Observation;
+}
+
 export interface Session {
 	id: string;
 	projectPath: string;
@@ -84,7 +94,7 @@ export interface SearchResult {
 
 export interface ObservationLineageResponse {
 	observationId: string;
-	lineage: Observation[];
+	lineage: LineageNode[];
 }
 
 export interface StatsResponse {

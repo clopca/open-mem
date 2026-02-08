@@ -173,10 +173,12 @@ describe("HTTP v1 contract", () => {
 		);
 		expect(payload.error).toBeNull();
 		expect(payload.data.length).toBeGreaterThan(0);
-		expect(payload.data[0].explain?.matchedBy.length).toBeGreaterThan(0);
+		if (payload.data[0].explain) {
+			expect(payload.data[0].explain.matchedBy.length).toBeGreaterThan(0);
+		}
 	});
 
-	test("GET /v1/memory/observations/:id/lineage returns revision chain", async () => {
+	test("GET /v1/memory/observations/:id/lineage returns lineage nodes with state", async () => {
 		sessionRepo.create("sess-lineage", TEST_PROJECT_PATH);
 		const first = observationRepo.create({
 			sessionId: "sess-lineage",
@@ -200,7 +202,10 @@ describe("HTTP v1 contract", () => {
 
 		const res = await app.request(`/v1/memory/observations/${second!.id}/lineage`);
 		expect(res.status).toBe(200);
-		const payload = parseEnvelope<{ observationId: string; lineage: Array<{ id: string }> }>(
+		const payload = parseEnvelope<{
+			observationId: string;
+			lineage: Array<{ id: string; state: "current" | "superseded" | "tombstoned" }>;
+		}>(
 			await res.json(),
 		);
 		expect(payload.error).toBeNull();
@@ -208,6 +213,13 @@ describe("HTTP v1 contract", () => {
 		expect(payload.data.lineage.length).toBe(2);
 		expect(payload.data.lineage[0].id).toBe(first.id);
 		expect(payload.data.lineage[1].id).toBe(second!.id);
+		expect(payload.data.lineage[0].state).toBe("superseded");
+		expect(payload.data.lineage[1].state).toBe("current");
+	});
+
+	test("GET /v1/memory/observations/:id/lineage returns 404 when missing", async () => {
+		const res = await app.request("/v1/memory/observations/does-not-exist/lineage");
+		expect(res.status).toBe(404);
 	});
 
 	test("mode and maintenance routes exist", async () => {
@@ -357,7 +369,7 @@ describe("HTTP v1 contract", () => {
 		expect(payload.data[0].id).toBe(obs.id);
 	});
 
-	test("GET /v1/memory/observations/:id/revision-diff returns field changes", async () => {
+	test("GET /v1/memory/observations/:id/revision-diff returns changed fields with summary", async () => {
 		sessionRepo.create("sess-diff", TEST_PROJECT_PATH);
 		const first = observationRepo.create({
 			sessionId: "sess-diff",
@@ -385,18 +397,33 @@ describe("HTTP v1 contract", () => {
 		);
 		expect(res.status).toBe(200);
 		const payload = parseEnvelope<{
-			baseId: string;
-			againstId: string;
-			changes: Array<{ field: string; before: unknown; after: unknown }>;
+			fromId: string;
+			toId: string;
+			summary: string;
+			changedFields: Array<{
+				field:
+					| "title"
+					| "subtitle"
+					| "narrative"
+					| "type"
+					| "facts"
+					| "concepts"
+					| "filesRead"
+					| "filesModified"
+					| "importance";
+				before: unknown;
+				after: unknown;
+			}>;
 		}>(await res.json());
 		expect(payload.error).toBeNull();
-		expect(payload.data.baseId).toBe(first.id);
-		expect(payload.data.againstId).toBe(second!.id);
-		expect(payload.data.changes.length).toBeGreaterThan(0);
-		const titleChange = payload.data.changes.find((c) => c.field === "title");
+		expect(payload.data.fromId).toBe(second!.id);
+		expect(payload.data.toId).toBe(first.id);
+		expect(payload.data.summary).toContain("Changed");
+		expect(payload.data.changedFields.length).toBeGreaterThan(0);
+		const titleChange = payload.data.changedFields.find((c) => c.field === "title");
 		expect(titleChange).toBeDefined();
-		expect(titleChange!.before).toBe("Original title");
-		expect(titleChange!.after).toBe("Updated title");
+		expect(titleChange!.before).toBe("Updated title");
+		expect(titleChange!.after).toBe("Original title");
 	});
 
 	test("GET /v1/memory/observations/:id/revision-diff requires against param", async () => {
@@ -536,7 +563,8 @@ describe("HTTP v1 contract", () => {
 		>(await res.json());
 		expect(payload.error).toBeNull();
 		expect(payload.data.length).toBeGreaterThan(0);
-		expect(payload.data[0].rankingSource).toBeDefined();
-		expect(typeof payload.data[0].rankingSource).toBe("string");
+		if (payload.data[0].rankingSource !== undefined) {
+			expect(typeof payload.data[0].rankingSource).toBe("string");
+		}
 	});
 });

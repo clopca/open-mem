@@ -178,7 +178,7 @@ export class ObservationRepository {
 		return row ? this.mapRow(row) : null;
 	}
 
-	/** Get an observation by ID, including superseded and tombstoned revisions. */
+	/** Get an observation by ID regardless of superseded/tombstoned state. */
 	getByIdIncludingArchived(id: string): Observation | null {
 		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
 		return row ? this.mapRow(row) : null;
@@ -228,13 +228,10 @@ export class ObservationRepository {
 				discoveryTokens: r.discovery_tokens ?? 0,
 				createdAt: r.created_at,
 				importance: r.importance ?? 3,
-			}));
+				}));
 	}
 
-	// ---------------------------------------------------------------------------
-	// FTS5 Search
-	// ---------------------------------------------------------------------------
-
+	/** List observations for a project with optional state/type/session filters. */
 	listByProject(
 		projectPath: string,
 		options: {
@@ -243,46 +240,43 @@ export class ObservationRepository {
 			type?: ObservationType;
 			state?: "current" | "superseded" | "tombstoned";
 			sessionId?: string;
-		},
+		} = {},
 	): Observation[] {
-		const limit = options.limit ?? 50;
-		const offset = options.offset ?? 0;
-		const state = options.state ?? "current";
-
-		let stateClause: string;
-		switch (state) {
-			case "superseded":
-				// Tombstoned takes precedence: only show superseded if NOT also tombstoned
-				stateClause = "AND o.superseded_by IS NOT NULL AND o.deleted_at IS NULL";
-				break;
-			case "tombstoned":
-				stateClause = "AND o.deleted_at IS NOT NULL";
-				break;
-			default:
-				stateClause = "AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
-				break;
-		}
-
-		let sql = `SELECT o.* FROM observations o
+		const { limit = 50, offset = 0, type, state, sessionId } = options;
+		let sql = `SELECT o.*
+			FROM observations o
 			JOIN sessions s ON o.session_id = s.id
-			WHERE s.project_path = ? ${stateClause}`;
-		const params: (string | number)[] = [projectPath];
+			WHERE s.project_path = ?`;
+		const params: Array<string | number> = [projectPath];
 
-		if (options.sessionId) {
+		if (sessionId) {
 			sql += " AND o.session_id = ?";
-			params.push(options.sessionId);
+			params.push(sessionId);
+		}
+		if (type) {
+			sql += " AND o.type = ?";
+			params.push(type);
 		}
 
-		if (options.type) {
-			sql += " AND o.type = ?";
-			params.push(options.type);
+		if (state === "current") {
+			sql += " AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
+		} else if (state === "superseded") {
+			// Tombstoned takes precedence: only show superseded if not deleted.
+			sql += " AND o.superseded_by IS NOT NULL AND o.deleted_at IS NULL";
+		} else if (state === "tombstoned") {
+			sql += " AND o.deleted_at IS NOT NULL";
+		} else {
+			sql += " AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
 		}
 
 		sql += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
 		params.push(limit, offset);
-
-		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
+		return this.db.all<ObservationRow>(sql, params).map((row) => this.mapRow(row));
 	}
+
+	// ---------------------------------------------------------------------------
+	// FTS5 Search
+	// ---------------------------------------------------------------------------
 
 	/** Search observations using FTS5 full-text search with optional filters. */
 	search(query: SearchQuery): SearchResult[] {
@@ -353,12 +347,6 @@ export class ObservationRepository {
 			observation: this.mapRow(row),
 			rank: row.rank,
 			snippet: row.title,
-			rankingSource: "fts" as const,
-			explain: {
-				strategy: "filter-only",
-				matchedBy: ["fts"],
-				ftsRank: row.rank,
-			},
 		}));
 	}
 
@@ -593,20 +581,7 @@ export class ObservationRepository {
 	/** Update selected fields by creating a successor revision (immutable history). */
 	update(
 		id: string,
-		data: Partial<
-			Pick<
-				Observation,
-				| "title"
-				| "narrative"
-				| "type"
-				| "concepts"
-				| "importance"
-				| "facts"
-				| "subtitle"
-				| "filesRead"
-				| "filesModified"
-			>
-		>,
+		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
@@ -638,11 +613,10 @@ export class ObservationRepository {
 	/** Mark an observation as superseded by a newer one. */
 	supersede(observationId: string, newObservationId: string): void {
 		const now = new Date().toISOString();
-		this.db.run("UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?", [
-			newObservationId,
-			now,
-			observationId,
-		]);
+		this.db.run(
+			"UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?",
+			[newObservationId, now, observationId],
+		);
 	}
 
 	/** Tombstone an observation by ID (soft delete), including embeddings cleanup. */
@@ -655,7 +629,7 @@ export class ObservationRepository {
 		return true;
 	}
 
-	/** Return full revision/tombstone lineage for an observation from oldest to newest. */
+	/** Return full revision/tombstone lineage from oldest known revision to newest. */
 	getLineage(id: string): Observation[] {
 		const anchor = this.getByIdIncludingArchived(id);
 		if (!anchor) return [];
@@ -663,7 +637,6 @@ export class ObservationRepository {
 		const seen = new Set<string>([anchor.id]);
 		const chain: Observation[] = [anchor];
 
-		// Walk backwards to oldest known revision.
 		while (chain[0].revisionOf) {
 			const previous = this.getByIdIncludingArchived(chain[0].revisionOf);
 			if (!previous || seen.has(previous.id)) break;
@@ -671,7 +644,6 @@ export class ObservationRepository {
 			seen.add(previous.id);
 		}
 
-		// Walk forwards to latest revision.
 		while (chain[chain.length - 1].supersededBy) {
 			const nextId = chain[chain.length - 1].supersededBy;
 			if (!nextId) break;

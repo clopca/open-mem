@@ -18,6 +18,6 @@ jobs:
       - name: Quality Gate
         run: bun run quality:gate
       - name: Tests
-        run: bun test
+        run: bun run test:repo
       - name: Build
         run: bun run build

@@ -73,6 +73,62 @@ export interface FolderContextMaintenanceResult {
 	filesTouched?: number;
 }
 
+export interface LineageNode {
+	id: string;
+	revisionOf: string | null;
+	supersededBy: string | null;
+	supersededAt: string | null;
+	deletedAt: string | null;
+	state: "current" | "superseded" | "tombstoned";
+	observation: Observation;
+}
+
+export interface HealthStatus {
+	status: "ok" | "degraded";
+	timestamp: string;
+	components: Record<string, { status: "ok" | "degraded"; detail?: string }>;
+}
+
+export interface MetricsSnapshot {
+	timestamp: string;
+	memory: {
+		totalObservations: number;
+		totalSessions: number;
+		totalTokensSaved: number;
+		averageObservationSize: number;
+	};
+}
+
+export interface PlatformInfo {
+	name: string;
+	provider: string;
+	dashboardEnabled: boolean;
+	vectorEnabled: boolean;
+}
+
+export interface RuntimeStatusSnapshot {
+	status: "ok" | "degraded";
+	timestamp: string;
+	uptimeMs: number;
+	queue: {
+		mode: string;
+		running: boolean;
+		processing: boolean;
+		pending: number;
+		lastBatchDurationMs: number;
+		lastProcessedAt: string | null;
+		lastFailedAt: string | null;
+		lastError: string | null;
+	};
+	batches: {
+		total: number;
+		processedItems: number;
+		failedItems: number;
+		avgDurationMs: number;
+	};
+	enqueueCount: number;
+}
+
 export interface MemoryEngine {
 	ingest(input: {
 		sessionId: string;
@@ -102,8 +158,11 @@ export interface MemoryEngine {
 		state?: "current" | "superseded" | "tombstoned";
 	}): Observation[];
 	getObservation(id: string): Observation | null;
-	getObservationLineage(id: string): Observation[];
+	getLineage(id: string): LineageNode[] | null;
 	getRevisionDiff(id: string, againstId: string): RevisionDiff | null;
+	getHealth(): HealthStatus;
+	getMetrics(): MetricsSnapshot;
+	getPlatforms(): PlatformInfo;
 	getAdapterStatuses(): AdapterStatus[];
 	getConfigAuditTimeline(): ConfigAuditEvent[];
 	trackConfigAudit(event: ConfigAuditEvent): void;

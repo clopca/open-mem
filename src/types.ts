@@ -357,10 +357,20 @@ export interface SearchLineageRef {
 
 /** Describes the diff between two observation revisions. */
 export interface RevisionDiff {
-	baseId: string;
-	againstId: string;
-	changes: Array<{
-		field: string;
+	fromId: string;
+	toId: string;
+	summary: string;
+	changedFields: Array<{
+		field:
+			| "title"
+			| "subtitle"
+			| "narrative"
+			| "type"
+			| "facts"
+			| "concepts"
+			| "filesRead"
+			| "filesModified"
+			| "importance";
 		before: unknown;
 		after: unknown;
 	}>;
