@@ -20,6 +20,7 @@ import {
 	generateFolderContext,
 	replaceTaggedContent,
 	updateAgentsMd,
+	updateFolderContext,
 } from "../../src/utils/agents-md";
 import {
 	cleanFolderContext,
@@ -310,6 +311,24 @@ describe("updateAgentsMd", () => {
 		expect(content).toContain("idempotent mkdir test");
 		expect(existsSync(join(tempDir, ".AGENTS.md.tmp"))).toBe(false);
 	});
+
+	test("serializes concurrent writes to the same folder", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-agents-"));
+		const agentsMdPath = join(tempDir, "AGENTS.md");
+		cleanupFiles.push(agentsMdPath);
+
+		// Fire 5 concurrent writes
+		const writes = Array.from({ length: 5 }, (_, i) =>
+			updateAgentsMd(tempDir, `Concurrent write ${i}`),
+		);
+		await Promise.all(writes);
+
+		// Verify no corruption — exactly one START_TAG and one END_TAG
+		const content = readFileSync(agentsMdPath, "utf-8");
+		expect(content.split(START_TAG).length - 1).toBe(1);
+		expect(content.split(END_TAG).length - 1).toBe(1);
+		expect(content.indexOf(START_TAG)).toBeLessThan(content.indexOf(END_TAG));
+	});
 });
 
 // =============================================================================
@@ -356,5 +375,60 @@ describe("cleanFolderContext", () => {
 		expect(content).toContain("# User Notes");
 		expect(content).toContain("Important info.");
 		expect(content).not.toContain(START_TAG);
+	});
+});
+
+// =============================================================================
+// updateFolderContext
+// =============================================================================
+
+describe("updateFolderContext", () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir) {
+			try {
+				rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("writes AGENTS.md in subfolder from observations", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fc-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+		const obs = [
+			makeObservation({
+				title: "Test observation",
+				filesRead: [join(subDir, "index.ts")],
+			}),
+		];
+
+		await updateFolderContext(tempDir, obs);
+
+		const agentsMdPath = join(subDir, "AGENTS.md");
+		expect(existsSync(agentsMdPath)).toBe(true);
+		const content = readFileSync(agentsMdPath, "utf-8");
+		expect(content).toContain(START_TAG);
+		expect(content).toContain("Test observation");
+		expect(content).toContain(END_TAG);
+	});
+
+	test("is a no-op for empty observations", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fc-"));
+
+		await updateFolderContext(tempDir, []);
+
+		const agentsMdPath = join(tempDir, "AGENTS.md");
+		expect(existsSync(agentsMdPath)).toBe(false);
+	});
+
+	test("does not throw on non-existent project path", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fc-"));
+		const obs = [makeObservation({ title: "Error path test" })];
+
+		await updateFolderContext("/nonexistent/path/that/does/not/exist", obs);
 	});
 });
