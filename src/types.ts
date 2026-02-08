@@ -168,6 +168,8 @@ export interface OpenMemConfig {
 	// Folder context (AGENTS.md generation)
 	folderContextEnabled: boolean; // Auto-generate AGENTS.md in active folders
 	folderContextMaxDepth: number; // Max folder depth from project root
+	folderContextMode: "dispersed" | "single"; // dispersed = per-folder AGENTS.md, single = one root file
+	folderContextFilename: string; // Filename for folder context files (default: AGENTS.md)
 
 	// Daemon
 	daemonEnabled: boolean; // Enable background daemon for queue processing (default: false)

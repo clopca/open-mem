@@ -56,6 +56,8 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	// Folder context
 	folderContextEnabled: true,
 	folderContextMaxDepth: 5,
+	folderContextMode: "dispersed",
+	folderContextFilename: "AGENTS.md",
 
 	// Daemon
 	daemonEnabled: false,
@@ -134,6 +136,10 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_FOLDER_CONTEXT === "false") env.folderContextEnabled = false;
 	if (process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH)
 		env.folderContextMaxDepth = Number.parseInt(process.env.OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH, 10);
+	if (process.env.OPEN_MEM_FOLDER_CONTEXT_MODE === "single") env.folderContextMode = "single";
+	if (process.env.OPEN_MEM_FOLDER_CONTEXT_MODE === "dispersed") env.folderContextMode = "dispersed";
+	if (process.env.OPEN_MEM_FOLDER_CONTEXT_FILENAME)
+		env.folderContextFilename = process.env.OPEN_MEM_FOLDER_CONTEXT_FILENAME;
 	if (process.env.OPEN_MEM_DAEMON === "true") env.daemonEnabled = true;
 	if (process.env.OPEN_MEM_DASHBOARD === "true") env.dashboardEnabled = true;
 	if (process.env.OPEN_MEM_DASHBOARD_PORT)
