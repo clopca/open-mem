@@ -92,6 +92,14 @@ export async function updateFolderContext(
 // -----------------------------------------------------------------------------
 
 /**
+ * Quality filter: excludes noise observations like "bash execution", "read execution".
+ * Matches titles like "[word] execution" or "[word-word] execution".
+ */
+export function isHighQualityObservation(obs: Observation): boolean {
+	return !/^\w[\w-]*\s+execution$/i.test(obs.title);
+}
+
+/**
  * Generate a markdown context block for a folder's recent activity.
  *
  * @param folderPath - Absolute path to the folder
@@ -104,8 +112,8 @@ export function generateFolderContext(
 	observations: Observation[],
 	projectPath: string,
 ): string {
-	// Limit to most recent 10 observations
 	const recent = [...observations]
+		.filter(isHighQualityObservation)
 		.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 		.slice(0, 10);
 
@@ -146,6 +154,27 @@ export function generateFolderContext(
 		lines.push("");
 		lines.push(`**Recent decisions:** ${decisions.slice(0, 5).join("; ")}`);
 	}
+
+	// Decision narratives (1-line summaries for decisions)
+	const decisionDetails = recent
+		.filter((obs) => obs.type === "decision" && obs.narrative)
+		.slice(0, 3);
+
+	if (decisionDetails.length > 0) {
+		lines.push("");
+		lines.push("**Decision details:**");
+		for (const obs of decisionDetails) {
+			// Take first sentence or first 120 chars
+			const summary = obs.narrative.split(/[.!?]\s/)[0];
+			const truncated = summary.length > 120 ? `${summary.slice(0, 117)}...` : summary;
+			lines.push(`- ⚖️ ${obs.title}: ${truncated}`);
+		}
+	}
+
+	lines.push("");
+	lines.push(
+		"💡 *Use `mem-find` to search full details across all sessions. Use `mem-create` to save important decisions.*",
+	);
 
 	return lines.join("\n");
 }
