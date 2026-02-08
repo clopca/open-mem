@@ -43,9 +43,7 @@ export function createSaveTool(
 	userObservationRepo?: UserObservationRepository,
 ): ToolDefinition {
 	return {
-		description: `Manually save an observation to memory.
-Use this to explicitly record important decisions, discoveries, or context
-that should be remembered across sessions.
+		description: `Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.
 Set scope to "user" to save cross-project memories accessible from any project.`,
 		args: saveArgsSchema.shape,
 		execute: async (rawArgs, context) => {

@@ -121,6 +121,18 @@ describe("buildContextString", () => {
 		expect(output).toContain("mem-get");
 	});
 
+	test("includes 'When to Save' guidance with mem-create", () => {
+		const context: ProgressiveContext = {
+			recentSummaries: [],
+			observationIndex: [],
+			fullObservations: [],
+			totalTokens: 0,
+		};
+		const output = buildContextString(context);
+		expect(output).toContain("When to Save");
+		expect(output).toContain("mem-create");
+	});
+
 	test("omits empty sections", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [],

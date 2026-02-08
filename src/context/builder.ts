@@ -65,6 +65,11 @@ export function buildContextString(
 		"- **Layer 3** `mem-get` — Get full details by ID (use IDs from search results or the index below)",
 	);
 
+	parts.push("");
+	parts.push(
+		"**📝 When to Save (`mem-create`):** Proactively save decisions + rationale, non-obvious gotchas/workarounds, user preferences, and cross-session plans. Auto-capture handles tool executions — use `mem-create` for insights auto-capture can't understand the significance of. Wrap sensitive content in `<private>` tags to exclude from memory. Call `mem-help` for detailed guidance.",
+	);
+
 	if (config.showLastSummary && context.recentSummaries.length > 0) {
 		parts.push("");
 		parts.push("### Recent Sessions");

@@ -168,10 +168,11 @@ describe("generateFolderContext", () => {
 	test("produces markdown table", () => {
 		const obs = [makeObservation()];
 		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
-		expect(result).toContain("| Type | Title | Date |");
-		expect(result).toContain("|------|-------|------|");
+		expect(result).toContain("| ID | Type | Title | Date |");
+		expect(result).toContain("|----|------|-------|------|");
 		expect(result).toContain("Found auth pattern");
 		expect(result).toContain("2026-01-15");
+		expect(result).toContain("obs-1");
 	});
 
 	test("limits to 10 observations", () => {
@@ -183,7 +184,7 @@ describe("generateFolderContext", () => {
 			}),
 		);
 		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
-		const tableRows = result.split("\n").filter((line) => line.startsWith("| 🔵"));
+		const tableRows = result.split("\n").filter((line) => line.startsWith("| obs-"));
 		expect(tableRows.length).toBeLessThanOrEqual(10);
 	});
 
@@ -202,6 +203,8 @@ describe("generateFolderContext", () => {
 		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
 		expect(result).toContain("🔴");
 		expect(result).toContain("🟣");
+		expect(result).toContain("obs-1");
+		expect(result).toContain("obs-2");
 	});
 
 	test("includes concepts section when present", () => {
@@ -569,6 +572,9 @@ describe("generateFolderContext quality filtering", () => {
 		expect(result).toContain("Discovered auth pattern");
 		expect(result).not.toContain("bash execution");
 		expect(result).not.toContain("read execution");
+		expect(result).toContain("quality-1");
+		expect(result).not.toContain("noise-1");
+		expect(result).not.toContain("noise-2");
 	});
 
 	test("returns table with zero rows when all observations are noise", () => {
@@ -578,8 +584,8 @@ describe("generateFolderContext quality filtering", () => {
 		];
 		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
 		// Table headers should still be present, but no data rows
-		expect(result).toContain("| Type | Title | Date |");
-		const tableRows = result.split("\n").filter((line) => line.startsWith("| 🔵"));
+		expect(result).toContain("| ID | Type | Title | Date |");
+		const tableRows = result.split("\n").filter((line) => line.startsWith("| noise-"));
 		expect(tableRows.length).toBe(0);
 	});
 });
@@ -658,6 +664,8 @@ describe("single-root mode", () => {
 		expect(content).toContain("### lib/");
 		expect(content).toContain("Source discovery");
 		expect(content).toContain("Library finding");
+		expect(content).toContain("obs-src");
+		expect(content).toContain("obs-lib");
 	});
 
 	test("omits empty sections after quality filter", async () => {
