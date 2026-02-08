@@ -83,7 +83,57 @@ export async function cleanFolderContext(
 			}
 		}
 	}
+	// Also clean root file (for single mode)
+	if (filename) {
+		const rootFile = join(resolve(projectPath), filename);
+		if (existsSync(rootFile)) {
+			try {
+				const existing = await readFile(rootFile, "utf-8");
+				const cleaned = removeManagedSection(existing);
+				if (cleaned !== existing) {
+					changed += 1;
+					if (!dryRun) {
+						if (cleaned === "") {
+							await unlink(rootFile);
+						} else {
+							await writeFile(rootFile, cleaned, "utf-8");
+						}
+					}
+				}
+				if (!files.includes(rootFile)) files.push(rootFile);
+			} catch {
+				// Root file doesn't exist
+			}
+		}
+	}
+
 	return { files, changed };
+}
+
+export async function purgeFolderContext(
+	projectPath: string,
+	filename: string,
+): Promise<{ deleted: number; files: string[] }> {
+	const files = await findAgentsMdFiles(projectPath, filename);
+
+	// Also check for root file (in single mode)
+	if (filename) {
+		const rootFile = join(resolve(projectPath), filename);
+		if (existsSync(rootFile) && !files.includes(rootFile)) {
+			files.push(rootFile);
+		}
+	}
+
+	let deleted = 0;
+	for (const file of files) {
+		try {
+			await unlink(file);
+			deleted++;
+		} catch {
+			// File already gone
+		}
+	}
+	return { deleted, files };
 }
 
 export async function rebuildFolderContext(

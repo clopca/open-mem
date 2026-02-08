@@ -92,7 +92,12 @@ export const toolSchemas = {
 		mode: z.enum(["skip", "merge", "replace"]).optional().default("skip"),
 	}),
 	maintenance: z.object({
-		action: z.enum(["folderContextDryRun", "folderContextClean", "folderContextRebuild"]),
+		action: z.enum([
+			"folderContextDryRun",
+			"folderContextClean",
+			"folderContextRebuild",
+			"folderContextPurge",
+		]),
 	}),
 	help: z.object({}),
 };

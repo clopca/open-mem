@@ -26,7 +26,8 @@ function mapSearchResults(results: SearchResult[], scope: "project" | "user" | "
 export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDefinition> {
 	return {
 		"mem-find": {
-			description: "Find relevant memories by query with optional filtering.",
+			description:
+				"Search past memories — decisions, discoveries, gotchas, and session history. Use to recall context from previous sessions before starting work.",
 			args: toolSchemas.find.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -46,7 +47,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-history": {
-			description: "Browse session history and summaries.",
+			description:
+				"Browse session timeline and summaries. Use to understand what happened in recent sessions or drill into a specific session.",
 			args: toolSchemas.history.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -59,7 +61,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-get": {
-			description: "Get full memory records by ID.",
+			description:
+				"Fetch full memory details by ID. Use after mem-find or mem-history to get complete narratives, facts, and file lists.",
 			args: toolSchemas.get.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -72,7 +75,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-create": {
-			description: "Create a memory record.",
+			description:
+				"Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.",
 			args: toolSchemas.create.shape,
 			execute: async (rawArgs, context) => {
 				try {
@@ -86,7 +90,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-revise": {
-			description: "Create a new revision for an existing memory.",
+			description:
+				"Update an existing memory with a new revision. Use when a previous decision changed, a gotcha was resolved, or information became outdated.",
 			args: toolSchemas.revise.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -100,7 +105,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-remove": {
-			description: "Tombstone a memory record.",
+			description:
+				"Tombstone an obsolete or incorrect memory. Use to clean up memories that are no longer accurate or relevant.",
 			args: toolSchemas.remove.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -114,7 +120,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-export": {
-			description: "Export project memory as JSON payload.",
+			description:
+				"Export project memories as portable JSON for backup or transfer between machines.",
 			args: toolSchemas.transferExport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -127,7 +134,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-import": {
-			description: "Import memory payload.",
+			description: "Import memories from a JSON export. Skips duplicates by default.",
 			args: toolSchemas.transferImport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -143,7 +150,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-maintenance": {
-			description: "Run memory maintenance actions.",
+			description:
+				"Run folder context maintenance — clean, rebuild, purge, or dry-run AGENTS.md files.",
 			args: toolSchemas.maintenance.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -154,6 +162,9 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 					if (args.action === "folderContextClean") {
 						return toJson(ok(await engine.maintainFolderContext("clean", false)));
 					}
+					if (args.action === "folderContextPurge") {
+						return toJson(ok(await engine.maintainFolderContext("purge", false)));
+					}
 					return toJson(ok(await engine.maintainFolderContext("rebuild", false)));
 				} catch (error) {
 					return toJson(fail("VALIDATION_ERROR", "Invalid maintenance arguments", String(error)));
@@ -161,7 +172,8 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-help": {
-			description: "Show memory workflow guidance.",
+			description:
+				"Show detailed memory workflow guidance including when to save, what to save, and memory type reference.",
 			args: toolSchemas.help.shape,
 			execute: async () => toJson(ok({ guide: engine.guide() })),
 		},

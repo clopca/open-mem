@@ -24,7 +24,11 @@ import type {
 	RevisionDiff,
 	SearchResult,
 } from "../types";
-import { cleanFolderContext, rebuildFolderContext } from "../utils/folder-context-maintenance";
+import {
+	cleanFolderContext,
+	purgeFolderContext,
+	rebuildFolderContext,
+} from "../utils/folder-context-maintenance";
 import type {
 	FolderContextMaintenanceResult,
 	HealthStatus,
@@ -634,9 +638,13 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	}
 
 	async maintainFolderContext(
-		action: "clean" | "rebuild",
+		action: "clean" | "rebuild" | "purge",
 		dryRun: boolean,
 	): Promise<FolderContextMaintenanceResult> {
+		if (action === "purge") {
+			const result = await purgeFolderContext(this.projectPath, this.config.folderContextFilename);
+			return { action: "purge", dryRun: false, ...result };
+		}
 		if (action === "rebuild") {
 			const result = await rebuildFolderContext(
 				this.projectPath,

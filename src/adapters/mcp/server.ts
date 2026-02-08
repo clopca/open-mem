@@ -204,52 +204,61 @@ export class McpServer {
 		return [
 			{
 				name: "mem-find",
-				description: "Find relevant memory records.",
+				description:
+					"Search past memories — decisions, discoveries, gotchas, and session history. Use to recall context from previous sessions before starting work.",
 				inputSchema: toInputSchema(toolSchemas.find),
 			},
 			{
 				name: "mem-history",
-				description: "Browse session history.",
+				description:
+					"Browse session timeline and summaries. Use to understand what happened in recent sessions or drill into a specific session.",
 				inputSchema: toInputSchema(toolSchemas.history),
 			},
 			{
 				name: "mem-get",
-				description: "Fetch full memory records by id.",
+				description:
+					"Fetch full memory details by ID. Use after mem-find or mem-history to get complete narratives, facts, and file lists.",
 				inputSchema: toInputSchema(toolSchemas.get),
 			},
 			{
 				name: "mem-create",
-				description: "Create a memory record.",
+				description:
+					"Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.",
 				inputSchema: toInputSchema(toolSchemas.create),
 			},
 			{
 				name: "mem-revise",
-				description: "Create a revised memory revision.",
+				description:
+					"Update an existing memory with a new revision. Use when a previous decision changed, a gotcha was resolved, or information became outdated.",
 				inputSchema: toInputSchema(toolSchemas.revise),
 			},
 			{
 				name: "mem-remove",
-				description: "Tombstone a memory record.",
+				description:
+					"Tombstone an obsolete or incorrect memory. Use to clean up memories that are no longer accurate or relevant.",
 				inputSchema: toInputSchema(toolSchemas.remove),
 			},
 			{
 				name: "mem-export",
-				description: "Export memory.",
+				description:
+					"Export project memories as portable JSON for backup or transfer between machines.",
 				inputSchema: toInputSchema(toolSchemas.transferExport),
 			},
 			{
 				name: "mem-import",
-				description: "Import memory payload.",
+				description: "Import memories from a JSON export. Skips duplicates by default.",
 				inputSchema: toInputSchema(toolSchemas.transferImport),
 			},
 			{
 				name: "mem-maintenance",
-				description: "Run maintenance action.",
+				description:
+					"Run folder context maintenance — clean, rebuild, purge, or dry-run AGENTS.md files.",
 				inputSchema: toInputSchema(toolSchemas.maintenance),
 			},
 			{
 				name: "mem-help",
-				description: "Show memory workflow guidance.",
+				description:
+					"Show detailed memory workflow guidance including when to save, what to save, and memory type reference.",
 				inputSchema: toInputSchema(toolSchemas.help),
 			},
 		];
@@ -394,6 +403,13 @@ export class McpServer {
 					if (parsed.action === "folderContextClean") {
 						return JSON.stringify(
 							ok(await this.memoryEngine.maintainFolderContext("clean", false)),
+							null,
+							2,
+						);
+					}
+					if (parsed.action === "folderContextPurge") {
+						return JSON.stringify(
+							ok(await this.memoryEngine.maintainFolderContext("purge", false)),
 							null,
 							2,
 						);

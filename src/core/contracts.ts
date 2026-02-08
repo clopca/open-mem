@@ -65,9 +65,10 @@ export interface MemoryStats {
 }
 
 export interface FolderContextMaintenanceResult {
-	action: "clean" | "rebuild";
+	action: "clean" | "rebuild" | "purge";
 	dryRun: boolean;
 	changed?: number;
+	deleted?: number;
 	files?: string[];
 	observations?: number;
 	filesTouched?: number;
@@ -173,7 +174,7 @@ export interface MemoryEngine {
 	getSession(id: string): TimelineResult | null;
 	stats(): MemoryStats;
 	maintainFolderContext(
-		action: "clean" | "rebuild",
+		action: "clean" | "rebuild" | "purge",
 		dryRun: boolean,
 	): Promise<FolderContextMaintenanceResult>;
 }
