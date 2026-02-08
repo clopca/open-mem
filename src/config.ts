@@ -210,6 +210,8 @@ export function getDefaultDimension(provider: string): number {
 			return 1024;
 		case "anthropic":
 			return 0;
+		case "openrouter":
+			return 0;
 		default:
 			return 768;
 	}
@@ -254,6 +256,8 @@ export function resolveConfig(
 			process.env.AWS_PROFILE
 		) {
 			config.provider = "bedrock";
+		} else if (process.env.OPENROUTER_API_KEY) {
+			config.provider = "openrouter";
 		}
 		// else: keep default ("google")
 	}
@@ -270,9 +274,17 @@ export function resolveConfig(
 			case "openai":
 				config.apiKey = process.env.OPENAI_API_KEY;
 				break;
+			case "openrouter":
+				config.apiKey = process.env.OPENROUTER_API_KEY;
+				break;
 			case "bedrock":
 				break;
 		}
+	}
+
+	// Set default model for openrouter if still using the google default
+	if (config.provider === "openrouter" && config.model === "gemini-2.5-flash-lite") {
+		config.model = "google/gemini-2.5-flash-lite";
 	}
 
 	if (config.embeddingDimension === undefined) {

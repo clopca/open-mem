@@ -7,8 +7,9 @@
         "@ai-sdk/amazon-bedrock": "^4.0.51",
         "@ai-sdk/anthropic": "^3.0.38",
         "@ai-sdk/google": "^3.0.22",
+        "@openrouter/ai-sdk-provider": "^2.1.1",
         "ai": "^6.0.77",
-        "open-mem": "^0.7.0",
+        "open-mem": "^0.9.0",
         "sqlite-vec": "^0.1.7-alpha.2",
         "zod": "^4.3.6",
       },
@@ -57,6 +58,8 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.3.14", "", { "os": "win32", "cpu": "x64" }, "sha512-oizCjdyQ3WJEswpb3Chdngeat56rIdSYK12JI3iI11Mt5T5EXcZ7WLuowzEaFPNJ3zmOQFliMN8QY1Pi+qsfdQ=="],
 
+    "@openrouter/ai-sdk-provider": ["@openrouter/ai-sdk-provider@2.1.1", "", { "peerDependencies": { "ai": "^6.0.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-UypPbVnSExxmG/4Zg0usRiit3auvQVrjUXSyEhm0sZ9GQnW/d8p/bKgCk2neh1W5YyRSo7PNQvCrAEBHZnqQkQ=="],
+
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
 
     "@smithy/eventstream-codec": ["@smithy/eventstream-codec@4.2.8", "", { "dependencies": { "@aws-crypto/crc32": "5.2.0", "@smithy/types": "^4.12.0", "@smithy/util-hex-encoding": "^4.2.0", "tslib": "^2.6.2" } }, "sha512-jS/O5Q14UsufqoGhov7dHLOPCzkYJl9QDzusI2Psh4wyYx/izhzvX9P4D69aTxcdfVhEPhjK+wYyn/PzLjKbbw=="],
@@ -91,7 +94,7 @@
 
     "json-schema": ["json-schema@0.4.0", "", {}, "sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA=="],
 
-    "open-mem": ["open-mem@0.7.0", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js", "open-mem-maintenance": "dist/maintenance.js" } }, "sha512-1t5DlaOtOMuBz550+joTEFGgAua4HeqzYWlPVQnpnS4K9saPb/GFWPXPAZlSu/sEOOS2EApKIDysOIFQ649jtA=="],
+    "open-mem": ["open-mem@0.9.0", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js", "open-mem-maintenance": "dist/maintenance.js", "open-mem-claude-code": "dist/claude-code.js", "open-mem-cursor": "dist/cursor.js" } }, "sha512-PGp8X/xw14LsaWcBOKDbz6Lz665ISgAJMOT57X9Jg+jigKN56/7Dw/wRU5fxmWzSeS1t3J7xEUiMv5h1hZagDQ=="],
 
     "sqlite-vec": ["sqlite-vec@0.1.7-alpha.2", "", { "optionalDependencies": { "sqlite-vec-darwin-arm64": "0.1.7-alpha.2", "sqlite-vec-darwin-x64": "0.1.7-alpha.2", "sqlite-vec-linux-arm64": "0.1.7-alpha.2", "sqlite-vec-linux-x64": "0.1.7-alpha.2", "sqlite-vec-windows-x64": "0.1.7-alpha.2" } }, "sha512-rNgRCv+4V4Ed3yc33Qr+nNmjhtrMnnHzXfLVPeGb28Dx5mmDL3Ngw/Wk8vhCGjj76+oC6gnkmMG8y73BZWGBwQ=="],
 

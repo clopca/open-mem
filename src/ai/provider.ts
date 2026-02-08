@@ -71,9 +71,14 @@ export function createModel(config: ModelConfig): LanguageModel {
 			const google = createGoogleGenerativeAI({ apiKey: config.apiKey });
 			return google(config.model);
 		}
+		case "openrouter": {
+			const { createOpenRouter } = require("@openrouter/ai-sdk-provider");
+			const openrouter = createOpenRouter({ apiKey: config.apiKey });
+			return openrouter(config.model);
+		}
 		default:
 			throw new Error(
-				`Unknown provider: ${config.provider}. Supported: anthropic, bedrock, openai, google`,
+				`Unknown provider: ${config.provider}. Supported: anthropic, bedrock, openai, google, openrouter`,
 			);
 	}
 }
@@ -101,6 +106,8 @@ export function createEmbeddingModel(config: ModelConfig): EmbeddingModel | null
 				return bedrock.embedding("amazon.titan-embed-text-v2:0");
 			}
 			case "anthropic":
+				return null;
+			case "openrouter":
 				return null;
 			default:
 				return null;
