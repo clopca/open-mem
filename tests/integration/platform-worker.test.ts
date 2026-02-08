@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createDatabase } from "../../src/db/database";
 import { ObservationRepository } from "../../src/db/observations";
-import { SessionRepository } from "../../src/db/sessions";
 import { initializeSchema } from "../../src/db/schema";
+import { SessionRepository } from "../../src/db/sessions";
 
 const tempDirs: string[] = [];
 
@@ -20,8 +20,8 @@ async function runWorker(
 	project: string,
 	lines: string[],
 ): Promise<Array<{ ok: boolean; code: string; message?: string }>> {
-	const proc = Bun.spawn(["bun", "run", `src/${entry}.ts`, "--project", project], {
-		cwd: "/Users/clopca/dev/github/open-mem",
+	const proc = Bun.spawn([process.execPath, "run", `src/${entry}.ts`, "--project", project], {
+		cwd: join(import.meta.dir, "../.."),
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "pipe",
