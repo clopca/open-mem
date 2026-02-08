@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { ObservationStore, SessionStore } from "../store/ports";
 import { updateFolderContext } from "./agents-md";
@@ -74,7 +74,11 @@ export async function cleanFolderContext(
 		if (cleaned !== existing) {
 			changed += 1;
 			if (!dryRun) {
-				await writeFile(file, cleaned, "utf-8");
+				if (cleaned === "") {
+					await unlink(file);
+				} else {
+					await writeFile(file, cleaned, "utf-8");
+				}
 			}
 		}
 	}

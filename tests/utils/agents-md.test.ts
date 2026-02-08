@@ -21,7 +21,10 @@ import {
 	replaceTaggedContent,
 	updateAgentsMd,
 } from "../../src/utils/agents-md";
-import { removeManagedSection } from "../../src/utils/folder-context-maintenance";
+import {
+	cleanFolderContext,
+	removeManagedSection,
+} from "../../src/utils/folder-context-maintenance";
 
 const START_TAG = "<!-- open-mem-context -->";
 const END_TAG = "<!-- /open-mem-context -->";
@@ -306,5 +309,52 @@ describe("updateAgentsMd", () => {
 		const content = readFileSync(agentsMdPath, "utf-8");
 		expect(content).toContain("idempotent mkdir test");
 		expect(existsSync(join(tempDir, ".AGENTS.md.tmp"))).toBe(false);
+	});
+});
+
+// =============================================================================
+// cleanFolderContext
+// =============================================================================
+
+describe("cleanFolderContext", () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir) {
+			try {
+				rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("deletes file when only managed section existed", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-clean-"));
+		const agentsMdPath = join(tempDir, "AGENTS.md");
+		writeFileSync(agentsMdPath, `${START_TAG}\nManaged content only\n${END_TAG}\n`);
+
+		const result = await cleanFolderContext(tempDir);
+
+		expect(result.changed).toBe(1);
+		expect(existsSync(agentsMdPath)).toBe(false);
+	});
+
+	test("preserves file with user content after cleaning", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-clean-"));
+		const agentsMdPath = join(tempDir, "AGENTS.md");
+		writeFileSync(
+			agentsMdPath,
+			`# User Notes\n\nImportant info.\n\n${START_TAG}\nManaged content\n${END_TAG}\n`,
+		);
+
+		const result = await cleanFolderContext(tempDir);
+
+		expect(result.changed).toBe(1);
+		expect(existsSync(agentsMdPath)).toBe(true);
+		const content = readFileSync(agentsMdPath, "utf-8");
+		expect(content).toContain("# User Notes");
+		expect(content).toContain("Important info.");
+		expect(content).not.toContain(START_TAG);
 	});
 });
