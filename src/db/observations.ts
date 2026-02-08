@@ -235,6 +235,48 @@ export class ObservationRepository {
 	// FTS5 Search
 	// ---------------------------------------------------------------------------
 
+	listByProject(
+		projectPath: string,
+		options: {
+			limit?: number;
+			offset?: number;
+			type?: ObservationType;
+			state?: "current" | "superseded" | "tombstoned";
+		},
+	): Observation[] {
+		const limit = options.limit ?? 50;
+		const offset = options.offset ?? 0;
+		const state = options.state ?? "current";
+
+		let stateClause: string;
+		switch (state) {
+			case "superseded":
+				stateClause = "AND o.superseded_by IS NOT NULL AND o.deleted_at IS NULL";
+				break;
+			case "tombstoned":
+				stateClause = "AND o.deleted_at IS NOT NULL";
+				break;
+			default:
+				stateClause = "AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
+				break;
+		}
+
+		let sql = `SELECT o.* FROM observations o
+			JOIN sessions s ON o.session_id = s.id
+			WHERE s.project_path = ? ${stateClause}`;
+		const params: (string | number)[] = [projectPath];
+
+		if (options.type) {
+			sql += " AND o.type = ?";
+			params.push(options.type);
+		}
+
+		sql += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
+		params.push(limit, offset);
+
+		return this.db.all<ObservationRow>(sql, params).map((r) => this.mapRow(r));
+	}
+
 	/** Search observations using FTS5 full-text search with optional filters. */
 	search(query: SearchQuery): SearchResult[] {
 		const hasProjectPath = !!query.projectPath;
@@ -304,6 +346,7 @@ export class ObservationRepository {
 			observation: this.mapRow(row),
 			rank: row.rank,
 			snippet: row.title,
+			rankingSource: "fts" as const,
 			explain: {
 				strategy: "filter-only",
 				matchedBy: ["fts"],

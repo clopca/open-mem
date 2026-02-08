@@ -6,7 +6,13 @@ import type { EmbeddingModel } from "ai";
 import type { EntityRepository } from "../db/entities";
 import type { ObservationRepository } from "../db/observations";
 import type { UserObservation, UserObservationRepository } from "../db/user-memory";
-import type { Observation, ObservationType, SearchResult } from "../types";
+import type {
+	Observation,
+	ObservationType,
+	SearchExplainSignal,
+	SearchLineageRef,
+	SearchResult,
+} from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
 import { passesFilters } from "./filters";
 import { graphAugmentedSearch } from "./graph";
@@ -121,6 +127,7 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
+				rankingSource: "fts" as const,
 				explain: {
 					strategy: "filter-only",
 					matchedBy: ["concept-filter"],
@@ -135,6 +142,7 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
+				rankingSource: "fts" as const,
 				explain: {
 					strategy: "filter-only",
 					matchedBy: ["file-filter"],
@@ -223,6 +231,7 @@ export class SearchOrchestrator {
 					observation: obs,
 					rank: distance - 1,
 					snippet: obs.title,
+					rankingSource: "vector",
 					explain: {
 						strategy: "semantic",
 						matchedBy: ["vector"],
@@ -265,6 +274,7 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: -similarity,
 				snippet: obs.title,
+				rankingSource: "vector",
 				explain: {
 					strategy: "semantic",
 					matchedBy: ["vector"],
@@ -294,6 +304,7 @@ export class SearchOrchestrator {
 				rank,
 				snippet: userObs.title,
 				source: "user" as const,
+				rankingSource: "user-memory" as const,
 				explain: {
 					strategy: "filter-only",
 					matchedBy: ["user-memory"],
@@ -343,4 +354,55 @@ function userObservationToObservation(userObs: UserObservation): Observation {
 		discoveryTokens: 0,
 		importance: userObs.importance,
 	};
+}
+
+export function attachExplainability(results: SearchResult[]): SearchResult[] {
+	return results.map((r) => {
+		const signals: SearchExplainSignal[] = [];
+		if (r.explain?.matchedBy) {
+			for (const source of r.explain.matchedBy) {
+				if (source === "fts") {
+					signals.push({ source: "fts", score: r.explain.ftsRank, label: "Full-text search" });
+				} else if (source === "vector") {
+					signals.push({
+						source: "vector",
+						score: r.explain.vectorSimilarity ?? r.explain.vectorDistance,
+						label: "Vector similarity",
+					});
+				} else if (source === "graph") {
+					signals.push({ source: "graph", label: "Entity graph traversal" });
+				} else if (source === "user-memory") {
+					signals.push({ source: "user-memory", label: "User-level memory" });
+				}
+			}
+		}
+
+		const lineage = findLineageRef(r.observation);
+
+		return {
+			...r,
+			explain: {
+				...r.explain,
+				strategy: r.explain?.strategy ?? "hybrid",
+				matchedBy: r.explain?.matchedBy ?? [],
+				signals,
+				lineage,
+			},
+		};
+	});
+}
+
+function findLineageRef(obs: Observation): SearchLineageRef | undefined {
+	const rootId = findLineageRoot(obs);
+	if (!rootId || rootId === obs.id) return undefined;
+	const depth = countRevisionDepth(obs);
+	return { rootId, depth };
+}
+
+function findLineageRoot(obs: Observation): string {
+	return obs.revisionOf ?? obs.id;
+}
+
+function countRevisionDepth(obs: Observation): number {
+	return obs.revisionOf ? 1 : 0;
 }

@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Alert } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
 
 type FieldType = "string" | "number" | "boolean" | "array";
 type Group =
@@ -100,9 +106,14 @@ export function Settings() {
 				fetch("/v1/config/effective"),
 				fetch("/v1/modes"),
 			]);
-			if (!schemaRes.ok || !configRes.ok || !modesRes.ok) throw new Error("Failed to load settings");
-			const schemaJson = unwrap((await schemaRes.json()) as ConfigFieldSchema[] | Envelope<ConfigFieldSchema[]>);
-			const configJson = unwrap((await configRes.json()) as ConfigResponse | Envelope<ConfigResponse>);
+			if (!schemaRes.ok || !configRes.ok || !modesRes.ok)
+				throw new Error("Failed to load settings");
+			const schemaJson = unwrap(
+				(await schemaRes.json()) as ConfigFieldSchema[] | Envelope<ConfigFieldSchema[]>,
+			);
+			const configJson = unwrap(
+				(await configRes.json()) as ConfigResponse | Envelope<ConfigResponse>,
+			);
 			const modesJson = unwrap((await modesRes.json()) as ModesResponse | Envelope<ModesResponse>);
 			setSchema(schemaJson);
 			setEffective(configJson);
@@ -133,7 +144,7 @@ export function Settings() {
 
 	const baseConfig = effective?.config ?? {};
 	const visibleConfig = preview?.config ?? baseConfig;
-	const warnings = preview?.warnings?.length ? preview.warnings : effective?.warnings ?? [];
+	const warnings = preview?.warnings?.length ? preview.warnings : (effective?.warnings ?? []);
 
 	function onValueChange(field: ConfigFieldSchema, raw: string | boolean) {
 		setMessage(null);
@@ -220,8 +231,12 @@ export function Settings() {
 				body: JSON.stringify(dryRun ? { action } : {}),
 			});
 			if (!res.ok) throw new Error(await res.text());
-			const data = unwrap((await res.json()) as Record<string, unknown> | Envelope<Record<string, unknown>>);
-			setMessage(`Folder context ${action}${dryRun ? " dry-run" : ""} complete: ${JSON.stringify(data)}`);
+			const data = unwrap(
+				(await res.json()) as Record<string, unknown> | Envelope<Record<string, unknown>>,
+			);
+			setMessage(
+				`Folder context ${action}${dryRun ? " dry-run" : ""} complete: ${JSON.stringify(data)}`,
+			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Maintenance failed");
 		} finally {
@@ -230,7 +245,25 @@ export function Settings() {
 	}
 
 	if (loading) {
-		return <div className="text-sm text-stone-500">Loading settings...</div>;
+		return (
+			<div className="mx-auto max-w-5xl space-y-6">
+				<div>
+					<Skeleton className="h-8 w-32" />
+					<Skeleton className="mt-2 h-4 w-64" />
+				</div>
+				{Array.from({ length: 3 }, (_, i) => (
+					<Card key={`settings-skeleton-${i}`}>
+						<CardHeader className="bg-stone-50/70 px-5 py-3">
+							<Skeleton className="h-4 w-24" />
+						</CardHeader>
+						<div className="space-y-3 p-5">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					</Card>
+				))}
+			</div>
+		);
 	}
 
 	return (
@@ -242,86 +275,105 @@ export function Settings() {
 				</p>
 			</div>
 
-			{error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-			{message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
+			{error && (
+				<Alert variant="destructive" aria-label="Error message">
+					{error}
+				</Alert>
+			)}
+			{message && (
+				<Alert variant="success" aria-label="Success message">
+					{message}
+				</Alert>
+			)}
 			{warnings.length > 0 && (
-				<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+				<Alert variant="warning" aria-label="Configuration warnings">
 					<ul className="list-disc pl-5">
 						{warnings.map((warning) => (
 							<li key={warning}>{warning}</li>
 						))}
 					</ul>
-				</div>
+				</Alert>
 			)}
 
-			<div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-				<div className="mb-2 text-sm font-semibold text-stone-700">Modes</div>
-				<div className="flex flex-wrap gap-2">
-					{modes.map((mode) => (
-						<button
-							key={mode.id}
-							type="button"
-							onClick={() => applyMode(mode.id)}
-							disabled={saving}
-							className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-						>
-							Apply {mode.id}
-						</button>
-					))}
-				</div>
-			</div>
+			<Card>
+				<CardContent className="p-4">
+					<div className="mb-2 text-sm font-semibold text-stone-700">Modes</div>
+					<div className="flex flex-wrap gap-2">
+						{modes.map((mode) => (
+							<Button
+								key={mode.id}
+								variant="outline"
+								onClick={() => applyMode(mode.id)}
+								disabled={saving}
+								aria-label={`Apply ${mode.id} mode`}
+							>
+								Apply {mode.id}
+							</Button>
+						))}
+					</div>
+				</CardContent>
+			</Card>
 
-			<div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-				<div className="mb-2 text-sm font-semibold text-stone-700">Folder Context Maintenance</div>
-				<div className="flex flex-wrap gap-2">
-					<button
-						type="button"
-						onClick={() => runFolderContextMaintenance("clean", true)}
-						disabled={saving}
-						className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-					>
-						Clean Dry-run
-					</button>
-					<button
-						type="button"
-						onClick={() => runFolderContextMaintenance("clean", false)}
-						disabled={saving}
-						className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-					>
-						Clean
-					</button>
-					<button
-						type="button"
-						onClick={() => runFolderContextMaintenance("rebuild", true)}
-						disabled={saving}
-						className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-					>
-						Rebuild Dry-run
-					</button>
-					<button
-						type="button"
-						onClick={() => runFolderContextMaintenance("rebuild", false)}
-						disabled={saving}
-						className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-					>
-						Rebuild
-					</button>
-				</div>
-			</div>
+			<Card>
+				<CardContent className="p-4">
+					<div className="mb-2 text-sm font-semibold text-stone-700">
+						Folder Context Maintenance
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<Button
+							variant="outline"
+							onClick={() => runFolderContextMaintenance("clean", true)}
+							disabled={saving}
+							aria-label="Clean folder context dry run"
+						>
+							Clean Dry-run
+						</Button>
+						<Button
+							variant="outline"
+							onClick={() => runFolderContextMaintenance("clean", false)}
+							disabled={saving}
+							aria-label="Clean folder context"
+						>
+							Clean
+						</Button>
+						<Button
+							variant="outline"
+							onClick={() => runFolderContextMaintenance("rebuild", true)}
+							disabled={saving}
+							aria-label="Rebuild folder context dry run"
+						>
+							Rebuild Dry-run
+						</Button>
+						<Button
+							variant="outline"
+							onClick={() => runFolderContextMaintenance("rebuild", false)}
+							disabled={saving}
+							aria-label="Rebuild folder context"
+						>
+							Rebuild
+						</Button>
+					</div>
+				</CardContent>
+			</Card>
 
 			{GROUP_ORDER.map((group) => {
 				const fields = grouped.get(group) ?? [];
 				if (fields.length === 0) return null;
 				return (
-					<div key={group} className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
-						<div className="border-b border-stone-100 bg-stone-50/70 px-5 py-3 text-sm font-semibold text-stone-700">{group}</div>
+					<Card key={group} className="overflow-hidden">
+						<CardHeader className="bg-stone-50/70 px-5 py-3">
+							<span className="text-sm font-semibold text-stone-700">{group}</span>
+						</CardHeader>
 						<div className="divide-y divide-stone-100">
 							{fields.map((field) => {
 								const meta = effective?.meta?.[field.key];
 								const locked = Boolean(meta?.locked);
 								const value = field.key in draft ? draft[field.key] : visibleConfig[field.key];
 								return (
-									<div key={field.key} className="grid grid-cols-1 gap-2 px-5 py-3 md:grid-cols-[240px_1fr] md:items-center">
+									<div
+										key={field.key}
+										className="grid grid-cols-1 gap-2 px-5 py-3 md:grid-cols-[240px_1fr] md:items-center"
+									>
 										<div>
 											<div className="text-sm font-medium text-stone-700">{field.label}</div>
 											<div className="text-xs text-stone-500">
@@ -338,52 +390,53 @@ export function Settings() {
 														checked={Boolean(value)}
 														onChange={(e) => onValueChange(field, e.target.checked)}
 														disabled={locked || saving}
+														aria-label={field.label}
 													/>
-													<span>{Boolean(value) ? "Enabled" : "Disabled"}</span>
+													<span>{value ? "Enabled" : "Disabled"}</span>
 												</label>
 											)}
 											{field.type === "number" && (
-												<input
+												<Input
 													type="number"
 													value={typeof value === "number" ? value : Number(value ?? 0)}
 													onChange={(e) => onValueChange(field, e.target.value)}
 													disabled={locked || saving}
-													className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
 													min={field.min}
 													max={field.max}
+													aria-label={field.label}
 												/>
 											)}
 											{field.type === "string" && field.enum && (
-												<select
+												<Select
 													value={String(value ?? "")}
 													onChange={(e) => onValueChange(field, e.target.value)}
 													disabled={locked || saving}
-													className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+													aria-label={field.label}
 												>
 													{field.enum.map((option) => (
 														<option key={option} value={option}>
 															{option}
 														</option>
 													))}
-												</select>
+												</Select>
 											)}
 											{field.type === "string" && !field.enum && (
-												<input
+												<Input
 													type="text"
 													value={String(value ?? "")}
 													onChange={(e) => onValueChange(field, e.target.value)}
 													disabled={locked || saving}
-													className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+													aria-label={field.label}
 												/>
 											)}
 											{field.type === "array" && (
-												<input
+												<Input
 													type="text"
 													value={toArrayString(value)}
 													onChange={(e) => onValueChange(field, e.target.value)}
 													disabled={locked || saving}
-													className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
 													placeholder="comma, separated, values"
+													aria-label={field.label}
 												/>
 											)}
 										</div>
@@ -391,40 +444,41 @@ export function Settings() {
 								);
 							})}
 						</div>
-					</div>
+					</Card>
 				);
 			})}
 
-			<div className="sticky bottom-4 flex flex-wrap gap-2 rounded-xl border border-stone-200 bg-white/90 p-3 shadow-sm backdrop-blur">
-				<button
-					type="button"
-					onClick={previewDraft}
-					disabled={saving || Object.keys(draft).length === 0}
-					className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-				>
-					Preview
-				</button>
-				<button
-					type="button"
-					onClick={saveDraft}
-					disabled={saving || Object.keys(draft).length === 0}
-					className="rounded-lg bg-stone-900 px-3 py-2 text-sm text-white hover:bg-stone-800 disabled:opacity-60"
-				>
-					Save
-				</button>
-				<button
-					type="button"
-					onClick={() => {
-						setDraft({});
-						setPreview(null);
-						setMessage("Draft reset.");
-					}}
-					disabled={saving || Object.keys(draft).length === 0}
-					className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-				>
-					Reset draft
-				</button>
-			</div>
+			<Card className="sticky bottom-4 bg-white/90 backdrop-blur">
+				<div className="flex flex-wrap gap-2 p-3">
+					<Button
+						variant="outline"
+						onClick={previewDraft}
+						disabled={saving || Object.keys(draft).length === 0}
+						aria-label="Preview configuration changes"
+					>
+						Preview
+					</Button>
+					<Button
+						onClick={saveDraft}
+						disabled={saving || Object.keys(draft).length === 0}
+						aria-label="Save configuration"
+					>
+						Save
+					</Button>
+					<Button
+						variant="outline"
+						onClick={() => {
+							setDraft({});
+							setPreview(null);
+							setMessage("Draft reset.");
+						}}
+						disabled={saving || Object.keys(draft).length === 0}
+						aria-label="Reset draft changes"
+					>
+						Reset draft
+					</Button>
+				</div>
+			</Card>
 		</div>
 	);
 }

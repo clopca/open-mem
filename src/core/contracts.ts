@@ -1,4 +1,14 @@
-import type { Observation, ObservationType, SearchResult, Session, SessionSummary } from "../types";
+import type {
+	AdapterStatus,
+	ConfigAuditEvent,
+	MaintenanceHistoryItem,
+	Observation,
+	ObservationType,
+	RevisionDiff,
+	SearchResult,
+	Session,
+	SessionSummary,
+} from "../types";
 
 export interface MemorySearchFilters {
 	type?: ObservationType;
@@ -89,9 +99,17 @@ export interface MemoryEngine {
 		offset?: number;
 		type?: ObservationType;
 		sessionId?: string;
+		state?: "current" | "superseded" | "tombstoned";
 	}): Observation[];
 	getObservation(id: string): Observation | null;
 	getObservationLineage(id: string): Observation[];
+	getRevisionDiff(id: string, againstId: string): RevisionDiff | null;
+	getAdapterStatuses(): AdapterStatus[];
+	getConfigAuditTimeline(): ConfigAuditEvent[];
+	trackConfigAudit(event: ConfigAuditEvent): void;
+	rollbackConfig(eventId: string): Promise<ConfigAuditEvent | null>;
+	getMaintenanceHistory(): MaintenanceHistoryItem[];
+	trackMaintenanceResult(item: MaintenanceHistoryItem): void;
 	listSessions(input: { limit?: number; projectPath?: string }): Session[];
 	getSession(id: string): TimelineResult | null;
 	stats(): MemoryStats;

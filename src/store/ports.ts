@@ -23,6 +23,15 @@ export interface ObservationStore {
 	getCount(sessionId?: string): number;
 	getIndex(projectPath: string, limit?: number): ObservationIndex[];
 	search(query: SearchQuery): SearchResult[];
+	listByProject(
+		projectPath: string,
+		options: {
+			limit?: number;
+			offset?: number;
+			type?: ObservationType;
+			state?: "current" | "superseded" | "tombstoned";
+		},
+	): Observation[];
 	update(
 		id: string,
 		data: Partial<

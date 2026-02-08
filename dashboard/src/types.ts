@@ -53,9 +53,7 @@ export interface SearchResult {
 	snippet: string;
 	explain?: {
 		strategy?: "filter-only" | "semantic" | "hybrid";
-		matchedBy: Array<
-			"fts" | "vector" | "graph" | "user-memory" | "concept-filter" | "file-filter"
-		>;
+		matchedBy: Array<"fts" | "vector" | "graph" | "user-memory" | "concept-filter" | "file-filter">;
 		ftsRank?: number;
 		vectorDistance?: number;
 		vectorSimilarity?: number;
@@ -122,3 +120,36 @@ export interface PlatformsResponse {
 		};
 	}>;
 }
+
+export interface AdapterStatus {
+	name: string;
+	enabled: boolean;
+	connected: boolean;
+	lastEventAt: string | null;
+	eventsIngested: number;
+	errors: number;
+}
+
+export interface ConfigAuditEvent {
+	id: string;
+	timestamp: string;
+	action: "set" | "rollback" | "mode-apply";
+	changes: Record<string, { from: unknown; to: unknown }>;
+	source: string;
+}
+
+export interface MaintenanceHistoryItem {
+	id: string;
+	timestamp: string;
+	action: string;
+	result: Record<string, unknown>;
+	durationMs: number;
+}
+
+export type SignalSource =
+	| "fts"
+	| "vector"
+	| "graph"
+	| "user-memory"
+	| "concept-filter"
+	| "file-filter";

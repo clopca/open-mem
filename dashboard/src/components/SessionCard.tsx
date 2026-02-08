@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 import { useAPI } from "../hooks/useAPI";
 import type { Observation, ObservationType, Session } from "../types";
+import { Badge } from "./ui/badge";
+import { Card } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
 
 interface SessionWithObservations extends Session {
 	observations: Observation[];
@@ -15,28 +18,22 @@ const typeIcons: Record<ObservationType, string> = {
 	change: "\u{1F504}",
 };
 
-const statusConfig: Record<
-	Session["status"],
-	{ label: string; bg: string; text: string; dot: string }
-> = {
-	active: {
-		label: "Active",
-		bg: "bg-emerald-100",
-		text: "text-emerald-700",
-		dot: "bg-emerald-400",
-	},
-	idle: {
-		label: "Idle",
-		bg: "bg-amber-100",
-		text: "text-amber-700",
-		dot: "bg-amber-400",
-	},
-	completed: {
-		label: "Completed",
-		bg: "bg-stone-100",
-		text: "text-stone-500",
-		dot: "bg-stone-400",
-	},
+const STATUS_BADGE_VARIANT: Record<Session["status"], "success" | "warning" | "muted"> = {
+	active: "success",
+	idle: "warning",
+	completed: "muted",
+};
+
+const STATUS_LABELS: Record<Session["status"], string> = {
+	active: "Active",
+	idle: "Idle",
+	completed: "Completed",
+};
+
+const STATUS_DOT: Record<Session["status"], string> = {
+	active: "bg-emerald-400",
+	idle: "bg-amber-400",
+	completed: "bg-stone-400",
 };
 
 function formatDate(dateStr: string): string {
@@ -81,6 +78,8 @@ function ObservationRow({
 				type="button"
 				onClick={onToggle}
 				className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-stone-50"
+				aria-expanded={isExpanded}
+				aria-label={`${observation.type}: ${observation.title}`}
 			>
 				<span className="mt-0.5 text-sm" aria-hidden="true">
 					{typeIcons[observation.type]}
@@ -135,12 +134,13 @@ function ObservationRow({
 					{observation.concepts.length > 0 && (
 						<div className="flex flex-wrap gap-1.5">
 							{observation.concepts.map((concept) => (
-								<span
+								<Badge
 									key={`${observation.id}-${concept}`}
-									className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+									variant="warning"
+									className="rounded-full text-[11px]"
 								>
 									{concept}
-								</span>
+								</Badge>
 							))}
 						</div>
 					)}
@@ -152,22 +152,24 @@ function ObservationRow({
 							</h4>
 							<div className="flex flex-wrap gap-1">
 								{observation.filesModified.map((f) => (
-									<span
+									<Badge
 										key={`${observation.id}-mod-${f}`}
-										className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] text-amber-700"
+										variant="warning"
+										className="font-mono text-[10px]"
 									>
 										{f.split("/").pop()}
-									</span>
+									</Badge>
 								))}
 								{observation.filesRead
 									.filter((f) => !observation.filesModified.includes(f))
 									.map((f) => (
-										<span
+										<Badge
 											key={`${observation.id}-read-${f}`}
-											className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-500"
+											variant="muted"
+											className="font-mono text-[10px]"
 										>
 											{f.split("/").pop()}
-										</span>
+										</Badge>
 									))}
 							</div>
 						</div>
@@ -179,7 +181,9 @@ function ObservationRow({
 }
 
 function ExpandedObservations({ sessionId }: { sessionId: string }) {
-	const { data: details, loading } = useAPI<SessionWithObservations>(`/v1/memory/sessions/${sessionId}`);
+	const { data: details, loading } = useAPI<SessionWithObservations>(
+		`/v1/memory/sessions/${sessionId}`,
+	);
 	const [expandedObsId, setExpandedObsId] = useState<string | null>(null);
 
 	const toggleObs = useCallback((id: string) => {
@@ -188,26 +192,12 @@ function ExpandedObservations({ sessionId }: { sessionId: string }) {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center py-8">
+			<output className="flex items-center justify-center py-8" aria-label="Loading observations">
 				<div className="flex items-center gap-3 text-sm text-stone-400">
-					<svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-						<circle
-							className="opacity-25"
-							cx="12"
-							cy="12"
-							r="10"
-							stroke="currentColor"
-							strokeWidth="4"
-						/>
-						<path
-							className="opacity-75"
-							fill="currentColor"
-							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-						/>
-					</svg>
+					<Skeleton className="h-4 w-4 rounded-full" />
 					Loading observations…
 				</div>
-			</div>
+			</output>
 		);
 	}
 
@@ -242,25 +232,30 @@ export function SessionCard({
 	isExpanded: boolean;
 	onToggle: () => void;
 }) {
-	const status = statusConfig[session.status];
+	const badgeVariant = STATUS_BADGE_VARIANT[session.status];
+	const statusLabel = STATUS_LABELS[session.status];
+	const dotColor = STATUS_DOT[session.status];
 	const projectName = session.projectPath.split("/").pop() ?? session.projectPath;
 
 	return (
-		<div
-			className={`overflow-hidden rounded-xl border transition-all duration-200 ${
+		<Card
+			className={`overflow-hidden transition-all duration-200 ${
 				isExpanded
-					? "border-amber-200 bg-white shadow-md shadow-amber-500/5"
-					: "border-stone-200 bg-white shadow-sm hover:border-stone-300 hover:shadow-md hover:shadow-stone-200/50"
+					? "border-amber-200 shadow-md shadow-amber-500/5"
+					: "hover:border-stone-300 hover:shadow-md hover:shadow-stone-200/50"
 			}`}
 		>
 			<button
 				type="button"
 				onClick={onToggle}
 				className="flex w-full items-center gap-4 px-5 py-4 text-left"
+				aria-expanded={isExpanded}
+				aria-label={`Session ${session.id.slice(0, 8)}, ${statusLabel}, ${session.observationCount} observations`}
 			>
 				<div className="flex shrink-0 flex-col items-center gap-1">
 					<div
-						className={`h-2.5 w-2.5 rounded-full ${status.dot} ${session.status === "active" ? "animate-pulse" : ""}`}
+						className={`h-2.5 w-2.5 rounded-full ${dotColor} ${session.status === "active" ? "animate-pulse" : ""}`}
+						aria-hidden="true"
 					/>
 				</div>
 
@@ -269,15 +264,13 @@ export function SessionCard({
 						<span className="font-mono text-sm font-semibold text-stone-800">
 							{session.id.slice(0, 8)}
 						</span>
-						<span
-							className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.bg} ${status.text}`}
-						>
-							{status.label}
-						</span>
+						<Badge variant={badgeVariant} className="rounded-full text-[11px]">
+							{statusLabel}
+						</Badge>
 						{session.observationCount > 0 && (
-							<span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500">
+							<Badge variant="outline" className="rounded-full text-[11px]">
 								{session.observationCount} obs
-							</span>
+							</Badge>
 						)}
 					</div>
 					<div className="mt-1 flex items-center gap-2 text-xs text-stone-400">
@@ -309,6 +302,6 @@ export function SessionCard({
 					<ExpandedObservations sessionId={session.id} />
 				</div>
 			)}
-		</div>
+		</Card>
 	);
 }

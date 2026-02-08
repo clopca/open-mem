@@ -133,6 +133,7 @@ function runNativeVectorSearch(
 				observation: obs,
 				rank: distance - 1,
 				snippet: obs.title,
+				rankingSource: "vector",
 				explain: {
 					strategy: "hybrid",
 					matchedBy: ["vector"],
@@ -177,6 +178,7 @@ function runJsFallbackVectorSearch(
 			observation: obs,
 			rank: -similarity,
 			snippet: obs.title,
+			rankingSource: "vector",
 			explain: {
 				strategy: "hybrid",
 				matchedBy: ["vector"],

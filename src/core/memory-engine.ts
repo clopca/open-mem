@@ -14,7 +14,15 @@ import type {
 	SummaryStore,
 	UserObservationStore,
 } from "../store/ports";
-import type { Observation, OpenMemConfig, SearchResult } from "../types";
+import type {
+	AdapterStatus,
+	ConfigAuditEvent,
+	MaintenanceHistoryItem,
+	Observation,
+	OpenMemConfig,
+	RevisionDiff,
+	SearchResult,
+} from "../types";
 import { cleanFolderContext, rebuildFolderContext } from "../utils/folder-context-maintenance";
 import type {
 	FolderContextMaintenanceResult,
@@ -68,6 +76,8 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	private projectPath: string;
 	private config: OpenMemConfig;
 	private userObservationRepo: UserObservationStore | null;
+	private configAuditLog: ConfigAuditEvent[] = [];
+	private maintenanceLog: MaintenanceHistoryItem[] = [];
 
 	constructor(deps: EngineDeps) {
 		this.observations = deps.observations;
@@ -401,8 +411,19 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		offset?: number;
 		type?: Observation["type"];
 		sessionId?: string;
+		state?: "current" | "superseded" | "tombstoned";
 	}): Observation[] {
-		const { limit = 50, offset = 0, type, sessionId } = input;
+		const { limit = 50, offset = 0, type, sessionId, state } = input;
+
+		if (state) {
+			return this.observations.listByProject(this.projectPath, {
+				limit,
+				offset,
+				type,
+				state,
+			});
+		}
+
 		if (sessionId) {
 			let observations = this.observations.getBySession(sessionId);
 			if (type) observations = observations.filter((o) => o.type === type);
@@ -488,5 +509,123 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		}
 		const result = await cleanFolderContext(this.projectPath, dryRun);
 		return { action: "clean", dryRun, ...result };
+	}
+
+	getRevisionDiff(id: string, againstId: string): RevisionDiff | null {
+		const base = this.observations.getByIdIncludingArchived(id);
+		const against = this.observations.getByIdIncludingArchived(againstId);
+		if (!base || !against) return null;
+
+		const DIFF_FIELDS: Array<{ key: keyof Observation; label: string }> = [
+			{ key: "title", label: "title" },
+			{ key: "narrative", label: "narrative" },
+			{ key: "type", label: "type" },
+			{ key: "importance", label: "importance" },
+			{ key: "subtitle", label: "subtitle" },
+		];
+		const ARRAY_DIFF_FIELDS: Array<{ key: keyof Observation; label: string }> = [
+			{ key: "concepts", label: "concepts" },
+			{ key: "facts", label: "facts" },
+			{ key: "filesRead", label: "filesRead" },
+			{ key: "filesModified", label: "filesModified" },
+		];
+
+		const changes: Array<{ field: string; before: unknown; after: unknown }> = [];
+
+		for (const { key, label } of DIFF_FIELDS) {
+			if (base[key] !== against[key]) {
+				changes.push({ field: label, before: base[key], after: against[key] });
+			}
+		}
+		for (const { key, label } of ARRAY_DIFF_FIELDS) {
+			const a = JSON.stringify(base[key]);
+			const b = JSON.stringify(against[key]);
+			if (a !== b) {
+				changes.push({ field: label, before: base[key], after: against[key] });
+			}
+		}
+
+		return { baseId: id, againstId, changes };
+	}
+
+	getAdapterStatuses(): AdapterStatus[] {
+		const enabled: Record<string, boolean> = {
+			opencode: this.config.platformOpenCodeEnabled ?? true,
+			"claude-code": this.config.platformClaudeCodeEnabled ?? false,
+			cursor: this.config.platformCursorEnabled ?? false,
+		};
+		const adapters = [
+			{
+				name: "opencode",
+				version: "1.0",
+				capabilities: {
+					nativeSessionLifecycle: true,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: false,
+				},
+			},
+			{
+				name: "claude-code",
+				version: "0.1",
+				capabilities: {
+					nativeSessionLifecycle: true,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: true,
+				},
+			},
+			{
+				name: "cursor",
+				version: "0.1",
+				capabilities: {
+					nativeSessionLifecycle: false,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: true,
+				},
+			},
+		];
+		return adapters.map((adapter) => ({
+			name: adapter.name,
+			version: adapter.version,
+			enabled: enabled[adapter.name] ?? false,
+			capabilities: adapter.capabilities as Record<string, boolean>,
+		}));
+	}
+
+	getConfigAuditTimeline(): ConfigAuditEvent[] {
+		return [...this.configAuditLog].reverse();
+	}
+
+	trackConfigAudit(event: ConfigAuditEvent): void {
+		this.configAuditLog.push(event);
+	}
+
+	async rollbackConfig(eventId: string): Promise<ConfigAuditEvent | null> {
+		const event = this.configAuditLog.find((e) => e.id === eventId);
+		if (!event) return null;
+
+		const { patchConfig: doPatch } = await import("../config/store");
+		const rollbackPatch = event.previousValues as Partial<import("../types").OpenMemConfig>;
+		await doPatch(this.projectPath, rollbackPatch);
+
+		const rollbackEvent: ConfigAuditEvent = {
+			id: `rollback-${Date.now()}`,
+			timestamp: new Date().toISOString(),
+			patch: event.previousValues,
+			previousValues: event.patch,
+			source: "rollback",
+		};
+		this.configAuditLog.push(rollbackEvent);
+		return rollbackEvent;
+	}
+
+	getMaintenanceHistory(): MaintenanceHistoryItem[] {
+		return [...this.maintenanceLog].reverse();
+	}
+
+	trackMaintenanceResult(item: MaintenanceHistoryItem): void {
+		this.maintenanceLog.push(item);
 	}
 }
