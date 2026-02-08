@@ -39,7 +39,21 @@ export async function findAgentsMdFiles(projectPath: string): Promise<string[]> 
 export function removeManagedSection(content: string): string {
 	const start = content.indexOf(START_TAG);
 	const end = content.indexOf(END_TAG);
-	if (start === -1 || end === -1 || end <= start) return content;
+	// No tags at all → return unchanged
+	if (start === -1 && end === -1) return content;
+	// Corrupted: only start tag, only end tag, or reversed → strip orphans
+	if (start !== -1 && end === -1) {
+		const cleaned = content.replace(START_TAG, "").trim();
+		return cleaned ? `${cleaned}\n` : "";
+	}
+	if (start === -1 && end !== -1) {
+		const cleaned = content.replace(END_TAG, "").trim();
+		return cleaned ? `${cleaned}\n` : "";
+	}
+	if (end <= start) {
+		const cleaned = content.replace(START_TAG, "").replace(END_TAG, "").trim();
+		return cleaned ? `${cleaned}\n` : "";
+	}
 	const before = content.slice(0, start).trimEnd();
 	const after = content.slice(end + END_TAG.length).trimStart();
 	if (!before && !after) return "";

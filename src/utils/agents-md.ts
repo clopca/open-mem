@@ -228,8 +228,18 @@ export function replaceTaggedContent(existingContent: string, newContent: string
 		return `${before}${START_TAG}\n${newContent}\n${END_TAG}${after}`;
 	}
 
-	// Case 3: No tags — append at end
-	return `${existingContent}\n\n${START_TAG}\n${newContent}\n${END_TAG}\n`;
+	// Corrupted tags: strip orphaned/reversed tags, then fall through to Case 3
+	let cleaned = existingContent;
+	if (startIdx !== -1 && endIdx === -1) {
+		cleaned = cleaned.replace(START_TAG, "").trim();
+	} else if (startIdx === -1 && endIdx !== -1) {
+		cleaned = cleaned.replace(END_TAG, "").trim();
+	} else if (startIdx !== -1 && endIdx !== -1 && endIdx <= startIdx) {
+		cleaned = cleaned.replace(END_TAG, "").replace(START_TAG, "").trim();
+	}
+
+	// Case 3: No (valid) tags — append at end
+	return `${cleaned}\n\n${START_TAG}\n${newContent}\n${END_TAG}\n`;
 }
 
 // -----------------------------------------------------------------------------

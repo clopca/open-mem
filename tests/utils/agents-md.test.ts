@@ -21,6 +21,7 @@ import {
 	replaceTaggedContent,
 	updateAgentsMd,
 } from "../../src/utils/agents-md";
+import { removeManagedSection } from "../../src/utils/folder-context-maintenance";
 
 const START_TAG = "<!-- open-mem-context -->";
 const END_TAG = "<!-- /open-mem-context -->";
@@ -84,6 +85,71 @@ describe("replaceTaggedContent", () => {
 		expect(result).toContain(START_TAG);
 		expect(result).toContain("Appended content");
 		expect(result).toContain(END_TAG);
+	});
+
+	test("handles file with only start tag (strips orphan, appends)", () => {
+		const existing = `# User Notes\n\nSome content.\n\n${START_TAG}\nOrphaned section`;
+		const result = replaceTaggedContent(existing, "Fresh content");
+		expect(result.split(START_TAG).length - 1).toBe(1);
+		expect(result.split(END_TAG).length - 1).toBe(1);
+		expect(result.indexOf(START_TAG)).toBeLessThan(result.indexOf(END_TAG));
+		expect(result).toContain("Fresh content");
+		expect(result).toContain("# User Notes");
+		expect(result).toContain("Some content.");
+	});
+
+	test("handles file with only end tag (strips orphan, appends)", () => {
+		const existing = `# User Notes\n\n${END_TAG}\nTrailing stuff`;
+		const result = replaceTaggedContent(existing, "Fresh content");
+		expect(result.split(START_TAG).length - 1).toBe(1);
+		expect(result.split(END_TAG).length - 1).toBe(1);
+		expect(result.indexOf(START_TAG)).toBeLessThan(result.indexOf(END_TAG));
+		expect(result).toContain("Fresh content");
+		expect(result).toContain("# User Notes");
+	});
+
+	test("handles reversed tags (strips both, appends)", () => {
+		const existing = `# User Notes\n\n${END_TAG}\nMiddle\n${START_TAG}\nTrailing`;
+		const result = replaceTaggedContent(existing, "Fresh content");
+		expect(result.split(START_TAG).length - 1).toBe(1);
+		expect(result.split(END_TAG).length - 1).toBe(1);
+		expect(result.indexOf(START_TAG)).toBeLessThan(result.indexOf(END_TAG));
+		expect(result).toContain("Fresh content");
+		expect(result).toContain("# User Notes");
+	});
+});
+
+// =============================================================================
+// removeManagedSection
+// =============================================================================
+
+describe("removeManagedSection", () => {
+	test("strips orphaned start tag", () => {
+		const content = `# User Notes\n\n${START_TAG}\nOrphaned content`;
+		const result = removeManagedSection(content);
+		expect(result).not.toContain(START_TAG);
+		expect(result).toContain("# User Notes");
+	});
+
+	test("strips orphaned end tag", () => {
+		const content = `# User Notes\n\n${END_TAG}\nTrailing`;
+		const result = removeManagedSection(content);
+		expect(result).not.toContain(END_TAG);
+		expect(result).toContain("# User Notes");
+	});
+
+	test("strips reversed tags", () => {
+		const content = `# User Notes\n\n${END_TAG}\nMiddle\n${START_TAG}\nTrailing`;
+		const result = removeManagedSection(content);
+		expect(result).not.toContain(START_TAG);
+		expect(result).not.toContain(END_TAG);
+		expect(result).toContain("# User Notes");
+	});
+
+	test("returns content unchanged when no tags present", () => {
+		const content = "# User Notes\n\nSome content without any tags.";
+		const result = removeManagedSection(content);
+		expect(result).toBe(content);
 	});
 });
 
