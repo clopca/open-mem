@@ -1,4 +1,5 @@
 import { generateText, type LanguageModel } from "ai";
+import { isRetryable, sleep } from "./errors";
 import { type ParsedEntityExtraction, parseEntityExtractionResponse } from "./parser";
 import { buildEntityExtractionPrompt, type EntityExtractionObservation } from "./prompts";
 import { createModel } from "./provider";
@@ -86,24 +87,4 @@ export class EntityExtractor {
 
 		return null;
 	}
-}
-
-function isRetryable(error: unknown): boolean {
-	if (typeof error !== "object" || error === null) return false;
-	const err = error as Record<string, unknown>;
-	const status = err.status;
-	if (status === 429 || status === 500 || status === 503) return true;
-	const errObj = err.error;
-	if (
-		typeof errObj === "object" &&
-		errObj !== null &&
-		(errObj as Record<string, unknown>).type === "overloaded_error"
-	) {
-		return true;
-	}
-	return false;
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
