@@ -34,6 +34,19 @@ describe("Build verification", () => {
 		expect(typeof mod.default).toBe("function");
 	});
 
+	test("dist/index.js does not expose runtime helper exports", async () => {
+		const mod = await import(`${DIST}/index.js`);
+		expect((mod as Record<string, unknown>).PlatformIngestionRuntime).toBeUndefined();
+		expect((mod as Record<string, unknown>).createOpenCodePlatformAdapter).toBeUndefined();
+		expect((mod as Record<string, unknown>).createCursorAdapter).toBeUndefined();
+		expect((mod as Record<string, unknown>).createClaudeCodeAdapter).toBeUndefined();
+		expect((mod as Record<string, unknown>).resolveConfig).toBeUndefined();
+		expect((mod as Record<string, unknown>).getDefaultConfig).toBeUndefined();
+		expect((mod as Record<string, unknown>).sendBridgeHttpEvent).toBeUndefined();
+		expect((mod as Record<string, unknown>).getBridgeHealth).toBeUndefined();
+		expect((mod as Record<string, unknown>).isBridgeSuccess).toBeUndefined();
+	});
+
 	test("dist/index.js bundle is under 250KB", () => {
 		const stat = statSync(`${DIST}/index.js`);
 		// Minified bundle should be well under 250KB

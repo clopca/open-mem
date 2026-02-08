@@ -55,16 +55,16 @@ describe("Plugin entry point", () => {
 		const hooks = await plugin(makeInput(dir));
 		expect(Object.keys(hooks.tool!)).toHaveLength(10);
 		const names = Object.keys(hooks.tool ?? {});
-		expect(names).toContain("memory.find");
-		expect(names).toContain("memory.create");
-		expect(names).toContain("memory.history");
-		expect(names).toContain("memory.get");
-		expect(names).toContain("memory.transfer.export");
-		expect(names).toContain("memory.transfer.import");
-		expect(names).toContain("memory.revise");
-		expect(names).toContain("memory.remove");
-		expect(names).toContain("memory.maintenance");
-		expect(names).toContain("memory.help");
+		expect(names).toContain("mem-find");
+		expect(names).toContain("mem-create");
+		expect(names).toContain("mem-history");
+		expect(names).toContain("mem-get");
+		expect(names).toContain("mem-export");
+		expect(names).toContain("mem-import");
+		expect(names).toContain("mem-revise");
+		expect(names).toContain("mem-remove");
+		expect(names).toContain("mem-maintenance");
+		expect(names).toContain("mem-help");
 	});
 
 	test("creates database file", async () => {

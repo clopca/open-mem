@@ -47,7 +47,7 @@ function seedObservation(sessionId = "sess-1") {
 	});
 }
 
-describe("memory.revise", () => {
+describe("mem-revise", () => {
 	test("updates observation title", async () => {
 		const obs = seedObservation();
 		const tool = createUpdateTool(observations, sessions, PROJECT_PATH);
@@ -142,7 +142,7 @@ describe("memory.revise", () => {
 	});
 });
 
-describe("memory.remove", () => {
+describe("mem-remove", () => {
 	test("deletes observation and returns confirmation", async () => {
 		const obs = seedObservation();
 		const tool = createDeleteTool(observations, sessions, PROJECT_PATH);

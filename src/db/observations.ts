@@ -228,7 +228,7 @@ export class ObservationRepository {
 				discoveryTokens: r.discovery_tokens ?? 0,
 				createdAt: r.created_at,
 				importance: r.importance ?? 3,
-				}));
+			}));
 	}
 
 	/** List observations for a project with optional state/type/session filters. */
@@ -581,7 +581,20 @@ export class ObservationRepository {
 	/** Update selected fields by creating a successor revision (immutable history). */
 	update(
 		id: string,
-		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
+		data: Partial<
+			Pick<
+				Observation,
+				| "title"
+				| "narrative"
+				| "type"
+				| "concepts"
+				| "importance"
+				| "facts"
+				| "subtitle"
+				| "filesRead"
+				| "filesModified"
+			>
+		>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
@@ -599,7 +612,7 @@ export class ObservationRepository {
 			filesRead: data.filesRead ?? existing.filesRead,
 			filesModified: data.filesModified ?? existing.filesModified,
 			rawToolOutput: existing.rawToolOutput,
-			toolName: "memory.revise",
+			toolName: "mem-revise",
 			tokenCount: existing.tokenCount,
 			discoveryTokens: existing.discoveryTokens,
 			importance: data.importance ?? existing.importance,
@@ -613,10 +626,11 @@ export class ObservationRepository {
 	/** Mark an observation as superseded by a newer one. */
 	supersede(observationId: string, newObservationId: string): void {
 		const now = new Date().toISOString();
-		this.db.run(
-			"UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?",
-			[newObservationId, now, observationId],
-		);
+		this.db.run("UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?", [
+			newObservationId,
+			now,
+			observationId,
+		]);
 	}
 
 	/** Tombstone an observation by ID (soft delete), including embeddings cleanup. */

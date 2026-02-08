@@ -373,22 +373,8 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	};
 }
 
-// -----------------------------------------------------------------------------
-// Re-exports for consumers
-// -----------------------------------------------------------------------------
-
-export type {
-	BridgeEnvelope,
-	BridgeResponse,
-	NormalizedPlatformEvent,
-	PlatformAdapter,
-	PlatformAdapterDescriptor,
-} from "./adapters/platform";
-
-/** Re-exported core types for library consumers. */
-export type {
-	Observation,
-	OpenMemConfig,
-	Session,
-	SessionSummary,
-} from "./types";
+// NOTE:
+// Do not add any re-exports (including `export type ... from "..."`) from this
+// plugin entrypoint. The OpenCode plugin loader executes the entry module in an
+// eval context, and Bun bundling can materialize type re-exports as runtime
+// exports. That can make OpenCode call a class export as the plugin function.

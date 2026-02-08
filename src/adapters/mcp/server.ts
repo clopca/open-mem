@@ -203,52 +203,52 @@ export class McpServer {
 	private getToolDefinitions(): McpToolDefinition[] {
 		return [
 			{
-				name: "memory.find",
+				name: "mem-find",
 				description: "Find relevant memory records.",
 				inputSchema: toInputSchema(toolSchemas.find),
 			},
 			{
-				name: "memory.history",
+				name: "mem-history",
 				description: "Browse session history.",
 				inputSchema: toInputSchema(toolSchemas.history),
 			},
 			{
-				name: "memory.get",
+				name: "mem-get",
 				description: "Fetch full memory records by id.",
 				inputSchema: toInputSchema(toolSchemas.get),
 			},
 			{
-				name: "memory.create",
+				name: "mem-create",
 				description: "Create a memory record.",
 				inputSchema: toInputSchema(toolSchemas.create),
 			},
 			{
-				name: "memory.revise",
+				name: "mem-revise",
 				description: "Create a revised memory revision.",
 				inputSchema: toInputSchema(toolSchemas.revise),
 			},
 			{
-				name: "memory.remove",
+				name: "mem-remove",
 				description: "Tombstone a memory record.",
 				inputSchema: toInputSchema(toolSchemas.remove),
 			},
 			{
-				name: "memory.transfer.export",
+				name: "mem-export",
 				description: "Export memory.",
 				inputSchema: toInputSchema(toolSchemas.transferExport),
 			},
 			{
-				name: "memory.transfer.import",
+				name: "mem-import",
 				description: "Import memory payload.",
 				inputSchema: toInputSchema(toolSchemas.transferImport),
 			},
 			{
-				name: "memory.maintenance",
+				name: "mem-maintenance",
 				description: "Run maintenance action.",
 				inputSchema: toInputSchema(toolSchemas.maintenance),
 			},
 			{
-				name: "memory.help",
+				name: "mem-help",
 				description: "Show memory workflow guidance.",
 				inputSchema: toInputSchema(toolSchemas.help),
 			},
@@ -304,7 +304,7 @@ export class McpServer {
 	private async executeTool(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
 		const text = async () => {
 			switch (name) {
-				case "memory.find": {
+				case "mem-find": {
 					const parsed = toolSchemas.find.parse(args);
 					const results = await this.memoryEngine.search(parsed.query, {
 						limit: parsed.limit,
@@ -312,7 +312,7 @@ export class McpServer {
 					});
 					return JSON.stringify(ok({ results }), null, 2);
 				}
-				case "memory.history": {
+				case "mem-history": {
 					const parsed = toolSchemas.history.parse(args);
 					return JSON.stringify(
 						ok({
@@ -325,7 +325,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.get": {
+				case "mem-get": {
 					const parsed = toolSchemas.get.parse(args);
 					return JSON.stringify(
 						ok({ observations: await this.memoryEngine.recall(parsed.ids, parsed.limit) }),
@@ -333,7 +333,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.create": {
+				case "mem-create": {
 					const parsed = toolSchemas.create.parse(args);
 					const created = await this.memoryEngine.save({ ...parsed, sessionId: "mcp" });
 					return JSON.stringify(
@@ -342,7 +342,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.revise": {
+				case "mem-revise": {
 					const parsed = toolSchemas.revise.parse(args);
 					const revised = await this.memoryEngine.update(parsed);
 					return JSON.stringify(
@@ -353,7 +353,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.remove": {
+				case "mem-remove": {
 					const parsed = toolSchemas.remove.parse(args);
 					const deleted = await this.memoryEngine.delete([parsed.id]);
 					return JSON.stringify(
@@ -364,7 +364,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.transfer.export": {
+				case "mem-export": {
 					const parsed = toolSchemas.transferExport.parse(args);
 					const payload = await this.memoryEngine.export("project", {
 						type: parsed.type,
@@ -372,7 +372,7 @@ export class McpServer {
 					});
 					return JSON.stringify(ok({ payload, format: parsed.format }), null, 2);
 				}
-				case "memory.transfer.import": {
+				case "mem-import": {
 					const parsed = toolSchemas.transferImport.parse(args);
 					const mode = parsed.mode === "replace" ? "overwrite" : "skip-duplicates";
 					const result = await this.memoryEngine.import(parsed.payload, { mode });
@@ -382,7 +382,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.maintenance": {
+				case "mem-maintenance": {
 					const parsed = toolSchemas.maintenance.parse(args);
 					if (parsed.action === "folderContextDryRun") {
 						return JSON.stringify(
@@ -404,7 +404,7 @@ export class McpServer {
 						2,
 					);
 				}
-				case "memory.help":
+				case "mem-help":
 					return JSON.stringify(ok({ guide: this.memoryEngine.guide() }), null, 2);
 				default:
 					return JSON.stringify(fail("NOT_FOUND", `Unknown tool: ${name}`), null, 2);

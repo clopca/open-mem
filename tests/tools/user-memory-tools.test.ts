@@ -2,17 +2,14 @@
 // open-mem — User-Level Memory Tools Tests (Task 6)
 // =============================================================================
 
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { unlinkSync } from "node:fs";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "../../src/db/database";
 import { ObservationRepository } from "../../src/db/observations";
 import { SessionRepository } from "../../src/db/sessions";
 import { SummaryRepository } from "../../src/db/summaries";
-import {
-	UserMemoryDatabase,
-	UserObservationRepository,
-} from "../../src/db/user-memory";
+import { UserMemoryDatabase, UserObservationRepository } from "../../src/db/user-memory";
 import { SearchOrchestrator } from "../../src/search/orchestrator";
 import { createRecallTool } from "../../src/tools/recall";
 import { createSaveTool } from "../../src/tools/save";
@@ -56,10 +53,10 @@ afterEach(() => {
 });
 
 // =============================================================================
-// memory.create with scope
+// mem-create with scope
 // =============================================================================
 
-describe("memory.create with scope", () => {
+describe("mem-create with scope", () => {
 	test("scope defaults to project — saves to project DB", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		const tool = createSaveTool(observations, sessions, "/tmp/proj", userObservationRepo);
@@ -133,10 +130,10 @@ describe("memory.create with scope", () => {
 });
 
 // =============================================================================
-// memory.find with user memory
+// mem-find with user memory
 // =============================================================================
 
-describe("memory.find with user memory", () => {
+describe("mem-find with user memory", () => {
 	test("returns results from both project and user DBs", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		observations.create({
@@ -163,7 +160,7 @@ describe("memory.find with user memory", () => {
 			concepts: ["TypeScript"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "memory.create",
+			toolName: "mem-create",
 			tokenCount: 40,
 			importance: 4,
 			sourceProject: "/other/project",
@@ -213,7 +210,7 @@ describe("memory.find with user memory", () => {
 			concepts: ["auth"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "memory.create",
+			toolName: "mem-create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",
@@ -269,10 +266,10 @@ describe("memory.find with user memory", () => {
 });
 
 // =============================================================================
-// memory.get with user memory
+// mem-get with user memory
 // =============================================================================
 
-describe("memory.get with user memory", () => {
+describe("mem-get with user memory", () => {
 	test("recalls observation from project DB", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		const obs = observations.create({
@@ -306,7 +303,7 @@ describe("memory.get with user memory", () => {
 			concepts: ["testing"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "memory.create",
+			toolName: "mem-create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",
@@ -343,10 +340,7 @@ describe("memory.get with user memory", () => {
 
 	test("recall without user repo falls back gracefully", async () => {
 		const tool = createRecallTool(observations);
-		const result = await tool.execute(
-			{ ids: ["nonexistent-id"] },
-			{ sessionID: "s", abort },
-		);
+		const result = await tool.execute({ ids: ["nonexistent-id"] }, { sessionID: "s", abort });
 		expect(result).toContain("Not found");
 	});
 
@@ -376,7 +370,7 @@ describe("memory.get with user memory", () => {
 			concepts: [],
 			filesRead: [],
 			filesModified: [],
-			toolName: "memory.create",
+			toolName: "mem-create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",

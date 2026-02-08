@@ -148,8 +148,8 @@ describe("E2E lifecycle", () => {
 		// Give a moment for async processing
 		await new Promise((r) => setTimeout(r, 100));
 
-		// Search for the captured observations using memory.find tool
-		const searchTool = hooks.tool!["memory.find"];
+		// Search for the captured observations using mem-find tool
+		const searchTool = hooks.tool!["mem-find"];
 		const result = await searchTool.execute(
 			{ query: "config", limit: 10 },
 			mockToolContext(sessionId),
@@ -159,13 +159,13 @@ describe("E2E lifecycle", () => {
 		expect(typeof result).toBe("string");
 	});
 
-	test("memory.create creates searchable observation", async () => {
+	test("mem-create creates searchable observation", async () => {
 		const { hooks } = await createTestPlugin();
 		const sessionId = randomUUID();
 		const ctx = mockToolContext(sessionId);
 
 		// Save an observation manually
-		const saveTool = hooks.tool!["memory.create"];
+		const saveTool = hooks.tool!["mem-create"];
 		const saveResult = await saveTool.execute(
 			{
 				title: "Important architecture decision",
@@ -182,7 +182,7 @@ describe("E2E lifecycle", () => {
 		expect(JSON.stringify(savePayload.data)).toContain("Important architecture decision");
 
 		// Search for the saved observation
-		const searchTool = hooks.tool!["memory.find"];
+		const searchTool = hooks.tool!["mem-find"];
 		const searchResult = await searchTool.execute({ query: "FTS5 architecture", limit: 10 }, ctx);
 
 		const searchPayload = parse(searchResult);
@@ -190,10 +190,10 @@ describe("E2E lifecycle", () => {
 		expect(JSON.stringify(searchPayload.data)).toContain("FTS5");
 	});
 
-	test("memory.find returns no results gracefully", async () => {
+	test("mem-find returns no results gracefully", async () => {
 		const { hooks } = await createTestPlugin();
 
-		const searchTool = hooks.tool!["memory.find"];
+		const searchTool = hooks.tool!["mem-find"];
 		const result = await searchTool.execute(
 			{ query: "nonexistent_query_xyz_12345", limit: 5 },
 			mockToolContext(),
@@ -201,16 +201,16 @@ describe("E2E lifecycle", () => {
 
 		const payload = parse(result);
 		expect(payload.error).toBeNull();
-		expect(JSON.stringify(payload.data)).toContain("\"results\":[]");
+		expect(JSON.stringify(payload.data)).toContain('"results":[]');
 	});
 
-	test("memory.history shows session history", async () => {
+	test("mem-history shows session history", async () => {
 		const { hooks } = await createTestPlugin();
 		const sessionId = randomUUID();
 		const ctx = mockToolContext(sessionId);
 
 		// Create some activity in a session
-		const saveTool = hooks.tool!["memory.create"];
+		const saveTool = hooks.tool!["mem-create"];
 		await saveTool.execute(
 			{
 				title: "Test observation for timeline",
@@ -221,7 +221,7 @@ describe("E2E lifecycle", () => {
 		);
 
 		// Check timeline
-		const timelineTool = hooks.tool!["memory.history"];
+		const timelineTool = hooks.tool!["mem-history"];
 		const timeline = await timelineTool.execute({ limit: 5 }, ctx);
 
 		const timelinePayload = parse(timeline);

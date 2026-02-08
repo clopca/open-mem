@@ -25,7 +25,7 @@ function mapSearchResults(results: SearchResult[], scope: "project" | "user" | "
 
 export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDefinition> {
 	return {
-		"memory.find": {
+		"mem-find": {
 			description: "Find relevant memories by query with optional filtering.",
 			args: toolSchemas.find.shape,
 			execute: async (rawArgs) => {
@@ -45,7 +45,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.history": {
+		"mem-history": {
 			description: "Browse session history and summaries.",
 			args: toolSchemas.history.shape,
 			execute: async (rawArgs) => {
@@ -58,7 +58,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.get": {
+		"mem-get": {
 			description: "Get full memory records by ID.",
 			args: toolSchemas.get.shape,
 			execute: async (rawArgs) => {
@@ -71,7 +71,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.create": {
+		"mem-create": {
 			description: "Create a memory record.",
 			args: toolSchemas.create.shape,
 			execute: async (rawArgs, context) => {
@@ -85,7 +85,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.revise": {
+		"mem-revise": {
 			description: "Create a new revision for an existing memory.",
 			args: toolSchemas.revise.shape,
 			execute: async (rawArgs) => {
@@ -99,7 +99,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.remove": {
+		"mem-remove": {
 			description: "Tombstone a memory record.",
 			args: toolSchemas.remove.shape,
 			execute: async (rawArgs) => {
@@ -113,7 +113,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.transfer.export": {
+		"mem-export": {
 			description: "Export project memory as JSON payload.",
 			args: toolSchemas.transferExport.shape,
 			execute: async (rawArgs) => {
@@ -126,7 +126,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.transfer.import": {
+		"mem-import": {
 			description: "Import memory payload.",
 			args: toolSchemas.transferImport.shape,
 			execute: async (rawArgs) => {
@@ -142,7 +142,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.maintenance": {
+		"mem-maintenance": {
 			description: "Run memory maintenance actions.",
 			args: toolSchemas.maintenance.shape,
 			execute: async (rawArgs) => {
@@ -160,7 +160,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 				}
 			},
 		},
-		"memory.help": {
+		"mem-help": {
 			description: "Show memory workflow guidance.",
 			args: toolSchemas.help.shape,
 			execute: async () => toJson(ok({ guide: engine.guide() })),

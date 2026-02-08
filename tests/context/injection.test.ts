@@ -10,7 +10,7 @@ import {
 	buildUserCompactContext,
 	buildUserContextSection,
 } from "../../src/context/builder";
-import { type ProgressiveContext, buildProgressiveContext } from "../../src/context/progressive";
+import { buildProgressiveContext, type ProgressiveContext } from "../../src/context/progressive";
 import { createCompactionHook } from "../../src/hooks/compaction";
 import { createContextInjectionHook } from "../../src/hooks/context-inject";
 import type { ObservationIndex, OpenMemConfig, Session, SessionSummary } from "../../src/types";
@@ -105,11 +105,11 @@ describe("buildContextString", () => {
 		const output = buildContextString(context);
 		expect(output).toContain("## open-mem");
 		expect(output).toContain("Progressive Disclosure");
-		expect(output).toContain("memory.find");
-		expect(output).toContain("memory.get");
+		expect(output).toContain("mem-find");
+		expect(output).toContain("mem-get");
 	});
 
-	test("includes memory.find and memory.get hints", () => {
+	test("includes mem-find and mem-get hints", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [],
 			observationIndex: [makeIndexEntry()],
@@ -117,8 +117,8 @@ describe("buildContextString", () => {
 			totalTokens: 5,
 		};
 		const output = buildContextString(context);
-		expect(output).toContain("memory.find");
-		expect(output).toContain("memory.get");
+		expect(output).toContain("mem-find");
+		expect(output).toContain("mem-get");
 	});
 
 	test("omits empty sections", () => {
@@ -532,9 +532,7 @@ describe("createCompactionHook — user-level memory", () => {
 			summaries: { getBySessionId: () => makeSummary() },
 		};
 		const userRepo = {
-			getIndex: () => [
-				makeIndexEntry({ id: "u1", title: "Cross-project fact", tokenCount: 5 }),
-			],
+			getIndex: () => [makeIndexEntry({ id: "u1", title: "Cross-project fact", tokenCount: 5 })],
 		};
 		const hook = createCompactionHook(
 			config,
@@ -566,9 +564,7 @@ describe("createCompactionHook — user-level memory", () => {
 			summaries: { getBySessionId: () => makeSummary() },
 		};
 		const userRepo = {
-			getIndex: () => [
-				makeIndexEntry({ id: "u1", title: "Should not appear", tokenCount: 5 }),
-			],
+			getIndex: () => [makeIndexEntry({ id: "u1", title: "Should not appear", tokenCount: 5 })],
 		};
 		const hook = createCompactionHook(
 			config,

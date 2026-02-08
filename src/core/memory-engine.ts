@@ -32,11 +32,11 @@ import type {
 	MemoryEngine,
 	MemoryExportOptions,
 	MemoryImportOptions,
-	MetricsSnapshot,
 	MemorySaveInput,
 	MemorySearchFilters,
 	MemoryStats,
 	MemoryUpdatePatch,
+	MetricsSnapshot,
 	PlatformInfo,
 	RuntimeStatusSnapshot,
 	TimelineResult,
@@ -131,7 +131,9 @@ export class DefaultMemoryEngine implements MemoryEngine {
 
 	private getByIdIncludingArchived(id: string): Observation | null {
 		const store = this.observations as ObservationStoreWithHistory;
-		return store.getByIdIncludingArchived ? store.getByIdIncludingArchived(id) : this.observations.getById(id);
+		return store.getByIdIncludingArchived
+			? store.getByIdIncludingArchived(id)
+			: this.observations.getById(id);
 	}
 
 	private listByProjectWithState(input: {
@@ -236,7 +238,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 				concepts: input.concepts ?? [],
 				filesRead: [],
 				filesModified: input.files ?? [],
-				toolName: "memory.create",
+				toolName: "mem-create",
 				tokenCount: estimateTokens(`${input.title} ${input.narrative}`),
 				importance: input.importance ?? 3,
 				sourceProject: this.projectPath,
@@ -261,7 +263,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 			filesRead: [],
 			filesModified: input.files ?? [],
 			rawToolOutput: `[Manual save] ${input.narrative}`,
-			toolName: "memory.create",
+			toolName: "mem-create",
 			tokenCount: estimateTokens(`${input.title} ${input.narrative}`),
 			discoveryTokens: 0,
 			importance: input.importance ?? 3,
@@ -463,11 +465,11 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	guide(): string {
 		return [
 			"open-mem workflow:",
-			"1) Use memory.find to find candidate observations by query.",
-			"2) Use memory.history to inspect session-level history and summaries.",
-			"3) Use memory.get with IDs from find/history to fetch full details.",
-			"Write/edit flow: memory.create (new), memory.revise (refine), memory.remove (tombstone).",
-			"Transfer flow: memory.transfer.export for backup/portability, memory.transfer.import to restore.",
+			"1) Use mem-find to find candidate observations by query.",
+			"2) Use mem-history to inspect session-level history and summaries.",
+			"3) Use mem-get with IDs from find/history to fetch full details.",
+			"Write/edit flow: mem-create (new), mem-revise (refine), mem-remove (tombstone).",
+			"Transfer flow: mem-export for backup/portability, mem-import to restore.",
 		].join("\n");
 	}
 
@@ -659,8 +661,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 
 	getHealth(): HealthStatus {
 		const runtime = this.runtimeSnapshotProvider?.();
-		const queueStatus: "ok" | "degraded" =
-			runtime && runtime.queue.lastError ? "degraded" : "ok";
+		const queueStatus: "ok" | "degraded" = runtime && runtime.queue.lastError ? "degraded" : "ok";
 
 		return {
 			status: runtime?.status ?? "ok",
@@ -762,7 +763,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	async rollbackConfig(eventId: string): Promise<ConfigAuditEvent | null> {
 		const event = this.configAuditStore
 			? this.configAuditStore.getById(eventId)
-			: this.configAuditLogFallback.find((e) => e.id === eventId) ?? null;
+			: (this.configAuditLogFallback.find((e) => e.id === eventId) ?? null);
 		if (!event) return null;
 
 		if (!event.previousValues || typeof event.previousValues !== "object") {
