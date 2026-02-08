@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Observation, ObservationType } from "../types";
+import { useEffect, useState } from "react";
+import type { LineageNode, Observation, ObservationLineageResponse, ObservationType } from "../types";
 
 const TYPE_ICONS: Record<ObservationType, string> = {
 	bugfix: "\u{1F41B}",
@@ -61,6 +61,8 @@ interface TimelineItemProps {
 
 export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 	const [expanded, setExpanded] = useState(false);
+	const [lineage, setLineage] = useState<LineageNode[] | null>(null);
+	const [lineageError, setLineageError] = useState<string | null>(null);
 	const icon = TYPE_ICONS[observation.type] ?? "\u{1F4DD}";
 	const colorClasses = TYPE_COLORS[observation.type] ?? TYPE_COLORS.change;
 	const dotColor = DOT_COLORS[observation.type] ?? DOT_COLORS.change;
@@ -72,10 +74,37 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 		observation.filesRead.length > 0 ||
 		observation.filesModified.length > 0;
 
+	useEffect(() => {
+		if (!expanded || lineage || lineageError) return;
+		let cancelled = false;
+
+		fetch(`/v1/memory/observations/${observation.id}/lineage`, {
+			headers: { "Content-Type": "application/json" },
+		})
+			.then((response) => {
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				return response.json();
+			})
+			.then((json) => {
+				if (cancelled) return;
+				const data = (json as { data?: ObservationLineageResponse }).data;
+				setLineage(data?.lineage ?? []);
+			})
+			.catch((err: unknown) => {
+				if (cancelled) return;
+				setLineageError(err instanceof Error ? err.message : "Unable to load lineage");
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [expanded, lineage, lineageError, observation.id]);
+
 	return (
 		<div className={`timeline-item relative pl-8 ${isNew ? "timeline-item-new" : ""}`}>
 			<div
 				className={`absolute left-0 top-3 z-10 h-3 w-3 rounded-full ring-[3px] ring-white ${dotColor}`}
+				aria-hidden="true"
 			/>
 
 			<div className="group rounded-xl border border-stone-200/80 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
@@ -93,9 +122,7 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 						</span>
 
 						<div className="min-w-0 flex-1">
-							<h3 className="text-sm font-semibold leading-snug text-stone-900">
-								{observation.title}
-							</h3>
+							<h3 className="text-sm font-semibold leading-snug text-stone-900">{observation.title}</h3>
 							{observation.subtitle && (
 								<p className="mt-0.5 truncate text-xs text-stone-400">{observation.subtitle}</p>
 							)}
@@ -117,12 +144,7 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 									viewBox="0 0 24 24"
 									aria-hidden="true"
 								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M19 9l-7 7-7-7"
-									/>
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
 								</svg>
 							)}
 						</div>
@@ -142,24 +164,17 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 					<div className="border-t border-stone-100 px-5 py-4">
 						{observation.narrative && (
 							<div className="mb-4">
-								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-									Narrative
-								</h4>
+								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Narrative</h4>
 								<p className="text-sm leading-relaxed text-stone-600">{observation.narrative}</p>
 							</div>
 						)}
 
 						{observation.facts.length > 0 && (
 							<div className="mb-4">
-								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-									Facts
-								</h4>
+								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Facts</h4>
 								<ul className="space-y-1">
 									{observation.facts.map((fact, i) => (
-										<li
-											key={`${observation.id}-fact-${i}`}
-											className="flex items-start gap-2 text-sm text-stone-600"
-										>
+										<li key={`${observation.id}-fact-${i}`} className="flex items-start gap-2 text-sm text-stone-600">
 											<span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
 											{fact}
 										</li>
@@ -170,9 +185,7 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 
 						{observation.concepts.length > 0 && (
 							<div className="mb-4">
-								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-									Concepts
-								</h4>
+								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Concepts</h4>
 								<div className="flex flex-wrap gap-1.5">
 									{observation.concepts.map((concept) => (
 										<span
@@ -188,15 +201,10 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 
 						{observation.filesRead.length > 0 && (
 							<div className="mb-4">
-								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-									Files Read
-								</h4>
+								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Files Read</h4>
 								<div className="space-y-0.5">
 									{observation.filesRead.map((file) => (
-										<p
-											key={`${observation.id}-read-${file}`}
-											className="truncate font-mono text-xs text-stone-500"
-										>
+										<p key={`${observation.id}-read-${file}`} className="truncate font-mono text-xs text-stone-500">
 											{file}
 										</p>
 									))}
@@ -205,22 +213,49 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 						)}
 
 						{observation.filesModified.length > 0 && (
-							<div>
-								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-									Files Modified
-								</h4>
+							<div className="mb-4">
+								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Files Modified</h4>
 								<div className="space-y-0.5">
 									{observation.filesModified.map((file) => (
-										<p
-											key={`${observation.id}-mod-${file}`}
-											className="truncate font-mono text-xs text-amber-600"
-										>
+										<p key={`${observation.id}-mod-${file}`} className="truncate font-mono text-xs text-amber-600">
 											{file}
 										</p>
 									))}
 								</div>
 							</div>
 						)}
+
+						<div>
+							<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">Lineage</h4>
+							{lineageError && <p className="text-xs text-red-500">{lineageError}</p>}
+							{!lineage && !lineageError && <p className="text-xs text-stone-400">Loading...</p>}
+							{lineage && lineage.length > 0 && (
+								<div className="space-y-1.5">
+									{lineage.map((item) => (
+										<div
+											key={`${observation.id}-lineage-${item.id}`}
+											className="flex items-center justify-between rounded border border-stone-200 bg-stone-50 px-2 py-1"
+										>
+											<div className="min-w-0">
+												<p className="truncate text-xs font-medium text-stone-700">{item.observation.title}</p>
+												<p className="text-[10px] text-stone-400">{new Date(item.observation.createdAt).toLocaleString()}</p>
+											</div>
+											<div className="ml-2 flex items-center gap-1">
+												{item.state === "tombstoned" && (
+													<span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">tombstoned</span>
+												)}
+												{item.state === "superseded" && (
+													<span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">superseded</span>
+												)}
+												{item.state === "current" && (
+													<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">current</span>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
 					</div>
 				)}
 			</div>

@@ -178,6 +178,12 @@ export class ObservationRepository {
 		return row ? this.mapRow(row) : null;
 	}
 
+	/** Get an observation by ID regardless of superseded/tombstoned state. */
+	getByIdIncludingArchived(id: string): Observation | null {
+		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
+		return row ? this.mapRow(row) : null;
+	}
+
 	/** Get all observations for a session, ordered by creation time. */
 	getBySession(sessionId: string): Observation[] {
 		return this.db
@@ -222,7 +228,49 @@ export class ObservationRepository {
 				discoveryTokens: r.discovery_tokens ?? 0,
 				createdAt: r.created_at,
 				importance: r.importance ?? 3,
-			}));
+				}));
+	}
+
+	/** List observations for a project with optional state/type/session filters. */
+	listByProject(
+		projectPath: string,
+		options: {
+			limit?: number;
+			offset?: number;
+			type?: ObservationType;
+			state?: "current" | "superseded" | "tombstoned";
+			sessionId?: string;
+		} = {},
+	): Observation[] {
+		const { limit = 50, offset = 0, type, state, sessionId } = options;
+		let sql = `SELECT o.*
+			FROM observations o
+			JOIN sessions s ON o.session_id = s.id
+			WHERE s.project_path = ?`;
+		const params: Array<string | number> = [projectPath];
+
+		if (sessionId) {
+			sql += " AND o.session_id = ?";
+			params.push(sessionId);
+		}
+		if (type) {
+			sql += " AND o.type = ?";
+			params.push(type);
+		}
+
+		if (state === "current") {
+			sql += " AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
+		} else if (state === "superseded") {
+			sql += " AND o.superseded_by IS NOT NULL";
+		} else if (state === "tombstoned") {
+			sql += " AND o.deleted_at IS NOT NULL";
+		} else {
+			sql += " AND o.superseded_by IS NULL AND o.deleted_at IS NULL";
+		}
+
+		sql += " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
+		params.push(limit, offset);
+		return this.db.all<ObservationRow>(sql, params).map((row) => this.mapRow(row));
 	}
 
 	// ---------------------------------------------------------------------------

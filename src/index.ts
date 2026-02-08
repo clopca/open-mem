@@ -5,6 +5,8 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDashboardApp } from "./adapters/http/server";
+import { createSSERoute, SSEBroadcaster } from "./adapters/http/sse";
 import { createOpenCodeTools } from "./adapters/opencode/tools";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
@@ -15,7 +17,7 @@ import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DefaultMemoryEngine } from "./core/memory-engine";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
-import { Database, createDatabase } from "./db/database";
+import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
@@ -23,7 +25,7 @@ import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
 import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
-import { type MemoryEventBus, createEventBus } from "./events/bus";
+import { createEventBus, type MemoryEventBus } from "./events/bus";
 import { createChatCaptureHook } from "./hooks/chat-capture";
 import { createCompactionHook } from "./hooks/compaction";
 import { createContextInjectionHook } from "./hooks/context-inject";
@@ -33,8 +35,6 @@ import { QueueProcessor } from "./queue/processor";
 import { createQueueRuntime } from "./runtime/queue-runtime";
 import { SearchOrchestrator } from "./search/orchestrator";
 import { createReranker } from "./search/reranker";
-import { createDashboardApp } from "./adapters/http/server";
-import { SSEBroadcaster, createSSERoute } from "./adapters/http/sse";
 import {
 	createObservationStore,
 	createSessionStore,
@@ -177,6 +177,32 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	);
 	const queueRuntime = createQueueRuntime(queue);
 	queueRuntime.start();
+	const runtimeStartedAt = Date.now();
+	const getRuntimeStatusSnapshot = () => {
+		const queueStats = queue.getStats();
+		return {
+			status: "ok" as const,
+			timestamp: new Date().toISOString(),
+			uptimeMs: Date.now() - runtimeStartedAt,
+			queue: {
+				mode: queue.getMode(),
+				running: queue.isRunning,
+				processing: queueStats.processing,
+				pending: queueStats.pending,
+				lastBatchDurationMs: 0,
+				lastProcessedAt: null,
+				lastFailedAt: null,
+				lastError: null,
+			},
+			batches: {
+				total: 0,
+				processedItems: 0,
+				failedItems: 0,
+				avgDurationMs: 0,
+			},
+			enqueueCount: 0,
+		};
+	};
 
 	// 5b. Search + memory engine
 	const reranker = createReranker(
@@ -201,6 +227,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		projectPath,
 		config,
 		userObservationRepo: createUserObservationStore(userObservationRepo),
+		runtimeSnapshotProvider: getRuntimeStatusSnapshot,
 	});
 	const openCodeTools = createOpenCodeTools(memoryEngine);
 
@@ -252,6 +279,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 			embeddingModel,
 			memoryEngine,
+			runtimeStatusProvider: getRuntimeStatusSnapshot,
 			sseHandler: createSSERoute(sseBroadcaster),
 			dashboardDir: join(distDir, "dashboard"),
 		});
@@ -348,12 +376,12 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 // Re-exports for consumers
 // -----------------------------------------------------------------------------
 
+/** Re-exported configuration helpers. */
+export { getDefaultConfig, resolveConfig } from "./config";
 /** Re-exported core types for library consumers. */
 export type {
-	OpenMemConfig,
 	Observation,
+	OpenMemConfig,
 	Session,
 	SessionSummary,
 } from "./types";
-/** Re-exported configuration helpers. */
-export { resolveConfig, getDefaultConfig } from "./config";

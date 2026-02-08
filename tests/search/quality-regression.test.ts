@@ -9,6 +9,16 @@ import { cosineSimilarity } from "../../src/search/embeddings";
 
 const extensionEnabled = Database.enableExtensionSupport();
 const DIMENSION = 8;
+let rngState = 123456789;
+
+function resetRng(seed = 123456789): void {
+	rngState = seed >>> 0;
+}
+
+function seededRandom(): number {
+	rngState = (1664525 * rngState + 1013904223) >>> 0;
+	return rngState / 0x100000000;
+}
 
 function createVecTestDb(): { db: Database; dbPath: string } {
 	const dbPath = `/tmp/open-mem-quality-test-${randomUUID()}.db`;
@@ -34,12 +44,12 @@ function normalize(v: number[]): number[] {
 }
 
 function randomVector(dim: number): number[] {
-	const v = Array.from({ length: dim }, () => Math.random() - 0.5);
+	const v = Array.from({ length: dim }, () => seededRandom() - 0.5);
 	return normalize(v);
 }
 
 function similarVector(target: number[], noise: number): number[] {
-	const v = target.map((x) => x + (Math.random() - 0.5) * noise);
+	const v = target.map((x) => x + (seededRandom() - 0.5) * noise);
 	return normalize(v);
 }
 
@@ -99,6 +109,7 @@ describe("quality regression — vec0 vs JS cosine equivalence", () => {
 	const projectPath = "/tmp/quality-test-proj";
 
 	beforeEach(() => {
+		resetRng();
 		const result = createVecTestDb();
 		db = result.db;
 		dbPath = result.dbPath;

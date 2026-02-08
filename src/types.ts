@@ -176,6 +176,16 @@ export interface OpenMemConfig {
 	dashboardEnabled: boolean; // Enable web dashboard (default: false)
 	dashboardPort: number; // Dashboard HTTP port (default: 3737)
 
+	// Platform adapters
+	platformOpenCodeEnabled?: boolean; // Enable OpenCode adapter surface
+	platformClaudeCodeEnabled?: boolean; // Enable Claude Code adapter surface
+	platformCursorEnabled?: boolean; // Enable Cursor adapter surface
+
+	// MCP compatibility
+	mcpCompatibilityMode?: "strict" | "legacy";
+	mcpProtocolVersion?: string;
+	mcpSupportedProtocolVersions?: string[];
+
 	// Embeddings
 	embeddingDimension?: number; // Embedding vector dimension (auto-detected from provider)
 
@@ -301,6 +311,17 @@ export interface SearchResult {
 	rank: number; // FTS5 rank score
 	snippet: string; // FTS5 highlighted snippet
 	source?: "project" | "user";
+	rankingSource?: RankingSignalSource;
+	explain?: {
+		strategy?: "filter-only" | "semantic" | "hybrid";
+		matchedBy: Array<"fts" | "vector" | "graph" | "user-memory" | "concept-filter" | "file-filter">;
+		ftsRank?: number;
+		vectorDistance?: number;
+		vectorSimilarity?: number;
+		rrfScore?: number;
+		signals?: SearchExplainSignal[];
+		lineage?: SearchLineageRef;
+	};
 }
 
 /** A session with its summary and observation count for timeline display. */
@@ -308,4 +329,87 @@ export interface TimelineEntry {
 	session: Session;
 	summary: SessionSummary | null;
 	observationCount: number;
+}
+
+// -----------------------------------------------------------------------------
+// Search Explainability Types
+// -----------------------------------------------------------------------------
+
+/** Source that contributed to a search result's ranking. */
+export type RankingSignalSource = "fts" | "vector" | "graph" | "user-memory";
+
+/** A single explainability signal describing why a result was ranked. */
+export interface SearchExplainSignal {
+	source: RankingSignalSource;
+	score?: number;
+	label?: string;
+}
+
+/** Reference to a lineage chain for a search result observation. */
+export interface SearchLineageRef {
+	rootId: string;
+	depth: number;
+}
+
+// -----------------------------------------------------------------------------
+// Revision Diff Types
+// -----------------------------------------------------------------------------
+
+/** Describes the diff between two observation revisions. */
+export interface RevisionDiff {
+	fromId: string;
+	toId: string;
+	summary: string;
+	changedFields: Array<{
+		field:
+			| "title"
+			| "subtitle"
+			| "narrative"
+			| "type"
+			| "facts"
+			| "concepts"
+			| "filesRead"
+			| "filesModified"
+			| "importance";
+		before: unknown;
+		after: unknown;
+	}>;
+}
+
+// -----------------------------------------------------------------------------
+// Adapter Status Types
+// -----------------------------------------------------------------------------
+
+/** Runtime status of a platform adapter. */
+export interface AdapterStatus {
+	name: string;
+	version: string;
+	enabled: boolean;
+	capabilities: Record<string, boolean>;
+}
+
+// -----------------------------------------------------------------------------
+// Config Audit Types
+// -----------------------------------------------------------------------------
+
+/** A single config audit event tracking a configuration change. */
+export interface ConfigAuditEvent {
+	id: string;
+	timestamp: string;
+	patch: Record<string, unknown>;
+	previousValues: Record<string, unknown>;
+	source: "api" | "mode" | "rollback" | "rollback-failed";
+}
+
+// -----------------------------------------------------------------------------
+// Maintenance History Types
+// -----------------------------------------------------------------------------
+
+/** A single maintenance operation result. */
+export interface MaintenanceHistoryItem {
+	id: string;
+	timestamp: string;
+	action: string;
+	dryRun: boolean;
+	result: Record<string, unknown>;
 }

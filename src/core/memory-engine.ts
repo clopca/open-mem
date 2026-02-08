@@ -1,19 +1,44 @@
+import { randomUUID } from "node:crypto";
 import { estimateTokens } from "../ai/parser";
-import { buildCompactContext, buildContextString, buildUserCompactContext, buildUserContextSection, type ContextBuilderConfig } from "../context/builder";
+import {
+	buildCompactContext,
+	buildContextString,
+	buildUserCompactContext,
+	buildUserContextSection,
+	type ContextBuilderConfig,
+} from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { SearchOrchestrator } from "../search/orchestrator";
-import type { ObservationStore, SessionStore, SummaryStore, UserObservationStore } from "../store/ports";
-import type { Observation, OpenMemConfig, SearchResult } from "../types";
+import type {
+	ObservationStore,
+	SessionStore,
+	SummaryStore,
+	UserObservationStore,
+} from "../store/ports";
+import type {
+	AdapterStatus,
+	ConfigAuditEvent,
+	MaintenanceHistoryItem,
+	Observation,
+	OpenMemConfig,
+	RevisionDiff,
+	SearchResult,
+} from "../types";
 import { cleanFolderContext, rebuildFolderContext } from "../utils/folder-context-maintenance";
 import type {
 	FolderContextMaintenanceResult,
+	HealthStatus,
+	LineageNode,
 	MemoryEngine,
 	MemoryExportOptions,
 	MemoryImportOptions,
+	MetricsSnapshot,
 	MemorySaveInput,
 	MemorySearchFilters,
 	MemoryStats,
 	MemoryUpdatePatch,
+	PlatformInfo,
+	RuntimeStatusSnapshot,
 	TimelineResult,
 } from "./contracts";
 
@@ -25,6 +50,7 @@ interface EngineDeps {
 	projectPath: string;
 	config: OpenMemConfig;
 	userObservationRepo?: UserObservationStore | null;
+	runtimeSnapshotProvider?: (() => RuntimeStatusSnapshot) | null;
 }
 
 interface ExportData {
@@ -49,6 +75,20 @@ interface ExportData {
 	}>;
 }
 
+interface ObservationStoreWithHistory {
+	getByIdIncludingArchived?: (id: string) => Observation | null;
+	listByProject?: (
+		projectPath: string,
+		options?: {
+			limit?: number;
+			offset?: number;
+			type?: Observation["type"];
+			state?: "current" | "superseded" | "tombstoned";
+			sessionId?: string;
+		},
+	) => Observation[];
+}
+
 export class DefaultMemoryEngine implements MemoryEngine {
 	private observations: ObservationStore;
 	private sessions: SessionStore;
@@ -57,6 +97,11 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	private projectPath: string;
 	private config: OpenMemConfig;
 	private userObservationRepo: UserObservationStore | null;
+	private runtimeSnapshotProvider: (() => RuntimeStatusSnapshot) | null;
+	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
+	private configAuditLog: ConfigAuditEvent[] = [];
+	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
+	private maintenanceLog: MaintenanceHistoryItem[] = [];
 
 	constructor(deps: EngineDeps) {
 		this.observations = deps.observations;
@@ -66,9 +111,40 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		this.projectPath = deps.projectPath;
 		this.config = deps.config;
 		this.userObservationRepo = deps.userObservationRepo ?? null;
+		this.runtimeSnapshotProvider = deps.runtimeSnapshotProvider ?? null;
 	}
 
-	async ingest(_input: { sessionId: string; toolName: string; output: string; callId: string }): Promise<void> {
+	private getByIdIncludingArchived(id: string): Observation | null {
+		const store = this.observations as ObservationStoreWithHistory;
+		return store.getByIdIncludingArchived ? store.getByIdIncludingArchived(id) : this.observations.getById(id);
+	}
+
+	private listByProjectWithState(input: {
+		limit?: number;
+		offset?: number;
+		type?: Observation["type"];
+		state: "current" | "superseded" | "tombstoned";
+		sessionId?: string;
+	}): Observation[] {
+		const store = this.observations as ObservationStoreWithHistory;
+		if (store.listByProject) {
+			return store.listByProject(this.projectPath, input);
+		}
+		if (input.state !== "current") return [];
+		return this.listObservations({
+			limit: input.limit,
+			offset: input.offset,
+			type: input.type,
+			sessionId: input.sessionId,
+		});
+	}
+
+	async ingest(_input: {
+		sessionId: string;
+		toolName: string;
+		output: string;
+		callId: string;
+	}): Promise<void> {
 		// Capture/queue ingestion remains owned by hook+queue pipeline.
 	}
 
@@ -200,7 +276,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return deleted;
 	}
 
-	async export(scope: "project", options: MemoryExportOptions = {}): Promise<Record<string, unknown>> {
+	async export(
+		scope: "project",
+		options: MemoryExportOptions = {},
+	): Promise<Record<string, unknown>> {
 		if (scope !== "project") {
 			throw new Error("Only project scope export is supported.");
 		}
@@ -214,7 +293,9 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		if (options.type) {
 			allObservations = allObservations.filter((obs) => obs.type === options.type);
 		}
-		allObservations.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		allObservations.sort(
+			(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+		);
 		if (options.limit && options.limit < allObservations.length) {
 			allObservations = allObservations.slice(0, options.limit);
 		}
@@ -234,7 +315,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return exportData as unknown as Record<string, unknown>;
 	}
 
-	async import(payload: string, options: MemoryImportOptions = {}): Promise<{ imported: number; skipped: number }> {
+	async import(
+		payload: string,
+		options: MemoryImportOptions = {},
+	): Promise<{ imported: number; skipped: number }> {
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(payload);
@@ -305,14 +389,22 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return { imported, skipped };
 	}
 
-	async buildContext(_sessionId?: string, mode: "normal" | "compaction" = "normal"): Promise<string> {
+	async buildContext(
+		_sessionId?: string,
+		mode: "normal" | "compaction" = "normal",
+	): Promise<string> {
 		const recentSessions = this.sessions.getRecent(this.projectPath, 5);
 		const recentSummaries = recentSessions
 			.map((s) => (s.summaryId ? this.summaries.getBySessionId(s.id) : null))
 			.filter((s): s is NonNullable<typeof s> => s !== null);
-		const observationIndex = this.observations.getIndex(this.projectPath, this.config.maxObservations);
+		const observationIndex = this.observations.getIndex(
+			this.projectPath,
+			this.config.maxObservations,
+		);
 
-		const recentObsIds = observationIndex.slice(0, this.config.contextFullObservationCount).map((e) => e.id);
+		const recentObsIds = observationIndex
+			.slice(0, this.config.contextFullObservationCount)
+			.map((e) => e.id);
 		const fullObservations: Observation[] = recentObsIds
 			.map((id) => this.observations.getById(id))
 			.filter((o): o is NonNullable<typeof o> => o !== null);
@@ -369,8 +461,20 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		offset?: number;
 		type?: Observation["type"];
 		sessionId?: string;
+		state?: "current" | "superseded" | "tombstoned";
 	}): Observation[] {
-		const { limit = 50, offset = 0, type, sessionId } = input;
+		const { limit = 50, offset = 0, type, sessionId, state } = input;
+
+		if (state) {
+			return this.listByProjectWithState({
+				limit,
+				offset,
+				type,
+				state,
+				sessionId,
+			});
+		}
+
 		if (sessionId) {
 			let observations = this.observations.getBySession(sessionId);
 			if (type) observations = observations.filter((o) => o.type === type);
@@ -387,6 +491,49 @@ export class DefaultMemoryEngine implements MemoryEngine {
 
 	getObservation(id: string): Observation | null {
 		return this.observations.getById(id);
+	}
+
+	getLineage(id: string): LineageNode[] | null {
+		const MAX_LINEAGE_HOPS = 256;
+		const anchor = this.getByIdIncludingArchived(id);
+		if (!anchor) return null;
+
+		let root = anchor;
+		let hops = 0;
+		const reverseSeen = new Set<string>([anchor.id]);
+		while (root.revisionOf && hops < MAX_LINEAGE_HOPS) {
+			const previous = this.getByIdIncludingArchived(root.revisionOf);
+			if (!previous || reverseSeen.has(previous.id)) break;
+			root = previous;
+			reverseSeen.add(previous.id);
+			hops += 1;
+		}
+
+		const chain: LineageNode[] = [];
+		let cursor: Observation | null = root;
+		const forwardSeen = new Set<string>();
+		let forwardHops = 0;
+		while (cursor && !forwardSeen.has(cursor.id) && forwardHops < MAX_LINEAGE_HOPS) {
+			forwardSeen.add(cursor.id);
+			const state: LineageNode["state"] = cursor.deletedAt
+				? "tombstoned"
+				: cursor.supersededBy
+					? "superseded"
+					: "current";
+			chain.push({
+				id: cursor.id,
+				revisionOf: cursor.revisionOf ?? null,
+				supersededBy: cursor.supersededBy ?? null,
+				supersededAt: cursor.supersededAt ?? null,
+				deletedAt: cursor.deletedAt ?? null,
+				state,
+				observation: cursor,
+			});
+			cursor = cursor.supersededBy ? this.getByIdIncludingArchived(cursor.supersededBy) : null;
+			forwardHops += 1;
+		}
+
+		return chain;
 	}
 
 	listSessions(input: { limit?: number; projectPath?: string }): Array<{
@@ -436,7 +583,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		};
 	}
 
-	async maintainFolderContext(action: "clean" | "rebuild", dryRun: boolean): Promise<FolderContextMaintenanceResult> {
+	async maintainFolderContext(
+		action: "clean" | "rebuild",
+		dryRun: boolean,
+	): Promise<FolderContextMaintenanceResult> {
 		if (action === "rebuild") {
 			const result = await rebuildFolderContext(
 				this.projectPath,
@@ -449,5 +599,187 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		}
 		const result = await cleanFolderContext(this.projectPath, dryRun);
 		return { action: "clean", dryRun, ...result };
+	}
+
+	getRevisionDiff(id: string, againstId: string): RevisionDiff | null {
+		const current = this.getByIdIncludingArchived(id);
+		const against = this.getByIdIncludingArchived(againstId);
+		if (!current || !against) return null;
+
+		const changedFields: RevisionDiff["changedFields"] = [];
+		const pushIfChanged = (
+			field: RevisionDiff["changedFields"][number]["field"],
+			before: unknown,
+			after: unknown,
+		) => {
+			if (JSON.stringify(before) !== JSON.stringify(after)) {
+				changedFields.push({ field, before, after });
+			}
+		};
+
+		pushIfChanged("title", against.title, current.title);
+		pushIfChanged("subtitle", against.subtitle, current.subtitle);
+		pushIfChanged("narrative", against.narrative, current.narrative);
+		pushIfChanged("type", against.type, current.type);
+		pushIfChanged("facts", against.facts, current.facts);
+		pushIfChanged("concepts", against.concepts, current.concepts);
+		pushIfChanged("filesRead", against.filesRead, current.filesRead);
+		pushIfChanged("filesModified", against.filesModified, current.filesModified);
+		pushIfChanged("importance", against.importance, current.importance);
+
+		const summary =
+			changedFields.length === 0
+				? "No material changes between revisions."
+				: `Changed ${changedFields.length} field${changedFields.length === 1 ? "" : "s"}: ${changedFields
+						.map((f) => f.field)
+						.join(", ")}.`;
+
+		return {
+			fromId: againstId,
+			toId: id,
+			summary,
+			changedFields,
+		};
+	}
+
+	getHealth(): HealthStatus {
+		const runtime = this.runtimeSnapshotProvider?.();
+		const queueStatus: "ok" | "degraded" =
+			runtime && runtime.queue.lastError ? "degraded" : "ok";
+
+		return {
+			status: runtime?.status ?? "ok",
+			timestamp: runtime?.timestamp ?? new Date().toISOString(),
+			components: {
+				database: { status: "ok" },
+				search: { status: "ok" },
+				config: { status: "ok" },
+				queue: {
+					status: queueStatus,
+					detail: runtime?.queue.lastError ?? undefined,
+				},
+			},
+		};
+	}
+
+	getMetrics(): MetricsSnapshot {
+		const stats = this.stats();
+		const runtime = this.runtimeSnapshotProvider?.();
+		return {
+			timestamp: runtime?.timestamp ?? new Date().toISOString(),
+			memory: {
+				totalObservations: stats.totalObservations,
+				totalSessions: stats.totalSessions,
+				totalTokensSaved: stats.totalTokensSaved,
+				averageObservationSize: stats.averageObservationSize,
+			},
+		};
+	}
+
+	getPlatforms(): PlatformInfo {
+		return {
+			name: "open-mem",
+			provider: this.config.provider,
+			dashboardEnabled: this.config.dashboardEnabled,
+			vectorEnabled: Boolean(this.config.embeddingDimension && this.config.embeddingDimension > 0),
+		};
+	}
+
+	getAdapterStatuses(): AdapterStatus[] {
+		const enabled: Record<string, boolean> = {
+			opencode: this.config.platformOpenCodeEnabled ?? true,
+			"claude-code": this.config.platformClaudeCodeEnabled ?? false,
+			cursor: this.config.platformCursorEnabled ?? false,
+		};
+		const adapters = [
+			{
+				name: "opencode",
+				version: "1.0",
+				capabilities: {
+					nativeSessionLifecycle: true,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: false,
+				},
+			},
+			{
+				name: "claude-code",
+				version: "0.1",
+				capabilities: {
+					nativeSessionLifecycle: true,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: true,
+				},
+			},
+			{
+				name: "cursor",
+				version: "0.1",
+				capabilities: {
+					nativeSessionLifecycle: false,
+					nativeToolCapture: true,
+					nativeChatCapture: true,
+					emulatedIdleFlush: true,
+				},
+			},
+		];
+		return adapters.map((adapter) => ({
+			name: adapter.name,
+			version: adapter.version,
+			enabled: enabled[adapter.name] ?? false,
+			capabilities: adapter.capabilities as Record<string, boolean>,
+		}));
+	}
+
+	getConfigAuditTimeline(): ConfigAuditEvent[] {
+		return [...this.configAuditLog].reverse();
+	}
+
+	trackConfigAudit(event: ConfigAuditEvent): void {
+		this.configAuditLog.push(event);
+	}
+
+	async rollbackConfig(eventId: string): Promise<ConfigAuditEvent | null> {
+		const event = this.configAuditLog.find((e) => e.id === eventId);
+		if (!event) return null;
+
+		if (!event.previousValues || typeof event.previousValues !== "object") {
+			return null;
+		}
+
+		const { patchConfig: doPatch } = await import("../config/store");
+		const rollbackPatch = event.previousValues as Partial<import("../types").OpenMemConfig>;
+
+		try {
+			await doPatch(this.projectPath, rollbackPatch);
+		} catch (error) {
+			const failureEvent: ConfigAuditEvent = {
+				id: `rollback-failed-${randomUUID()}`,
+				timestamp: new Date().toISOString(),
+				patch: event.previousValues,
+				previousValues: event.patch,
+				source: "rollback-failed",
+			};
+			this.configAuditLog.push(failureEvent);
+			throw error;
+		}
+
+		const rollbackEvent: ConfigAuditEvent = {
+			id: `rollback-${randomUUID()}`,
+			timestamp: new Date().toISOString(),
+			patch: event.previousValues,
+			previousValues: event.patch,
+			source: "rollback",
+		};
+		this.configAuditLog.push(rollbackEvent);
+		return rollbackEvent;
+	}
+
+	getMaintenanceHistory(): MaintenanceHistoryItem[] {
+		return [...this.maintenanceLog].reverse();
+	}
+
+	trackMaintenanceResult(item: MaintenanceHistoryItem): void {
+		this.maintenanceLog.push(item);
 	}
 }
