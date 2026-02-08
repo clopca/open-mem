@@ -210,6 +210,9 @@ export interface OpenMemConfig {
 
 	// Fallback providers
 	fallbackProviders?: string[];
+
+	// Workflow mode
+	mode?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -417,4 +420,19 @@ export interface MaintenanceHistoryItem {
 	action: string;
 	dryRun: boolean;
 	result: Record<string, unknown>;
+}
+
+// -----------------------------------------------------------------------------
+// Workflow Mode Types
+// -----------------------------------------------------------------------------
+
+/** Workflow mode configuration loaded from JSON files. */
+export interface ModeConfig {
+	id: string;
+	name: string;
+	description: string;
+	observationTypes: string[];
+	conceptVocabulary: string[];
+	entityTypes: string[];
+	relationshipTypes: string[];
 }

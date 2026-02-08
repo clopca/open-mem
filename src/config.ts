@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { existsSync, readFileSync } from "node:fs";
+import { getAvailableModes } from "./modes/loader";
 import type { ObservationType, OpenMemConfig } from "./types";
 
 // -----------------------------------------------------------------------------
@@ -98,6 +99,9 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 
 	// Fallback providers
 	fallbackProviders: undefined,
+
+	// Workflow mode
+	mode: "code",
 };
 
 // -----------------------------------------------------------------------------
@@ -185,6 +189,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		env.fallbackProviders = process.env.OPEN_MEM_FALLBACK_PROVIDERS.split(",")
 			.map((s) => s.trim())
 			.filter(Boolean);
+	if (process.env.OPEN_MEM_MODE) env.mode = process.env.OPEN_MEM_MODE;
 
 	return env;
 }
@@ -296,6 +301,10 @@ export function resolveConfig(
 
 	if (config.embeddingDimension === undefined) {
 		config.embeddingDimension = getDefaultDimension(config.provider);
+	}
+
+	if (config.mode && !getAvailableModes().includes(config.mode)) {
+		config.mode = "code";
 	}
 
 	return config;

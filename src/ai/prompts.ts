@@ -1,3 +1,5 @@
+import type { ModeConfig } from "../types";
+
 // =============================================================================
 // open-mem — XML Prompt Templates for AI Compression and Summarization
 // =============================================================================
@@ -10,10 +12,50 @@ export function buildCompressionPrompt(
 	toolName: string,
 	toolOutput: string,
 	sessionContext?: string,
+	modeConfig?: ModeConfig,
 ): string {
 	const contextBlock = sessionContext
 		? `<session_context>\n${sessionContext}\n</session_context>\n\n`
 		: "";
+
+	const observationTypes = modeConfig
+		? modeConfig.observationTypes.join("|")
+		: "decision|bugfix|feature|refactor|discovery|change";
+
+	const conceptVocab = modeConfig
+		? modeConfig.conceptVocabulary
+		: [
+				"how-it-works",
+				"why-it-exists",
+				"what-changed",
+				"problem-solution",
+				"gotcha",
+				"pattern",
+				"trade-off",
+			];
+
+	const conceptLines = conceptVocab
+		.map((c) => {
+			const CONCEPT_DESCRIPTIONS: Record<string, string> = {
+				"how-it-works": "Technical mechanisms and behaviors",
+				"why-it-exists": "Rationale and motivations",
+				"what-changed": "Modifications and their effects",
+				"problem-solution": "Issues encountered and how they were resolved",
+				gotcha: "Surprising behaviors, edge cases, or pitfalls",
+				pattern: "Recurring design patterns or approaches",
+				"trade-off": "Deliberate compromises between competing concerns",
+				hypothesis: "Proposed explanations or predictions",
+				finding: "Key results or discoveries",
+				methodology: "Research methods and approaches",
+				evidence: "Supporting data or observations",
+				limitation: "Known constraints or boundaries",
+				implication: "Consequences or downstream effects",
+				comparison: "Similarities and differences between approaches",
+			};
+			const desc = CONCEPT_DESCRIPTIONS[c];
+			return desc ? `- ${c}: ${desc}` : `- ${c}`;
+		})
+		.join("\n");
 
 	return `<task>
 Analyze the following tool output and extract a structured observation.
@@ -29,18 +71,12 @@ ${contextBlock}<instructions>
 Extract a structured observation from the tool output. Determine the most appropriate type and provide a concise but informative summary.
 
 When extracting concepts, prefer established vocabulary where appropriate:
-- how-it-works: Technical mechanisms and behaviors
-- why-it-exists: Rationale and motivations
-- what-changed: Modifications and their effects
-- problem-solution: Issues encountered and how they were resolved
-- gotcha: Surprising behaviors, edge cases, or pitfalls
-- pattern: Recurring design patterns or approaches
-- trade-off: Deliberate compromises between competing concerns
+${conceptLines}
 You may also use any domain-specific concepts relevant to the observation.
 
 Respond with EXACTLY this XML format:
 <observation>
-  <type>decision|bugfix|feature|refactor|discovery|change</type>
+  <type>${observationTypes}</type>
   <title>Brief descriptive title (max 80 chars)</title>
   <subtitle>One-line elaboration</subtitle>
   <importance>1-5 (1=trivial/routine, 2=low, 3=normal, 4=significant, 5=critical decision or discovery)</importance>
@@ -206,8 +242,19 @@ export interface EntityExtractionObservation {
  * Build a prompt that instructs the AI to extract entities and relationships
  * from an observation.
  */
-export function buildEntityExtractionPrompt(obs: EntityExtractionObservation): string {
+export function buildEntityExtractionPrompt(
+	obs: EntityExtractionObservation,
+	modeConfig?: ModeConfig,
+): string {
 	const allFiles = [...obs.filesRead, ...obs.filesModified];
+
+	const entityTypes = modeConfig
+		? modeConfig.entityTypes.join(", ")
+		: "technology, library, pattern, concept, file, person, project, other";
+
+	const relationshipTypes = modeConfig
+		? modeConfig.relationshipTypes.join(", ")
+		: "uses, depends_on, implements, extends, related_to, replaces, configures";
 
 	return `<entity_extraction>
 <observation>
@@ -221,8 +268,8 @@ export function buildEntityExtractionPrompt(obs: EntityExtractionObservation): s
 <instructions>
 Extract entities and relationships from this observation.
 
-Entity types: technology, library, pattern, concept, file, person, project, other
-Relationship types: uses, depends_on, implements, extends, related_to, replaces, configures
+Entity types: ${entityTypes}
+Relationship types: ${relationshipTypes}
 
 Extract entities that are clearly mentioned or strongly implied. For example, "React hooks" implies a relationship between React and hooks. Do not extract speculative relationships.
 Respond with EXACTLY this XML format:

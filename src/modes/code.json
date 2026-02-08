@@ -1,0 +1,34 @@
+{
+	"id": "code",
+	"name": "Code",
+	"description": "Default coding workflow mode",
+	"observationTypes": ["decision", "bugfix", "feature", "refactor", "discovery", "change"],
+	"conceptVocabulary": [
+		"how-it-works",
+		"why-it-exists",
+		"what-changed",
+		"problem-solution",
+		"gotcha",
+		"pattern",
+		"trade-off"
+	],
+	"entityTypes": [
+		"technology",
+		"library",
+		"pattern",
+		"concept",
+		"file",
+		"person",
+		"project",
+		"other"
+	],
+	"relationshipTypes": [
+		"uses",
+		"depends_on",
+		"implements",
+		"extends",
+		"related_to",
+		"replaces",
+		"configures"
+	]
+}

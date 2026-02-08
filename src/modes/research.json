@@ -1,0 +1,36 @@
+{
+	"id": "research",
+	"name": "Research",
+	"description": "Research and exploration workflow mode",
+	"observationTypes": ["decision", "discovery", "change", "hypothesis", "finding", "methodology"],
+	"conceptVocabulary": [
+		"hypothesis",
+		"finding",
+		"methodology",
+		"evidence",
+		"limitation",
+		"implication",
+		"comparison",
+		"pattern",
+		"trade-off"
+	],
+	"entityTypes": [
+		"technology",
+		"library",
+		"concept",
+		"paper",
+		"person",
+		"project",
+		"dataset",
+		"other"
+	],
+	"relationshipTypes": [
+		"cites",
+		"extends",
+		"contradicts",
+		"supports",
+		"related_to",
+		"replaces",
+		"depends_on"
+	]
+}

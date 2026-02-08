@@ -13,6 +13,7 @@ import {
 } from "../../config/store";
 import { fail, observationTypeSchema, ok } from "../../contracts/api";
 import type { MemoryEngine, RuntimeStatusSnapshot } from "../../core/contracts";
+import { getAvailableModes, loadMode } from "../../modes/loader";
 import type { ObservationType, OpenMemConfig } from "../../types";
 
 export interface DashboardDeps {
@@ -461,6 +462,14 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
 		}
 	});
+
+	app.get("/v1/workflow-modes", (c) =>
+		c.json(
+			ok({
+				modes: getAvailableModes().map((id) => loadMode(id)),
+			}),
+		),
+	);
 
 	app.post("/v1/maintenance/folder-context/dry-run", async (c) => {
 		try {
