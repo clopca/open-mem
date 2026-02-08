@@ -1,3 +1,6 @@
+import { Alert } from "../components/ui/alert";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAPI } from "../hooks/useAPI";
 import type { ObservationType, StatsResponse } from "../types";
 
@@ -27,10 +30,10 @@ export function Stats() {
 			</div>
 
 			{error && (
-				<div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-					<p className="text-sm font-medium text-red-700">Failed to load stats</p>
-					<p className="mt-1 text-xs text-red-500">{error}</p>
-				</div>
+				<Alert variant="destructive" className="mb-6">
+					<p className="font-medium">Failed to load stats</p>
+					<p className="mt-1 text-xs opacity-80">{error}</p>
+				</Alert>
 			)}
 
 			{loading && <LoadingSkeleton />}
@@ -87,34 +90,41 @@ function StatsCards({ data }: { data: StatsResponse }) {
 	];
 
 	return (
-		<div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div
+			className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2"
+			role="group"
+			aria-label="Memory statistics"
+		>
 			{cards.map((card) => (
-				<div
+				<Card
 					key={card.label}
-					className="group relative overflow-hidden rounded-xl border border-stone-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md"
+					className="group relative overflow-hidden transition-all duration-200 hover:shadow-md"
 				>
-					<div className="absolute inset-0 bg-gradient-to-br from-stone-50/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-					<div className="relative">
-						<div className="mb-3 flex items-center gap-2.5">
-							<div
-								className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg ${card.accent}`}
-							>
-								{card.icon}
+					<CardContent className="p-5">
+						<div className="absolute inset-0 bg-gradient-to-br from-stone-50/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+						<div className="relative">
+							<div className="mb-3 flex items-center gap-2.5">
+								<div
+									className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg ${card.accent}`}
+									aria-hidden="true"
+								>
+									{card.icon}
+								</div>
+								<span className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
+									{card.label}
+								</span>
 							</div>
-							<span className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
-								{card.label}
-							</span>
+							<div className="flex items-baseline gap-2">
+								<span className="font-serif text-3xl font-medium text-stone-900 italic tabular-nums">
+									{card.value}
+								</span>
+								{card.suffix && (
+									<span className="text-xs font-medium text-stone-400">{card.suffix}</span>
+								)}
+							</div>
 						</div>
-						<div className="flex items-baseline gap-2">
-							<span className="font-serif text-3xl font-medium text-stone-900 italic tabular-nums">
-								{card.value}
-							</span>
-							{card.suffix && (
-								<span className="text-xs font-medium text-stone-400">{card.suffix}</span>
-							)}
-						</div>
-					</div>
-				</div>
+					</CardContent>
+				</Card>
 			))}
 		</div>
 	);
@@ -136,10 +146,10 @@ function TypeBreakdown({
 	const maxCount = Math.max(...entries.map(([, count]) => count));
 
 	return (
-		<div className="rounded-xl border border-stone-200 bg-white shadow-sm">
-			<div className="border-b border-stone-100 px-5 py-4">
+		<Card>
+			<CardHeader>
 				<h2 className="font-serif text-lg text-stone-800 italic">Type Breakdown</h2>
-			</div>
+			</CardHeader>
 
 			<div className="divide-y divide-stone-100">
 				{entries.map(([type, count]) => {
@@ -149,12 +159,19 @@ function TypeBreakdown({
 
 					return (
 						<div key={type} className="group flex items-center gap-4 px-5 py-3.5">
-							<div className="flex w-8 items-center justify-center text-lg">
+							<div className="flex w-8 items-center justify-center text-lg" aria-hidden="true">
 								{meta?.icon ?? "\u2753"}
 							</div>
 							<div className="w-24 text-sm font-medium text-stone-700">{meta?.label ?? type}</div>
 							<div className="relative flex-1">
-								<div className="h-2 overflow-hidden rounded-full bg-stone-100">
+								<div
+									className="h-2 overflow-hidden rounded-full bg-stone-100"
+									role="progressbar"
+									aria-valuenow={pct}
+									aria-valuemin={0}
+									aria-valuemax={100}
+									aria-label={`${meta?.label ?? type}: ${pct}%`}
+								>
 									<div
 										className={`h-full rounded-full transition-all duration-500 ${meta?.color ?? "bg-stone-300"}`}
 										style={{ width: `${barWidth}%` }}
@@ -169,7 +186,7 @@ function TypeBreakdown({
 					);
 				})}
 			</div>
-		</div>
+		</Card>
 	);
 }
 
@@ -178,48 +195,50 @@ function LoadingSkeleton() {
 		<>
 			<div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
 				{Array.from({ length: 4 }, (_, i) => (
-					<div
-						key={`card-skeleton-${i}`}
-						className="animate-pulse rounded-xl border border-stone-200 bg-white p-5 shadow-sm"
-					>
+					<Card key={`card-skeleton-${i}`} className="p-5">
 						<div className="mb-3 flex items-center gap-2.5">
-							<div className="h-9 w-9 rounded-lg bg-stone-100" />
-							<div className="h-3 w-28 rounded bg-stone-100" />
+							<Skeleton className="h-9 w-9 rounded-lg" />
+							<Skeleton className="h-3 w-28" />
 						</div>
-						<div className="h-8 w-20 rounded bg-stone-100" />
-					</div>
+						<Skeleton className="h-8 w-20" />
+					</Card>
 				))}
 			</div>
-			<div className="animate-pulse rounded-xl border border-stone-200 bg-white shadow-sm">
-				<div className="border-b border-stone-100 px-5 py-4">
-					<div className="h-5 w-36 rounded bg-stone-100" />
-				</div>
+			<Card>
+				<CardHeader>
+					<Skeleton className="h-5 w-36" />
+				</CardHeader>
 				{Array.from({ length: 4 }, (_, i) => (
 					<div
 						key={`row-skeleton-${i}`}
 						className="flex items-center gap-4 border-b border-stone-100 px-5 py-3.5 last:border-b-0"
 					>
-						<div className="h-6 w-8 rounded bg-stone-100" />
-						<div className="h-4 w-20 rounded bg-stone-100" />
-						<div className="h-2 flex-1 rounded-full bg-stone-100" />
-						<div className="h-4 w-10 rounded bg-stone-100" />
+						<Skeleton className="h-6 w-8" />
+						<Skeleton className="h-4 w-20" />
+						<Skeleton className="h-2 flex-1 rounded-full" />
+						<Skeleton className="h-4 w-10" />
 					</div>
 				))}
-			</div>
+			</Card>
 		</>
 	);
 }
 
 function EmptyState() {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-8 py-20">
-			<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl">
-				{"\u{1F4CA}"}
+		<Card className="border-dashed border-stone-300">
+			<div className="flex flex-col items-center justify-center px-8 py-20">
+				<div
+					className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl"
+					aria-hidden="true"
+				>
+					{"\u{1F4CA}"}
+				</div>
+				<h2 className="text-lg font-semibold text-stone-700">No stats available yet</h2>
+				<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
+					Stats will populate as observations are captured during your coding sessions.
+				</p>
 			</div>
-			<h2 className="text-lg font-semibold text-stone-700">No stats available yet</h2>
-			<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
-				Stats will populate as observations are captured during your coding sessions.
-			</p>
-		</div>
+		</Card>
 	);
 }

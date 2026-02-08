@@ -9,18 +9,13 @@ import { getDefaultConfig } from "../../src/config";
 import { buildUserContextSection } from "../../src/context/builder";
 import {
 	UserMemoryDatabase,
-	UserObservationRepository,
 	type UserObservation,
+	UserObservationRepository,
 } from "../../src/db/user-memory";
 import { createCompactionHook } from "../../src/hooks/compaction";
 import { createContextInjectionHook } from "../../src/hooks/context-inject";
 import { SearchOrchestrator } from "../../src/search/orchestrator";
-import type {
-	ObservationIndex,
-	OpenMemConfig,
-	Session,
-	SessionSummary,
-} from "../../src/types";
+import type { ObservationIndex, OpenMemConfig, Session, SessionSummary } from "../../src/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -128,8 +123,7 @@ function makeMockRepos(data?: {
 			getRecent: () => data?.sessions ?? [],
 		},
 		summaries: {
-			getBySessionId: (id: string) =>
-				data?.summaries?.find((s) => s.sessionId === id) ?? null,
+			getBySessionId: (id: string) => data?.summaries?.find((s) => s.sessionId === id) ?? null,
 		},
 	};
 }
@@ -260,6 +254,9 @@ describe("Memory Hierarchy — Search merge", () => {
 			searchByConcept: () => [],
 			searchByFile: () => [],
 			getById: (id: string) => (id === projectObs.id ? projectObs : null),
+			getByIdAny: (id: string) => (id === projectObs.id ? projectObs : null),
+			getBySessionAll: () => [],
+			listByProject: () => [],
 			getWithEmbeddings: () => [],
 			getVecEmbeddingMatches: () => [],
 		};
@@ -310,6 +307,9 @@ describe("Memory Hierarchy — Search merge", () => {
 			searchByConcept: () => [],
 			searchByFile: () => [],
 			getById: () => null,
+			getByIdAny: (id: string) => (id === projectObs.id ? projectObs : null),
+			getBySessionAll: () => [],
+			listByProject: () => [],
 			getWithEmbeddings: () => [],
 			getVecEmbeddingMatches: () => [],
 		};
@@ -359,6 +359,9 @@ describe("Memory Hierarchy — Search merge", () => {
 			searchByConcept: () => [],
 			searchByFile: () => [],
 			getById: () => null,
+			getByIdAny: (id: string) => (id === projectObs.id ? projectObs : null),
+			getBySessionAll: () => [],
+			listByProject: () => [],
 			getWithEmbeddings: () => [],
 			getVecEmbeddingMatches: () => [],
 		};
@@ -406,6 +409,9 @@ describe("Memory Hierarchy — Search merge", () => {
 			searchByConcept: () => [],
 			searchByFile: () => [],
 			getById: () => null,
+			getByIdAny: (id: string) => (id === projectObs.id ? projectObs : null),
+			getBySessionAll: () => [],
+			listByProject: () => [],
 			getWithEmbeddings: () => [],
 			getVecEmbeddingMatches: () => [],
 		};
@@ -481,9 +487,7 @@ describe("Memory Hierarchy — Context injection", () => {
 		);
 		const userRepo = { getIndex: () => largeUserEntries };
 
-		const projectIndex = [
-			makeIndexEntry({ id: "proj-1", title: "Project obs", tokenCount: 5 }),
-		];
+		const projectIndex = [makeIndexEntry({ id: "proj-1", title: "Project obs", tokenCount: 5 })];
 		const repos = makeMockRepos({
 			sessions: [makeSession()],
 			summaries: [makeSummary()],

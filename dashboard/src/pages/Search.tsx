@@ -1,5 +1,12 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SearchResultCard } from "../components/SearchResult";
+import { Alert } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Card } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
+import { Skeleton } from "../components/ui/skeleton";
 import type { SearchResult as SearchResultType } from "../types";
 
 const typeOptions: Array<{ value: string; label: string }> = [
@@ -11,6 +18,15 @@ const typeOptions: Array<{ value: string; label: string }> = [
 	{ value: "discovery", label: "\u{1F4A1} Discovery" },
 	{ value: "change", label: "\u{1F4DD} Change" },
 ];
+
+const SIGNAL_LABELS: Record<string, { label: string; color: string }> = {
+	fts: { label: "Full-text", color: "bg-sky-50 text-sky-700" },
+	vector: { label: "Vector", color: "bg-violet-50 text-violet-700" },
+	graph: { label: "Graph", color: "bg-emerald-50 text-emerald-700" },
+	"user-memory": { label: "User memory", color: "bg-amber-50 text-amber-700" },
+	"concept-filter": { label: "Concept", color: "bg-rose-50 text-rose-700" },
+	"file-filter": { label: "File", color: "bg-stone-100 text-stone-600" },
+};
 
 function useSearch() {
 	const [results, setResults] = useState<SearchResultType[]>([]);
@@ -88,6 +104,7 @@ export function Search() {
 	const [type, setType] = useState("");
 	const { results, loading, error, searched, search } = useSearch();
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const parentRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (timerRef.current) {
@@ -104,6 +121,23 @@ export function Search() {
 			}
 		};
 	}, [query, type, search]);
+
+	const virtualizer = useVirtualizer({
+		count: results.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => 140,
+		measureElement: (el) => el.getBoundingClientRect().height,
+		overscan: 5,
+	});
+
+	const activeSignals = results.reduce<Set<string>>((acc, r) => {
+		if (r.explain?.matchedBy) {
+			for (const signal of r.explain.matchedBy) {
+				acc.add(signal);
+			}
+		}
+		return acc;
+	}, new Set());
 
 	return (
 		<div className="mx-auto max-w-4xl">
@@ -130,12 +164,13 @@ export function Search() {
 							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 						/>
 					</svg>
-					<input
+					<Input
 						type="text"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search observations..."
-						className="w-full rounded-xl border border-stone-200 bg-white py-3.5 pl-12 pr-10 text-sm text-stone-800 shadow-sm outline-none transition-all duration-150 placeholder:text-stone-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200/50"
+						className="rounded-xl py-3.5 pl-12 pr-10"
+						aria-label="Search observations"
 					/>
 					{query.length > 0 && (
 						<button
@@ -162,95 +197,149 @@ export function Search() {
 					)}
 				</div>
 
-				<select
+				<Select
 					value={type}
 					onChange={(e) => setType(e.target.value)}
-					className="rounded-lg border border-stone-200 bg-white px-4 py-3 text-sm text-stone-700 shadow-sm outline-none transition-all duration-150 focus:border-amber-300 focus:ring-2 focus:ring-amber-200/50 sm:w-44"
+					className="sm:w-44"
+					aria-label="Filter by observation type"
 				>
 					{typeOptions.map((opt) => (
 						<option key={opt.value} value={opt.value}>
 							{opt.label}
 						</option>
 					))}
-				</select>
+				</Select>
 			</div>
 
 			{error && (
-				<div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-					<p className="text-sm text-red-700">{error}</p>
-				</div>
+				<Alert variant="destructive" className="mb-6">
+					<p>{error}</p>
+				</Alert>
 			)}
 
 			{loading && (
 				<div className="space-y-3">
 					{[1, 2, 3].map((i) => (
-						<div
-							key={i}
-							className="animate-pulse rounded-xl bg-white p-5 shadow-sm ring-1 ring-stone-200/60"
-						>
+						<Card key={`search-skeleton-${i}`} className="p-5">
 							<div className="flex items-start gap-3">
-								<div className="h-7 w-7 rounded-lg bg-stone-100" />
+								<Skeleton className="h-7 w-7 rounded-lg" />
 								<div className="flex-1 space-y-2">
-									<div className="h-4 w-2/3 rounded bg-stone-100" />
-									<div className="h-3 w-1/3 rounded bg-stone-50" />
+									<Skeleton className="h-4 w-2/3" />
+									<Skeleton className="h-3 w-1/3" />
 								</div>
 							</div>
 							<div className="mt-3 space-y-1.5">
-								<div className="h-3 w-full rounded bg-stone-50" />
-								<div className="h-3 w-4/5 rounded bg-stone-50" />
+								<Skeleton className="h-3 w-full" />
+								<Skeleton className="h-3 w-4/5" />
 							</div>
-						</div>
+						</Card>
 					))}
 				</div>
 			)}
 
 			{!loading && !searched && (
-				<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-8 py-20">
-					<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
-						<svg
-							className="h-7 w-7 text-amber-500"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							aria-hidden="true"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={1.5}
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
+				<Card className="border-dashed border-stone-300">
+					<div className="flex flex-col items-center justify-center px-8 py-20">
+						<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
+							<svg
+								className="h-7 w-7 text-amber-500"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={1.5}
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
+							</svg>
+						</div>
+						<h2 className="text-lg font-semibold text-stone-700">
+							Search through your observations
+						</h2>
+						<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
+							Type at least 2 characters to search across decisions, discoveries, bugfixes, and
+							more.
+						</p>
 					</div>
-					<h2 className="text-lg font-semibold text-stone-700">Search through your observations</h2>
-					<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
-						Type at least 2 characters to search across decisions, discoveries, bugfixes, and more.
-					</p>
-				</div>
+				</Card>
 			)}
 
 			{!loading && searched && results.length === 0 && (
-				<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-8 py-16">
-					<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl">
-						{"\u{1F50E}"}
+				<Card className="border-dashed border-stone-300">
+					<div className="flex flex-col items-center justify-center px-8 py-16">
+						<div
+							className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl"
+							aria-hidden="true"
+						>
+							{"\u{1F50E}"}
+						</div>
+						<h2 className="text-lg font-semibold text-stone-700">No results found</h2>
+						<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
+							No observations match &ldquo;{query}&rdquo;
+							{type ? ` with type ${type}` : ""}. Try different keywords or remove the type filter.
+						</p>
 					</div>
-					<h2 className="text-lg font-semibold text-stone-700">No results found</h2>
-					<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
-						No observations match &ldquo;{query}&rdquo;
-						{type ? ` with type ${type}` : ""}. Try different keywords or remove the type filter.
-					</p>
-				</div>
+				</Card>
 			)}
 
 			{!loading && results.length > 0 && (
 				<div>
-					<p className="mb-3 text-xs font-medium text-stone-400">
-						{results.length} result{results.length !== 1 ? "s" : ""}
-					</p>
-					<div className="space-y-3">
-						{results.map((result) => (
-							<SearchResultCard key={result.observation.id} result={result} />
-						))}
+					<div className="mb-3 flex items-center gap-3">
+						<p className="text-xs font-medium text-stone-400" role="status" aria-live="polite">
+							{results.length} result{results.length !== 1 ? "s" : ""}
+						</p>
+						{activeSignals.size > 0 && (
+							<div className="flex flex-wrap gap-1">
+								{[...activeSignals].map((signal) => {
+									const meta = SIGNAL_LABELS[signal];
+									return (
+										<Badge key={signal} variant="outline" className={meta?.color}>
+											{meta?.label ?? signal}
+										</Badge>
+									);
+								})}
+							</div>
+						)}
+					</div>
+					<div
+						ref={parentRef}
+						style={{ maxHeight: "calc(100vh - 320px)", overflowY: "auto" }}
+						role="feed"
+						aria-label="Search results"
+					>
+						<div
+							style={{
+								height: `${virtualizer.getTotalSize()}px`,
+								width: "100%",
+								position: "relative",
+							}}
+						>
+							{virtualizer.getVirtualItems().map((virtualItem) => {
+								const result = results[virtualItem.index];
+								if (!result) return null;
+								return (
+									<div
+										key={result.observation.id}
+										style={{
+											position: "absolute",
+											top: 0,
+											left: 0,
+											width: "100%",
+											transform: `translateY(${virtualItem.start}px)`,
+										}}
+										data-index={virtualItem.index}
+										ref={virtualizer.measureElement}
+									>
+										<div className="pb-3">
+											<SearchResultCard result={result} />
+										</div>
+									</div>
+								);
+							})}
+						</div>
 					</div>
 				</div>
 			)}

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EmbeddingModel } from "ai";
@@ -8,6 +9,7 @@ import {
 	getEffectiveConfig,
 	patchConfig,
 	previewConfig,
+	readProjectConfig,
 } from "../../config/store";
 import { fail, observationTypeSchema, ok } from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
@@ -94,7 +96,12 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		const offset = clampOffset(c.req.query("offset"));
 		const type = validateType(c.req.query("type"));
 		const sessionId = c.req.query("sessionId");
-		const data = memoryEngine.listObservations({ limit, offset, type, sessionId });
+		const stateParam = c.req.query("state");
+		const state =
+			stateParam === "current" || stateParam === "superseded" || stateParam === "tombstoned"
+				? stateParam
+				: undefined;
+		const data = memoryEngine.listObservations({ limit, offset, type, sessionId, state });
 		return c.json(ok(data, { limit, offset }));
 	});
 
@@ -138,6 +145,16 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 				lineage,
 			}),
 		);
+	});
+
+	app.get("/v1/memory/observations/:id/revision-diff", (c) => {
+		const id = c.req.param("id");
+		const againstId = c.req.query("against");
+		if (!againstId)
+			return c.json(fail("VALIDATION_ERROR", "Query parameter 'against' is required"), 400);
+		const diff = memoryEngine.getRevisionDiff(id, againstId);
+		if (!diff) return c.json(fail("NOT_FOUND", "One or both observations not found"), 404);
+		return c.json(ok(diff));
 	});
 
 	app.post("/v1/memory/observations/:id/revisions", async (c) => {
@@ -304,6 +321,10 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		);
 	});
 
+	app.get("/v1/adapters/status", (c) => {
+		return c.json(ok(memoryEngine.getAdapterStatuses()));
+	});
+
 	app.get("/v1/config/schema", (c) => c.json(ok(getConfigSchema())));
 
 	app.get("/v1/config/effective", async (c) => {
@@ -334,9 +355,30 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.patch("/v1/config", async (c) => {
+		let body: Partial<OpenMemConfig>;
 		try {
-			const body = (await c.req.json()) as Partial<OpenMemConfig>;
+			body = (await c.req.json()) as Partial<OpenMemConfig>;
+		} catch {
+			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		}
+		try {
+			const fileConfig = await readProjectConfig(projectPath);
 			const effective = await patchConfig(projectPath, body);
+
+			const previousValues: Record<string, unknown> = {};
+			for (const key of Object.keys(body)) {
+				if (Object.hasOwn(fileConfig, key)) {
+					previousValues[key] = (fileConfig as Record<string, unknown>)[key];
+				}
+			}
+			memoryEngine.trackConfigAudit({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				patch: body as Record<string, unknown>,
+				previousValues,
+				source: "api",
+			});
+
 			return c.json(
 				ok({
 					config: redactConfig(effective.config),
@@ -344,8 +386,29 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 					warnings: effective.warnings,
 				}),
 			);
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
+	});
+
+	app.get("/v1/config/audit", (c) => {
+		return c.json(ok(memoryEngine.getConfigAuditTimeline()));
+	});
+
+	app.post("/v1/config/rollback", async (c) => {
+		let body: { eventId: string };
+		try {
+			body = (await c.req.json()) as { eventId: string };
 		} catch {
 			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		}
+		if (!body.eventId) return c.json(fail("VALIDATION_ERROR", "eventId is required"), 400);
+		try {
+			const result = await memoryEngine.rollbackConfig(body.eventId);
+			if (!result) return c.json(fail("NOT_FOUND", "Audit event not found"), 404);
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
 		}
 	});
 
@@ -379,29 +442,89 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		const id = c.req.param("id");
 		const preset = MODE_PRESETS[id];
 		if (!preset) return c.json(fail("NOT_FOUND", "Unknown mode"), 404);
-		const effective = await patchConfig(projectPath, preset);
-		return c.json(
-			ok({
-				applied: id,
-				config: redactConfig(effective.config),
-				meta: effective.meta,
-				warnings: effective.warnings,
-			}),
-		);
+		try {
+			const fileConfig = await readProjectConfig(projectPath);
+			const effective = await patchConfig(projectPath, preset);
+
+			const previousValues: Record<string, unknown> = {};
+			for (const key of Object.keys(preset)) {
+				if (Object.hasOwn(fileConfig, key)) {
+					previousValues[key] = (fileConfig as Record<string, unknown>)[key];
+				}
+			}
+			memoryEngine.trackConfigAudit({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				patch: preset as unknown as Record<string, unknown>,
+				previousValues,
+				source: "mode",
+			});
+
+			return c.json(
+				ok({
+					applied: id,
+					config: redactConfig(effective.config),
+					meta: effective.meta,
+					warnings: effective.warnings,
+				}),
+			);
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
 	});
 
 	app.post("/v1/maintenance/folder-context/dry-run", async (c) => {
-		const body = (await c.req.json().catch(() => ({}))) as { action?: "clean" | "rebuild" };
-		const action = body.action ?? "clean";
-		return c.json(ok(await memoryEngine.maintainFolderContext(action, true)));
+		try {
+			const body = (await c.req.json().catch(() => ({}))) as { action?: "clean" | "rebuild" };
+			const action = body.action ?? "clean";
+			const result = await memoryEngine.maintainFolderContext(action, true);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: `folder-context-${action}-dry-run`,
+				dryRun: true,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
 	});
 
-	app.post("/v1/maintenance/folder-context/clean", async (c) =>
-		c.json(ok(await memoryEngine.maintainFolderContext("clean", false))),
-	);
-	app.post("/v1/maintenance/folder-context/rebuild", async (c) =>
-		c.json(ok(await memoryEngine.maintainFolderContext("rebuild", false))),
-	);
+	app.post("/v1/maintenance/folder-context/clean", async (c) => {
+		try {
+			const result = await memoryEngine.maintainFolderContext("clean", false);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: "folder-context-clean",
+				dryRun: false,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
+	});
+	app.post("/v1/maintenance/folder-context/rebuild", async (c) => {
+		try {
+			const result = await memoryEngine.maintainFolderContext("rebuild", false);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: "folder-context-rebuild",
+				dryRun: false,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
+	});
+
+	app.get("/v1/maintenance/history", (c) => {
+		return c.json(ok(memoryEngine.getMaintenanceHistory()));
+	});
 
 	if (deps.sseHandler) app.get("/v1/events", deps.sseHandler);
 

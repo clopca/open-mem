@@ -40,3 +40,4 @@ coverage/
 
 # Auto-generated context files (open-mem plugin)
 **/AGENTS.md
+# /open-mem-parallel

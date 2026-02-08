@@ -133,6 +133,7 @@ function runNativeVectorSearch(
 				observation: obs,
 				rank: distance - 1,
 				snippet: obs.title,
+				rankingSource: "vector",
 				explain: {
 					strategy: "hybrid",
 					matchedBy: ["vector"],
@@ -177,6 +178,7 @@ function runJsFallbackVectorSearch(
 			observation: obs,
 			rank: -similarity,
 			snippet: obs.title,
+			rankingSource: "vector",
 			explain: {
 				strategy: "hybrid",
 				matchedBy: ["vector"],
@@ -203,6 +205,7 @@ function mergeWithRRF(
 			score: rrfScore,
 			result: {
 				...r,
+				rankingSource: "fts",
 				explain: {
 					strategy: "hybrid",
 					matchedBy: ["fts"],
@@ -217,6 +220,8 @@ function mergeWithRRF(
 		const rrfScore = 1 / (RRF_K + i + 1);
 		const existing = scores.get(r.observation.id);
 		if (existing) {
+			// Primary rankingSource remains "fts" (from the first list) when matched by both;
+			// see explain.matchedBy for full attribution of ranking signals.
 			existing.score += rrfScore;
 			existing.result = {
 				...existing.result,

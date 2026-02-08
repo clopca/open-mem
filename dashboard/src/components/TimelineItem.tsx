@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Observation, ObservationLineageResponse, ObservationType } from "../types";
+import { Badge } from "./ui/badge";
+import { Card } from "./ui/card";
 
 const TYPE_ICONS: Record<ObservationType, string> = {
 	bugfix: "\u{1F41B}",
@@ -10,13 +12,16 @@ const TYPE_ICONS: Record<ObservationType, string> = {
 	change: "\u{1F4DD}",
 };
 
-const TYPE_COLORS: Record<ObservationType, string> = {
-	bugfix: "bg-red-50 text-red-700 ring-red-200",
-	discovery: "bg-violet-50 text-violet-700 ring-violet-200",
-	refactor: "bg-sky-50 text-sky-700 ring-sky-200",
-	decision: "bg-amber-50 text-amber-700 ring-amber-200",
-	feature: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-	change: "bg-stone-100 text-stone-600 ring-stone-200",
+const TYPE_BADGE_VARIANT: Record<
+	ObservationType,
+	"danger" | "warning" | "outline" | "success" | "muted" | "default"
+> = {
+	bugfix: "danger",
+	discovery: "warning",
+	refactor: "outline",
+	decision: "default",
+	feature: "success",
+	change: "muted",
 };
 
 const DOT_COLORS: Record<ObservationType, string> = {
@@ -64,10 +69,8 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 	const [lineage, setLineage] = useState<Observation[] | null>(null);
 	const [lineageError, setLineageError] = useState<string | null>(null);
 	const icon = TYPE_ICONS[observation.type] ?? "\u{1F4DD}";
-	const colorClasses = TYPE_COLORS[observation.type] ?? TYPE_COLORS.change;
 	const dotColor = DOT_COLORS[observation.type] ?? DOT_COLORS.change;
-
-	const hasExpandableContent = true;
+	const badgeVariant = TYPE_BADGE_VARIANT[observation.type] ?? "muted";
 
 	useEffect(() => {
 		if (!expanded || lineage || lineageError) return;
@@ -96,24 +99,27 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 	}, [expanded, lineage, lineageError, observation.id]);
 
 	return (
-		<div className={`timeline-item relative pl-8 ${isNew ? "timeline-item-new" : ""}`}>
+		<article className={`timeline-item relative pl-8 ${isNew ? "timeline-item-new" : ""}`}>
 			<div
 				className={`absolute left-0 top-3 z-10 h-3 w-3 rounded-full ring-[3px] ring-white ${dotColor}`}
+				aria-hidden="true"
 			/>
 
-			<div className="group rounded-xl border border-stone-200/80 bg-white shadow-sm transition-all duration-200 hover:shadow-md">
+			<Card className="group transition-all duration-200 hover:shadow-md">
 				<button
 					type="button"
-					onClick={() => hasExpandableContent && setExpanded(!expanded)}
-					className={`w-full px-5 py-4 text-left ${hasExpandableContent ? "cursor-pointer" : "cursor-default"}`}
+					onClick={() => setExpanded(!expanded)}
+					className="w-full px-5 py-4 text-left cursor-pointer"
+					aria-expanded={expanded}
+					aria-label={`${observation.type}: ${observation.title}`}
 				>
 					<div className="flex items-start gap-3">
-						<span
-							className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${colorClasses}`}
-						>
-							<span className="text-sm">{icon}</span>
+						<Badge variant={badgeVariant} className="shrink-0 gap-1.5">
+							<span className="text-sm" aria-hidden="true">
+								{icon}
+							</span>
 							{observation.type}
-						</span>
+						</Badge>
 
 						<div className="min-w-0 flex-1">
 							<h3 className="text-sm font-semibold leading-snug text-stone-900">
@@ -132,36 +138,34 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 							>
 								{relativeTime(observation.createdAt)}
 							</time>
-							{hasExpandableContent && (
-								<svg
-									className={`h-4 w-4 text-stone-300 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									aria-hidden="true"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M19 9l-7 7-7-7"
-									/>
-								</svg>
-							)}
+							<svg
+								className={`h-4 w-4 text-stone-300 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M19 9l-7 7-7-7"
+								/>
+							</svg>
 						</div>
 					</div>
 
 					<div className="mt-2 flex items-center gap-2">
-						<span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-400">
+						<Badge variant="muted" className="font-mono text-[10px]">
 							{truncateId(observation.sessionId)}
-						</span>
+						</Badge>
 						{observation.tokenCount > 0 && (
 							<span className="text-[10px] text-stone-300">{observation.tokenCount} tokens</span>
 						)}
 					</div>
 				</button>
 
-				{expanded && hasExpandableContent && (
+				{expanded && (
 					<div className="border-t border-stone-100 px-5 py-4">
 						{observation.narrative && (
 							<div className="mb-4">
@@ -183,7 +187,10 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 											key={`${observation.id}-fact-${i}`}
 											className="flex items-start gap-2 text-sm text-stone-600"
 										>
-											<span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+											<span
+												className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400"
+												aria-hidden="true"
+											/>
 											{fact}
 										</li>
 									))}
@@ -198,12 +205,13 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 								</h4>
 								<div className="flex flex-wrap gap-1.5">
 									{observation.concepts.map((concept) => (
-										<span
+										<Badge
 											key={`${observation.id}-concept-${concept}`}
-											className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200/60"
+											variant="warning"
+											className="rounded-full text-[11px]"
 										>
 											{concept}
-										</span>
+										</Badge>
 									))}
 								</div>
 							</div>
@@ -228,7 +236,7 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 						)}
 
 						{observation.filesModified.length > 0 && (
-							<div>
+							<div className="mb-4">
 								<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
 									Files Modified
 								</h4>
@@ -266,19 +274,19 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 											</div>
 											<div className="ml-2 flex items-center gap-1">
 												{item.deletedAt && (
-													<span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">
+													<Badge variant="danger" className="text-[10px]">
 														tombstoned
-													</span>
+													</Badge>
 												)}
 												{item.supersededBy && !item.deletedAt && (
-													<span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+													<Badge variant="warning" className="text-[10px]">
 														superseded
-													</span>
+													</Badge>
 												)}
 												{!item.supersededBy && !item.deletedAt && (
-													<span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
+													<Badge variant="success" className="text-[10px]">
 														current
-													</span>
+													</Badge>
 												)}
 											</div>
 										</div>
@@ -288,7 +296,7 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 						</div>
 					</div>
 				)}
-			</div>
-		</div>
+			</Card>
+		</article>
 	);
 }

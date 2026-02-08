@@ -19,7 +19,12 @@
 		"open-mem-claude-code": "./dist/claude-code.js",
 		"open-mem-cursor": "./dist/cursor.js"
 	},
-	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md"
+	],
 	"scripts": {
 		"build": "bun run clean && bun run build:bundle && bun run build:mcp && bun run build:daemon && bun run build:maintenance && bun run build:claude-code && bun run build:cursor && bun run build:dashboard && bun run build:types",
 		"build:dashboard": "cd dashboard && bun install && bun run build && cp -r dist ../dist/dashboard",
@@ -34,7 +39,7 @@
 		"test": "bun test",
 		"test:mcp:transcripts": "bun test tests/servers/mcp-transcripts.test.ts",
 		"typecheck": "bun x tsc --noEmit",
-		"check:boundaries": "bun run scripts/check-import-boundaries.ts",
+		"check:boundaries": "bun run scripts/check-import-boundaries.ts && bun run scripts/check-deprecated-paths.ts",
 		"quality:gate": "bun run scripts/quality-gate.ts",
 		"bench:search": "bun run scripts/benchmark-search.ts",
 		"bench:platform": "bun run scripts/benchmark-platform-normalization.ts",

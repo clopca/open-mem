@@ -20,7 +20,7 @@ export function Layout() {
 					className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
 					onClick={() => setSidebarOpen(false)}
 					onKeyDown={(e) => {
-						if (e.key === "Escape") setSidebarOpen(false);
+						if (e.key === "Escape" || e.key === "Enter" || e.key === " ") setSidebarOpen(false);
 					}}
 					role="button"
 					tabIndex={0}
@@ -35,7 +35,9 @@ export function Layout() {
 			>
 				<div className="flex h-16 items-center gap-3 border-b border-stone-800 px-6">
 					<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
-						<span className="text-sm font-bold text-amber-400">m</span>
+						<span className="text-sm font-bold text-amber-400" aria-hidden="true">
+							m
+						</span>
 					</div>
 					<div>
 						<h1 className="font-serif text-lg leading-tight text-stone-100 italic">open-mem</h1>
@@ -45,7 +47,7 @@ export function Layout() {
 					</div>
 				</div>
 
-				<nav className="flex-1 space-y-1 px-3 py-4">
+				<nav className="flex-1 space-y-1 px-3 py-4" role="navigation" aria-label="Main navigation">
 					{navItems.map((item) => (
 						<NavLink
 							key={item.to}
@@ -60,7 +62,9 @@ export function Layout() {
 								}`
 							}
 						>
-							<span className="text-base">{item.icon}</span>
+							<span className="text-base" aria-hidden="true">
+								{item.icon}
+							</span>
 							<span>{item.label}</span>
 						</NavLink>
 					))}

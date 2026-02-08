@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
 import { SessionCard } from "../components/SessionCard";
+import { Alert } from "../components/ui/alert";
+import { Card } from "../components/ui/card";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAPI } from "../hooks/useAPI";
 import type { Session } from "../types";
 
@@ -19,59 +22,59 @@ export function Sessions() {
 			</div>
 
 			{loading && (
-				<div className="flex flex-col items-center justify-center py-20">
-					<svg
-						className="mb-4 h-8 w-8 animate-spin text-amber-500"
-						fill="none"
-						viewBox="0 0 24 24"
-						aria-hidden="true"
-					>
-						<circle
-							className="opacity-25"
-							cx="12"
-							cy="12"
-							r="10"
-							stroke="currentColor"
-							strokeWidth="4"
-						/>
-						<path
-							className="opacity-75"
-							fill="currentColor"
-							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-						/>
-					</svg>
-					<p className="text-sm text-stone-400">Loading sessions…</p>
+				<div className="space-y-3">
+					{Array.from({ length: 4 }, (_, i) => (
+						<Card key={`session-skeleton-${i}`} className="p-5">
+							<div className="flex items-center gap-4">
+								<Skeleton className="h-2.5 w-2.5 rounded-full" />
+								<div className="flex-1 space-y-2">
+									<div className="flex items-center gap-2.5">
+										<Skeleton className="h-4 w-20" />
+										<Skeleton className="h-5 w-16 rounded-full" />
+									</div>
+									<Skeleton className="h-3 w-48" />
+								</div>
+								<Skeleton className="h-5 w-5" />
+							</div>
+						</Card>
+					))}
 				</div>
 			)}
 
 			{error && (
-				<div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-					<p className="text-sm font-medium text-red-700">Failed to load sessions</p>
-					<p className="mt-1 text-xs text-red-500">{error}</p>
-				</div>
+				<Alert variant="destructive">
+					<p className="font-medium">Failed to load sessions</p>
+					<p className="mt-1 text-xs opacity-80">{error}</p>
+				</Alert>
 			)}
 
 			{!loading && !error && sessions && sessions.length === 0 && (
-				<div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-8 py-20">
-					<div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl">
-						{"\u{1F4CB}"}
+				<Card className="border-dashed border-stone-300">
+					<div className="flex flex-col items-center justify-center px-8 py-20">
+						<div
+							className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl"
+							aria-hidden="true"
+						>
+							{"\u{1F4CB}"}
+						</div>
+						<h2 className="text-lg font-semibold text-stone-700">No sessions found</h2>
+						<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
+							Sessions will appear here once you start using open-mem with OpenCode.
+						</p>
 					</div>
-					<h2 className="text-lg font-semibold text-stone-700">No sessions found</h2>
-					<p className="mt-2 max-w-sm text-center text-sm text-stone-400">
-						Sessions will appear here once you start using open-mem with OpenCode.
-					</p>
-				</div>
+				</Card>
 			)}
 
 			{!loading && !error && sessions && sessions.length > 0 && (
-				<div className="space-y-3">
+				<div className="space-y-3" role="list" aria-label="Coding sessions">
 					{sessions.map((session) => (
-						<SessionCard
-							key={session.id}
-							session={session}
-							isExpanded={expandedId === session.id}
-							onToggle={() => toggleSession(session.id)}
-						/>
+						<div key={session.id} role="listitem">
+							<SessionCard
+								session={session}
+								isExpanded={expandedId === session.id}
+								onToggle={() => toggleSession(session.id)}
+							/>
+						</div>
 					))}
 				</div>
 			)}
