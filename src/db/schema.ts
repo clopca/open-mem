@@ -30,12 +30,11 @@ export const TABLES = {
 // Migrations
 // -----------------------------------------------------------------------------
 
-/** Ordered list of database migrations from v1 to v11. */
+/** Single migration that creates the complete database schema. */
 export const MIGRATIONS: Migration[] = [
-	// v1 — Core tables
 	{
 		version: 1,
-		name: "create-core-tables",
+		name: "create-schema",
 		up: `
 			-- Sessions table
 			CREATE TABLE IF NOT EXISTS sessions (
@@ -75,6 +74,15 @@ export const MIGRATIONS: Migration[] = [
 				tool_name TEXT NOT NULL,
 				created_at TEXT NOT NULL DEFAULT (datetime('now')),
 				token_count INTEGER NOT NULL DEFAULT 0,
+				discovery_tokens INTEGER NOT NULL DEFAULT 0,
+				embedding TEXT,
+				importance INTEGER NOT NULL DEFAULT 3,
+				superseded_by TEXT,
+				superseded_at TEXT,
+				scope TEXT NOT NULL DEFAULT 'project'
+					CHECK (scope IN ('project','user')),
+				revision_of TEXT,
+				deleted_at TEXT,
 				FOREIGN KEY (session_id) REFERENCES sessions(id)
 			);
 
@@ -84,6 +92,23 @@ export const MIGRATIONS: Migration[] = [
 				ON observations(type);
 			CREATE INDEX IF NOT EXISTS idx_observations_created
 				ON observations(created_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_observations_superseded
+				ON observations(superseded_by);
+			CREATE INDEX IF NOT EXISTS idx_observations_scope
+				ON observations(scope);
+			CREATE INDEX IF NOT EXISTS idx_observations_revision_of
+				ON observations(revision_of);
+			CREATE INDEX IF NOT EXISTS idx_observations_deleted_at
+				ON observations(deleted_at);
+
+			-- Clean up superseded_by when the superseding observation is deleted
+			CREATE TRIGGER IF NOT EXISTS trg_clear_superseded_by
+			AFTER DELETE ON observations
+			BEGIN
+				UPDATE observations
+				SET superseded_by = NULL, superseded_at = NULL
+				WHERE superseded_by = OLD.id;
+			END;
 
 			-- Session summaries table
 			CREATE TABLE IF NOT EXISTS session_summaries (
@@ -96,6 +121,11 @@ export const MIGRATIONS: Migration[] = [
 				concepts TEXT NOT NULL DEFAULT '[]',
 				created_at TEXT NOT NULL DEFAULT (datetime('now')),
 				token_count INTEGER NOT NULL DEFAULT 0,
+				request TEXT NOT NULL DEFAULT '',
+				investigated TEXT NOT NULL DEFAULT '',
+				learned TEXT NOT NULL DEFAULT '',
+				completed TEXT NOT NULL DEFAULT '',
+				next_steps TEXT NOT NULL DEFAULT '',
 				FOREIGN KEY (session_id) REFERENCES sessions(id)
 			);
 
@@ -119,15 +149,83 @@ export const MIGRATIONS: Migration[] = [
 				ON pending_messages(status);
 			CREATE INDEX IF NOT EXISTS idx_pending_session
 				ON pending_messages(session_id);
-		`,
-	},
 
-	// v2 — FTS5 virtual tables and sync triggers
-	{
-		version: 2,
-		name: "create-fts5-tables",
-		up: `
-			-- FTS5 for observations (title, subtitle, narrative, facts, concepts, files)
+			-- Embedding metadata
+			CREATE TABLE IF NOT EXISTS _embedding_meta (
+				key TEXT PRIMARY KEY,
+				value TEXT NOT NULL
+			);
+
+			-- Config audit events
+			CREATE TABLE IF NOT EXISTS config_audit_events (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				timestamp TEXT NOT NULL,
+				patch TEXT NOT NULL,
+				previous_values TEXT NOT NULL,
+				source TEXT NOT NULL
+					CHECK (source IN ('api','mode','rollback','rollback-failed'))
+			);
+			CREATE INDEX IF NOT EXISTS idx_config_audit_timestamp
+				ON config_audit_events(timestamp DESC);
+
+			-- Maintenance history
+			CREATE TABLE IF NOT EXISTS maintenance_history (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				timestamp TEXT NOT NULL,
+				action TEXT NOT NULL,
+				dry_run INTEGER NOT NULL DEFAULT 0,
+				result TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_maintenance_history_timestamp
+				ON maintenance_history(timestamp DESC);
+
+			-- Entities table
+			CREATE TABLE IF NOT EXISTS entities (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				name TEXT NOT NULL,
+				entity_type TEXT NOT NULL
+					CHECK (entity_type IN ('technology','library','pattern','concept','file','person','project','other')),
+				first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+				last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+				mention_count INTEGER NOT NULL DEFAULT 1,
+				UNIQUE(name, entity_type)
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+			CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
+
+			-- Entity relations table
+			CREATE TABLE IF NOT EXISTS entity_relations (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				source_entity_id TEXT NOT NULL,
+				target_entity_id TEXT NOT NULL,
+				relationship TEXT NOT NULL
+					CHECK (relationship IN ('uses','depends_on','implements','extends','related_to','replaces','configures')),
+				observation_id TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				UNIQUE(source_entity_id, target_entity_id, relationship),
+			FOREIGN KEY (source_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (target_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_entity_relations_source ON entity_relations(source_entity_id);
+			CREATE INDEX IF NOT EXISTS idx_entity_relations_target ON entity_relations(target_entity_id);
+
+			-- Entity-Observation junction table
+			CREATE TABLE IF NOT EXISTS entity_observations (
+				entity_id TEXT NOT NULL,
+				observation_id TEXT NOT NULL,
+				PRIMARY KEY (entity_id, observation_id),
+			FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
+			);
+
+			-- FTS5 for observations
 			CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
 				title,
 				subtitle,
@@ -141,7 +239,6 @@ export const MIGRATIONS: Migration[] = [
 				tokenize='porter unicode61'
 			);
 
-			-- Triggers to keep FTS5 in sync with observations table
 			CREATE TRIGGER observations_ai AFTER INSERT ON observations BEGIN
 				INSERT INTO observations_fts(
 					rowid, title, subtitle, narrative, facts, concepts,
@@ -198,137 +295,14 @@ export const MIGRATIONS: Migration[] = [
 				VALUES (new._rowid, new.summary, new.key_decisions, new.concepts);
 			END;
 
-		CREATE TRIGGER summaries_ad AFTER DELETE ON session_summaries BEGIN
-			INSERT INTO summaries_fts(
-				summaries_fts, rowid, summary, key_decisions, concepts
-			)
-			VALUES (
-				'delete', old._rowid, old.summary, old.key_decisions, old.concepts
-			);
-		END;
-	`,
-	},
-
-	// v3 — Structured summary columns
-	{
-		version: 3,
-		name: "add-structured-summary-columns",
-		up: `
-			ALTER TABLE session_summaries ADD COLUMN request TEXT NOT NULL DEFAULT '';
-			ALTER TABLE session_summaries ADD COLUMN investigated TEXT NOT NULL DEFAULT '';
-			ALTER TABLE session_summaries ADD COLUMN learned TEXT NOT NULL DEFAULT '';
-			ALTER TABLE session_summaries ADD COLUMN completed TEXT NOT NULL DEFAULT '';
-			ALTER TABLE session_summaries ADD COLUMN next_steps TEXT NOT NULL DEFAULT '';
-		`,
-	},
-
-	// v4 — Discovery tokens for ROI tracking
-	{
-		version: 4,
-		name: "add-discovery-tokens",
-		up: `
-			ALTER TABLE observations ADD COLUMN discovery_tokens INTEGER NOT NULL DEFAULT 0;
-		`,
-	},
-
-	// v5 — Optional embedding column for vector-based semantic search
-	{
-		version: 5,
-		name: "add-embedding-column",
-		up: `
-			ALTER TABLE observations ADD COLUMN embedding TEXT;
-		`,
-	},
-
-	// v6 — Metadata table for embedding configuration (vec0 created separately)
-	{
-		version: 6,
-		name: "create-embedding-meta-table",
-		up: `
-			CREATE TABLE IF NOT EXISTS _embedding_meta (
-				key TEXT PRIMARY KEY,
-				value TEXT NOT NULL
-			);
-		`,
-	},
-
-	// v7 — AI-assigned importance score for observations
-	{
-		version: 7,
-		name: "add-importance-column",
-		up: `
-			ALTER TABLE observations ADD COLUMN importance INTEGER NOT NULL DEFAULT 3;
-		`,
-	},
-
-	// v8 — Conflict resolution columns for observation superseding
-	{
-		version: 8,
-		name: "add-conflict-resolution-columns",
-		up: `
-			ALTER TABLE observations ADD COLUMN superseded_by TEXT;
-			ALTER TABLE observations ADD COLUMN superseded_at TEXT;
-			CREATE INDEX IF NOT EXISTS idx_observations_superseded ON observations(superseded_by);
-
-			-- Clean up superseded_by when the superseding observation is deleted
-			CREATE TRIGGER IF NOT EXISTS trg_clear_superseded_by
-			AFTER DELETE ON observations
-			BEGIN
-				UPDATE observations
-				SET superseded_by = NULL, superseded_at = NULL
-				WHERE superseded_by = OLD.id;
+			CREATE TRIGGER summaries_ad AFTER DELETE ON session_summaries BEGIN
+				INSERT INTO summaries_fts(
+					summaries_fts, rowid, summary, key_decisions, concepts
+				)
+				VALUES (
+					'delete', old._rowid, old.summary, old.key_decisions, old.concepts
+				);
 			END;
-		`,
-	},
-
-	// v9 — Entity graph tables for knowledge graph support
-	{
-		version: 9,
-		name: "create-entity-graph-tables",
-		up: `
-			-- Entities table
-			CREATE TABLE IF NOT EXISTS entities (
-				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-				id TEXT UNIQUE NOT NULL,
-				name TEXT NOT NULL,
-				entity_type TEXT NOT NULL
-					CHECK (entity_type IN ('technology','library','pattern','concept','file','person','project','other')),
-				first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
-				last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
-				mention_count INTEGER NOT NULL DEFAULT 1,
-				UNIQUE(name, entity_type)
-			);
-
-			CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
-			CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
-
-			-- Entity relations table
-			CREATE TABLE IF NOT EXISTS entity_relations (
-				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-				id TEXT UNIQUE NOT NULL,
-				source_entity_id TEXT NOT NULL,
-				target_entity_id TEXT NOT NULL,
-				relationship TEXT NOT NULL
-					CHECK (relationship IN ('uses','depends_on','implements','extends','related_to','replaces','configures')),
-				observation_id TEXT NOT NULL,
-				created_at TEXT NOT NULL DEFAULT (datetime('now')),
-				UNIQUE(source_entity_id, target_entity_id, relationship),
-			FOREIGN KEY (source_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
-			FOREIGN KEY (target_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
-			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
-			);
-
-			CREATE INDEX IF NOT EXISTS idx_entity_relations_source ON entity_relations(source_entity_id);
-			CREATE INDEX IF NOT EXISTS idx_entity_relations_target ON entity_relations(target_entity_id);
-
-			-- Entity-Observation junction table
-			CREATE TABLE IF NOT EXISTS entity_observations (
-				entity_id TEXT NOT NULL,
-				observation_id TEXT NOT NULL,
-				PRIMARY KEY (entity_id, observation_id),
-			FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE,
-			FOREIGN KEY (observation_id) REFERENCES observations(id) ON DELETE CASCADE
-			);
 
 			-- FTS5 for entity search
 			CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
@@ -339,7 +313,6 @@ export const MIGRATIONS: Migration[] = [
 				tokenize='porter unicode61'
 			);
 
-			-- FTS5 sync triggers
 			CREATE TRIGGER entities_ai AFTER INSERT ON entities BEGIN
 				INSERT INTO entities_fts(rowid, name, entity_type)
 				VALUES (new._rowid, new.name, new.entity_type);
@@ -356,48 +329,6 @@ export const MIGRATIONS: Migration[] = [
 				INSERT INTO entities_fts(rowid, name, entity_type)
 				VALUES (new._rowid, new.name, new.entity_type);
 			END;
-		`,
-	},
-	{
-		version: 10,
-		name: "add-v1-revision-tombstone-columns",
-		up: `
-			ALTER TABLE observations ADD COLUMN scope TEXT NOT NULL DEFAULT 'project'
-				CHECK (scope IN ('project','user'));
-			ALTER TABLE observations ADD COLUMN revision_of TEXT;
-			ALTER TABLE observations ADD COLUMN deleted_at TEXT;
-
-			CREATE INDEX IF NOT EXISTS idx_observations_scope ON observations(scope);
-			CREATE INDEX IF NOT EXISTS idx_observations_revision_of ON observations(revision_of);
-			CREATE INDEX IF NOT EXISTS idx_observations_deleted_at ON observations(deleted_at);
-		`,
-	},
-	{
-		version: 11,
-		name: "create-config-audit-and-maintenance-history",
-		up: `
-			CREATE TABLE IF NOT EXISTS config_audit_events (
-				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-				id TEXT UNIQUE NOT NULL,
-				timestamp TEXT NOT NULL,
-				patch TEXT NOT NULL,
-				previous_values TEXT NOT NULL,
-				source TEXT NOT NULL
-					CHECK (source IN ('api','mode','rollback','rollback-failed'))
-			);
-			CREATE INDEX IF NOT EXISTS idx_config_audit_timestamp
-				ON config_audit_events(timestamp DESC);
-
-			CREATE TABLE IF NOT EXISTS maintenance_history (
-				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-				id TEXT UNIQUE NOT NULL,
-				timestamp TEXT NOT NULL,
-				action TEXT NOT NULL,
-				dry_run INTEGER NOT NULL DEFAULT 0,
-				result TEXT NOT NULL
-			);
-			CREATE INDEX IF NOT EXISTS idx_maintenance_history_timestamp
-				ON maintenance_history(timestamp DESC);
 		`,
 	},
 ];

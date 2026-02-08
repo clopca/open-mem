@@ -75,7 +75,7 @@ describe("Schema and FTS5", () => {
 		const migrations = db.all<{ version: number }>(
 			"SELECT version FROM _migrations ORDER BY version",
 		);
-		expect(migrations).toHaveLength(11); // v1 through v11
+		expect(migrations).toHaveLength(1);
 		db.close();
 	});
 
