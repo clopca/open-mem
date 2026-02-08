@@ -76,7 +76,9 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	private projectPath: string;
 	private config: OpenMemConfig;
 	private userObservationRepo: UserObservationStore | null;
+	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
 	private configAuditLog: ConfigAuditEvent[] = [];
+	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
 	private maintenanceLog: MaintenanceHistoryItem[] = [];
 
 	constructor(deps: EngineDeps) {
@@ -421,6 +423,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 				offset,
 				type,
 				state,
+				sessionId,
 			});
 		}
 
@@ -606,9 +609,26 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		const event = this.configAuditLog.find((e) => e.id === eventId);
 		if (!event) return null;
 
+		if (!event.previousValues || typeof event.previousValues !== "object") {
+			return null;
+		}
+
 		const { patchConfig: doPatch } = await import("../config/store");
 		const rollbackPatch = event.previousValues as Partial<import("../types").OpenMemConfig>;
-		await doPatch(this.projectPath, rollbackPatch);
+
+		try {
+			await doPatch(this.projectPath, rollbackPatch);
+		} catch (error) {
+			const failureEvent: ConfigAuditEvent = {
+				id: `rollback-failed-${Date.now()}`,
+				timestamp: new Date().toISOString(),
+				patch: event.previousValues,
+				previousValues: event.patch,
+				source: "rollback",
+			};
+			this.configAuditLog.push(failureEvent);
+			throw error;
+		}
 
 		const rollbackEvent: ConfigAuditEvent = {
 			id: `rollback-${Date.now()}`,

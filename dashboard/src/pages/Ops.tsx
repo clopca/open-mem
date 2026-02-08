@@ -18,7 +18,7 @@ export function Ops() {
 	const adapters = useAPI<AdapterStatus[]>("/v1/adapters/status");
 
 	const loading = health.loading || metrics.loading || platforms.loading;
-	const error = health.error || metrics.error || platforms.error;
+	const error = health.error || metrics.error || platforms.error || adapters.error;
 
 	return (
 		<div className="mx-auto max-w-5xl">
@@ -128,6 +128,15 @@ export function Ops() {
 						</Panel>
 					</div>
 
+					{adapters.error && !adapters.data && (
+						<div className="mt-6">
+							<Alert variant="warning">
+								<p className="font-medium">Adapter status unavailable</p>
+								<p className="mt-1 text-xs opacity-80">{adapters.error}</p>
+							</Alert>
+						</div>
+					)}
+
 					{adapters.data && adapters.data.length > 0 && (
 						<div className="mt-6">
 							<Panel title="Adapter Status" ariaLabel="Adapter connection status">
@@ -144,8 +153,8 @@ export function Ops() {
 											{adapter.connected && <Badge variant="success">connected</Badge>}
 										</div>
 										<div className="flex items-center gap-3 text-xs text-stone-500">
-											<span>{adapter.eventsIngested} events</span>
-											{adapter.errors > 0 && (
+											<span>{adapter.eventsIngested ?? 0} events</span>
+											{(adapter.errors ?? 0) > 0 && (
 												<Badge variant="danger">{adapter.errors} errors</Badge>
 											)}
 										</div>

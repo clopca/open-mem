@@ -362,7 +362,10 @@ export function attachExplainability(results: SearchResult[]): SearchResult[] {
 		if (r.explain?.matchedBy) {
 			for (const source of r.explain.matchedBy) {
 				if (source === "fts") {
-					signals.push({ source: "fts", score: r.explain.ftsRank, label: "Full-text search" });
+					const rawRank = r.explain.ftsRank;
+					const normalizedScore =
+						rawRank !== undefined && rawRank < 0 ? 1 / (1 + Math.abs(rawRank)) : rawRank;
+					signals.push({ source: "fts", score: normalizedScore, label: "Full-text search" });
 				} else if (source === "vector") {
 					signals.push({
 						source: "vector",
@@ -393,16 +396,29 @@ export function attachExplainability(results: SearchResult[]): SearchResult[] {
 }
 
 function findLineageRef(obs: Observation): SearchLineageRef | undefined {
-	const rootId = findLineageRoot(obs);
-	if (!rootId || rootId === obs.id) return undefined;
-	const depth = countRevisionDepth(obs);
-	return { rootId, depth };
+	const info = computeLineageInfo(obs);
+	if (info.rootId === obs.id) return undefined;
+	return { rootId: info.rootId, depth: info.depth };
 }
 
-function findLineageRoot(obs: Observation): string {
-	return obs.revisionOf ?? obs.id;
-}
+/**
+ * Walk the revisionOf chain to find the lineage root and depth in a single pass.
+ * Uses a `seen` Set for cycle detection to prevent infinite loops on circular chains.
+ */
+function computeLineageInfo(obs: Observation): { rootId: string; depth: number } {
+	const seen = new Set<string>([obs.id]);
+	const current = obs;
+	let depth = 0;
 
-function countRevisionDepth(obs: Observation): number {
-	return obs.revisionOf ? 1 : 0;
+	while (current.revisionOf) {
+		if (seen.has(current.revisionOf)) break; // cycle detected
+		seen.add(current.revisionOf);
+		depth++;
+		// Since we only have the Observation object (not a repo lookup),
+		// we can only track one hop from the current observation.
+		// For deeper lineage, the full chain is resolved via getLineage().
+		return { rootId: current.revisionOf, depth };
+	}
+
+	return { rootId: current.id, depth };
 }

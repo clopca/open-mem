@@ -469,26 +469,34 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.post("/v1/maintenance/folder-context/clean", async (c) => {
-		const result = await memoryEngine.maintainFolderContext("clean", false);
-		memoryEngine.trackMaintenanceResult({
-			id: randomUUID(),
-			timestamp: new Date().toISOString(),
-			action: "folder-context-clean",
-			dryRun: false,
-			result: result as unknown as Record<string, unknown>,
-		});
-		return c.json(ok(result));
+		try {
+			const result = await memoryEngine.maintainFolderContext("clean", false);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: "folder-context-clean",
+				dryRun: false,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
 	});
 	app.post("/v1/maintenance/folder-context/rebuild", async (c) => {
-		const result = await memoryEngine.maintainFolderContext("rebuild", false);
-		memoryEngine.trackMaintenanceResult({
-			id: randomUUID(),
-			timestamp: new Date().toISOString(),
-			action: "folder-context-rebuild",
-			dryRun: false,
-			result: result as unknown as Record<string, unknown>,
-		});
-		return c.json(ok(result));
+		try {
+			const result = await memoryEngine.maintainFolderContext("rebuild", false);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: "folder-context-rebuild",
+				dryRun: false,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
 	});
 
 	app.get("/v1/maintenance/history", (c) => {

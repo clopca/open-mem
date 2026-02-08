@@ -126,6 +126,7 @@ export function Search() {
 		count: results.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 140,
+		measureElement: (el) => el.getBoundingClientRect().height,
 		overscan: 5,
 	});
 

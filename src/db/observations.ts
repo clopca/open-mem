@@ -242,6 +242,7 @@ export class ObservationRepository {
 			offset?: number;
 			type?: ObservationType;
 			state?: "current" | "superseded" | "tombstoned";
+			sessionId?: string;
 		},
 	): Observation[] {
 		const limit = options.limit ?? 50;
@@ -251,6 +252,7 @@ export class ObservationRepository {
 		let stateClause: string;
 		switch (state) {
 			case "superseded":
+				// Tombstoned takes precedence: only show superseded if NOT also tombstoned
 				stateClause = "AND o.superseded_by IS NOT NULL AND o.deleted_at IS NULL";
 				break;
 			case "tombstoned":
@@ -265,6 +267,11 @@ export class ObservationRepository {
 			JOIN sessions s ON o.session_id = s.id
 			WHERE s.project_path = ? ${stateClause}`;
 		const params: (string | number)[] = [projectPath];
+
+		if (options.sessionId) {
+			sql += " AND o.session_id = ?";
+			params.push(options.sessionId);
+		}
 
 		if (options.type) {
 			sql += " AND o.type = ?";

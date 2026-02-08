@@ -30,6 +30,7 @@ export interface ObservationStore {
 			offset?: number;
 			type?: ObservationType;
 			state?: "current" | "superseded" | "tombstoned";
+			sessionId?: string;
 		},
 	): Observation[];
 	update(

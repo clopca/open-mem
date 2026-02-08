@@ -82,7 +82,6 @@ export function Layout() {
 						onClick={() => setSidebarOpen(true)}
 						className="rounded-lg p-2 text-stone-500 hover:bg-stone-100 hover:text-stone-700 lg:hidden"
 						aria-label="Open sidebar"
-						aria-expanded={sidebarOpen}
 					>
 						<svg
 							className="h-5 w-5"

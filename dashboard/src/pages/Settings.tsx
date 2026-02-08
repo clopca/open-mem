@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
+import { useAPI } from "../hooks/useAPI";
 
 type FieldType = "string" | "number" | "boolean" | "array";
 type Group =
@@ -90,34 +91,31 @@ export function Settings() {
 	const [schema, setSchema] = useState<ConfigFieldSchema[]>([]);
 	const [effective, setEffective] = useState<ConfigResponse | null>(null);
 	const [preview, setPreview] = useState<ConfigResponse | null>(null);
-	const [modes, setModes] = useState<Array<{ id: string; patch: Record<string, unknown> }>>([]);
 	const [draft, setDraft] = useState<Record<string, unknown>>({});
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 
-	async function load() {
+	const modes = useAPI<ModesResponse>("/v1/modes");
+
+	const load = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const [schemaRes, configRes, modesRes] = await Promise.all([
+			const [schemaRes, configRes] = await Promise.all([
 				fetch("/v1/config/schema"),
 				fetch("/v1/config/effective"),
-				fetch("/v1/modes"),
 			]);
-			if (!schemaRes.ok || !configRes.ok || !modesRes.ok)
-				throw new Error("Failed to load settings");
+			if (!schemaRes.ok || !configRes.ok) throw new Error("Failed to load settings");
 			const schemaJson = unwrap(
 				(await schemaRes.json()) as ConfigFieldSchema[] | Envelope<ConfigFieldSchema[]>,
 			);
 			const configJson = unwrap(
 				(await configRes.json()) as ConfigResponse | Envelope<ConfigResponse>,
 			);
-			const modesJson = unwrap((await modesRes.json()) as ModesResponse | Envelope<ModesResponse>);
 			setSchema(schemaJson);
 			setEffective(configJson);
-			setModes(modesJson.modes ?? []);
 			setPreview(null);
 			setDraft({});
 		} catch (err) {
@@ -125,11 +123,11 @@ export function Settings() {
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, []);
 
 	useEffect(() => {
 		load();
-	}, []);
+	}, [load]);
 
 	const grouped = useMemo(() => {
 		const map = new Map<Group, ConfigFieldSchema[]>();
@@ -210,6 +208,7 @@ export function Settings() {
 			const res = await fetch(`/v1/modes/${id}/apply`, { method: "POST" });
 			if (!res.ok) throw new Error(await res.text());
 			await load();
+			modes.refetch();
 			setMessage(`Mode ${id} applied.`);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Mode apply failed");
@@ -298,19 +297,32 @@ export function Settings() {
 			<Card>
 				<CardContent className="p-4">
 					<div className="mb-2 text-sm font-semibold text-stone-700">Modes</div>
-					<div className="flex flex-wrap gap-2">
-						{modes.map((mode) => (
-							<Button
-								key={mode.id}
-								variant="outline"
-								onClick={() => applyMode(mode.id)}
-								disabled={saving}
-								aria-label={`Apply ${mode.id} mode`}
-							>
-								Apply {mode.id}
-							</Button>
-						))}
-					</div>
+					{modes.error && (
+						<Alert variant="warning" className="mb-2">
+							<p className="text-xs">Failed to load modes: {modes.error}</p>
+						</Alert>
+					)}
+					{modes.loading && (
+						<div className="flex gap-2">
+							<Skeleton className="h-9 w-24" />
+							<Skeleton className="h-9 w-24" />
+						</div>
+					)}
+					{!modes.loading && !modes.error && modes.data && (
+						<div className="flex flex-wrap gap-2">
+							{(modes.data.modes ?? []).map((mode) => (
+								<Button
+									key={mode.id}
+									variant="outline"
+									onClick={() => applyMode(mode.id)}
+									disabled={saving}
+									aria-label={`Apply ${mode.id} mode`}
+								>
+									Apply {mode.id}
+								</Button>
+							))}
+						</div>
+					)}
 				</CardContent>
 			</Card>
 

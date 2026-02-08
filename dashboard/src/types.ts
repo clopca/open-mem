@@ -9,6 +9,7 @@ export type ObservationType =
 export interface Observation {
 	id: string;
 	sessionId: string;
+	scope?: "project" | "user";
 	type: ObservationType;
 	title: string;
 	subtitle: string;
@@ -17,13 +18,16 @@ export interface Observation {
 	concepts: string[];
 	filesRead: string[];
 	filesModified: string[];
+	rawToolOutput?: string;
 	toolName: string;
 	createdAt: string;
 	tokenCount: number;
 	discoveryTokens: number;
+	importance?: number;
 	revisionOf?: string | null;
 	deletedAt?: string | null;
 	supersededBy?: string | null;
+	supersededAt?: string | null;
 }
 
 export interface Session {
@@ -47,10 +51,33 @@ export interface SessionSummary {
 	tokenCount: number;
 }
 
+export type RankingSignalSource = "fts" | "vector" | "graph" | "user-memory";
+
+export type SignalSource =
+	| "fts"
+	| "vector"
+	| "graph"
+	| "user-memory"
+	| "concept-filter"
+	| "file-filter";
+
+export interface SearchExplainSignal {
+	source: RankingSignalSource;
+	score?: number;
+	label?: string;
+}
+
+export interface SearchLineageRef {
+	rootId: string;
+	depth: number;
+}
+
 export interface SearchResult {
 	observation: Observation;
 	rank: number;
 	snippet: string;
+	source?: "project" | "user";
+	rankingSource?: RankingSignalSource;
 	explain?: {
 		strategy?: "filter-only" | "semantic" | "hybrid";
 		matchedBy: Array<"fts" | "vector" | "graph" | "user-memory" | "concept-filter" | "file-filter">;
@@ -58,6 +85,8 @@ export interface SearchResult {
 		vectorDistance?: number;
 		vectorSimilarity?: number;
 		rrfScore?: number;
+		signals?: SearchExplainSignal[];
+		lineage?: SearchLineageRef;
 	};
 }
 
@@ -123,33 +152,26 @@ export interface PlatformsResponse {
 
 export interface AdapterStatus {
 	name: string;
+	version: string;
 	enabled: boolean;
-	connected: boolean;
-	lastEventAt: string | null;
-	eventsIngested: number;
-	errors: number;
+	connected?: boolean;
+	eventsIngested?: number;
+	errors?: number;
+	capabilities: Record<string, boolean>;
 }
 
 export interface ConfigAuditEvent {
 	id: string;
 	timestamp: string;
-	action: "set" | "rollback" | "mode-apply";
-	changes: Record<string, { from: unknown; to: unknown }>;
-	source: string;
+	patch: Record<string, unknown>;
+	previousValues: Record<string, unknown>;
+	source: "api" | "mode" | "rollback";
 }
 
 export interface MaintenanceHistoryItem {
 	id: string;
 	timestamp: string;
 	action: string;
+	dryRun: boolean;
 	result: Record<string, unknown>;
-	durationMs: number;
 }
-
-export type SignalSource =
-	| "fts"
-	| "vector"
-	| "graph"
-	| "user-memory"
-	| "concept-filter"
-	| "file-filter";

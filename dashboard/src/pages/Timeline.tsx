@@ -325,6 +325,13 @@ export function Timeline() {
 				</Alert>
 			)}
 
+			{allObservations.length >= 1000 && (dateFrom || dateTo) && (
+				<Alert variant="warning" className="mb-6">
+					Showing filtered results from the first {allObservations.length} observations. Some
+					matching items may not be visible.
+				</Alert>
+			)}
+
 			{isInitialLoad && <LoadingSkeleton />}
 
 			{!isInitialLoad && !loading && filteredObservations.length === 0 && !error && (

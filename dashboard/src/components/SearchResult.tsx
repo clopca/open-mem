@@ -112,9 +112,9 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
 									Why this result
 								</h4>
 								<div className="flex flex-wrap items-center gap-1.5">
-									{explain.matchedBy.map((signal) => (
+									{explain.matchedBy.map((signal, idx) => (
 										<Badge
-											key={`${observation.id}-${signal}`}
+											key={`${observation.id}-explain-${idx}`}
 											variant="outline"
 											className="bg-sky-50 text-sky-700"
 										>
@@ -162,8 +162,11 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
 									Key Facts
 								</h4>
 								<ul className="space-y-1">
-									{observation.facts.map((fact) => (
-										<li key={fact} className="flex items-start gap-2 text-[13px] text-stone-600">
+									{observation.facts.map((fact, idx) => (
+										<li
+											key={`${observation.id}-fact-${idx}`}
+											className="flex items-start gap-2 text-[13px] text-stone-600"
+										>
 											<span
 												className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400"
 												aria-hidden="true"

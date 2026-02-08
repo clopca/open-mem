@@ -192,12 +192,17 @@ function ExpandedObservations({ sessionId }: { sessionId: string }) {
 
 	if (loading) {
 		return (
-			<output className="flex items-center justify-center py-8" aria-label="Loading observations">
+			<div
+				role="status"
+				aria-live="polite"
+				className="flex items-center justify-center py-8"
+				aria-label="Loading observations"
+			>
 				<div className="flex items-center gap-3 text-sm text-stone-400">
 					<Skeleton className="h-4 w-4 rounded-full" />
 					Loading observations…
 				</div>
-			</output>
+			</div>
 		);
 	}
 
