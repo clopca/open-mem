@@ -1,19 +1,15 @@
-import type { ObservationRepository } from "../../db/observations";
-import type { PendingMessageRepository } from "../../db/pending";
-import type { SessionRepository } from "../../db/sessions";
 import { persistChatMessage } from "../../hooks/chat-capture";
 import { handleSessionLifecycleEvent, type SessionLifecycleDeps } from "../../hooks/session-events";
 import { enqueueToolCapture } from "../../hooks/tool-capture";
-import type { QueueProcessor } from "../../queue/processor";
 import type { OpenMemConfig } from "../../types";
 import type { NormalizedPlatformEvent, PlatformAdapter, PlatformName } from "./types";
 
 export interface PlatformIngestionRuntimeDeps {
 	adapter: PlatformAdapter;
-	queue: QueueProcessor;
-	sessions: SessionRepository;
-	observations: ObservationRepository;
-	pendingMessages: PendingMessageRepository;
+	queue: SessionLifecycleDeps["queue"];
+	sessions: SessionLifecycleDeps["sessions"];
+	observations: SessionLifecycleDeps["observations"];
+	pendingMessages: SessionLifecycleDeps["pendingMessages"];
 	projectPath: string;
 	config: OpenMemConfig;
 }
@@ -21,9 +17,9 @@ export interface PlatformIngestionRuntimeDeps {
 export class PlatformIngestionRuntime {
 	private readonly adapter: PlatformAdapter;
 	private readonly lifecycleDeps: SessionLifecycleDeps;
-	private readonly queue: QueueProcessor;
-	private readonly sessions: SessionRepository;
-	private readonly observations: ObservationRepository;
+	private readonly queue: SessionLifecycleDeps["queue"];
+	private readonly sessions: SessionLifecycleDeps["sessions"];
+	private readonly observations: SessionLifecycleDeps["observations"];
 	private readonly projectPath: string;
 	private readonly config: OpenMemConfig;
 
