@@ -49,8 +49,9 @@ async function main() {
 
 	if (command === "folder-context" && (sub === "clean" || sub === "rebuild")) {
 		const dryRun = values["dry-run"] === true;
+		const config = resolveConfig(projectPath);
 		if (sub === "clean") {
-			const result = await cleanFolderContext(projectPath, dryRun);
+			const result = await cleanFolderContext(projectPath, config.folderContextFilename, dryRun);
 			console.log(
 				`${dryRun ? "[dry-run] " : ""}Scanned ${result.files.length} AGENTS.md files, changed ${result.changed}.`,
 			);
@@ -58,7 +59,6 @@ async function main() {
 		}
 
 		Database.enableExtensionSupport();
-		const config = resolveConfig(projectPath);
 		const db = createDatabase(config.dbPath);
 		initializeSchema(db, {
 			hasVectorExtension: db.hasVectorExtension,
@@ -70,7 +70,11 @@ async function main() {
 			projectPath,
 			sessions,
 			observations,
-			config.folderContextMaxDepth,
+			{
+				maxDepth: config.folderContextMaxDepth,
+				mode: config.folderContextMode,
+				filename: config.folderContextFilename,
+			},
 			dryRun,
 		);
 		db.close();

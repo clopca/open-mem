@@ -7,7 +7,7 @@ import { updateFolderContext } from "./agents-md";
 const START_TAG = "<!-- open-mem-context -->";
 const END_TAG = "<!-- /open-mem-context -->";
 
-async function walk(dir: string, out: string[]): Promise<void> {
+async function walk(dir: string, filename: string, out: string[]): Promise<void> {
 	let entries: Array<import("node:fs").Dirent>;
 	try {
 		entries = await readdir(dir, { withFileTypes: true, encoding: "utf8" });
@@ -22,17 +22,17 @@ async function walk(dir: string, out: string[]): Promise<void> {
 		}
 		const full = join(dir, name);
 		if (entry.isDirectory()) {
-			await walk(full, out);
-		} else if (entry.isFile() && name === "AGENTS.md") {
+			await walk(full, filename, out);
+		} else if (entry.isFile() && name === filename) {
 			out.push(full);
 		}
 	}
 }
 
-export async function findAgentsMdFiles(projectPath: string): Promise<string[]> {
+export async function findAgentsMdFiles(projectPath: string, filename: string): Promise<string[]> {
 	const root = resolve(projectPath);
 	const out: string[] = [];
-	await walk(root, out);
+	await walk(root, filename, out);
 	return out;
 }
 
@@ -64,9 +64,10 @@ export function removeManagedSection(content: string): string {
 
 export async function cleanFolderContext(
 	projectPath: string,
+	filename: string,
 	dryRun = false,
 ): Promise<{ files: string[]; changed: number }> {
-	const files = await findAgentsMdFiles(projectPath);
+	const files = await findAgentsMdFiles(projectPath, filename);
 	let changed = 0;
 	for (const file of files) {
 		const existing = await readFile(file, "utf-8");
@@ -89,7 +90,7 @@ export async function rebuildFolderContext(
 	projectPath: string,
 	sessions: SessionStore,
 	observations: ObservationStore,
-	maxDepth: number,
+	options: { maxDepth: number; mode: "dispersed" | "single"; filename: string },
 	dryRun = false,
 ): Promise<{ observations: number; filesTouched: number }> {
 	const allSessions = sessions.getAll(projectPath);
@@ -107,7 +108,11 @@ export async function rebuildFolderContext(
 		return { observations: 0, filesTouched: 0 };
 	}
 
-	await updateFolderContext(projectPath, allObservations, maxDepth);
-	const files = await findAgentsMdFiles(projectPath);
+	await updateFolderContext(projectPath, allObservations, {
+		maxDepth: options.maxDepth,
+		mode: options.mode,
+		filename: options.filename,
+	});
+	const files = await findAgentsMdFiles(projectPath, options.filename);
 	return { observations: allObservations.length, filesTouched: files.length };
 }

@@ -43,6 +43,12 @@ const EXCLUDED_DIRS = new Set([
 // Public API
 // -----------------------------------------------------------------------------
 
+export interface FolderContextOptions {
+	mode: "dispersed" | "single";
+	filename: string;
+	maxDepth: number;
+}
+
 /**
  * Update AGENTS.md files for folders referenced by observations.
  *
@@ -52,14 +58,16 @@ const EXCLUDED_DIRS = new Set([
  *
  * @param projectPath - Absolute path to the project root
  * @param observations - Observations from the current session
- * @param maxDepth - Maximum folder depth from project root (default: 5)
+ * @param options - Configuration options (mode, filename, maxDepth)
  */
 export async function updateFolderContext(
 	projectPath: string,
 	observations: Observation[],
-	maxDepth = 5,
+	options: FolderContextOptions,
 ): Promise<void> {
 	if (observations.length === 0) return;
+
+	const { maxDepth, filename } = options;
 
 	// Collect all file paths from observations
 	const allFiles: string[] = [];
@@ -79,7 +87,7 @@ export async function updateFolderContext(
 	for (const [folderPath, folderObs] of folderObservations) {
 		try {
 			const contextBlock = generateFolderContext(folderPath, folderObs, projectPath);
-			await updateAgentsMd(folderPath, contextBlock);
+			await updateAgentsMd(folderPath, contextBlock, filename);
 		} catch (error) {
 			// Fire-and-forget: never let AGENTS.md updates break anything
 			console.error(`[open-mem] Failed to update AGENTS.md in ${folderPath}:`, error);
@@ -194,14 +202,18 @@ export function generateFolderContext(
  * @param folderPath - Absolute path to the folder (must exist)
  * @param contextBlock - New content for the managed section
  */
-export async function updateAgentsMd(folderPath: string, contextBlock: string): Promise<void> {
+export async function updateAgentsMd(
+	folderPath: string,
+	contextBlock: string,
+	filename: string,
+): Promise<void> {
 	if (!existsSync(folderPath)) return;
 
 	// Serialize concurrent writes to the same folder
 	const previousLock = folderLocks.get(folderPath) ?? Promise.resolve();
 	const currentOp = previousLock.then(async () => {
-		const agentsMdPath = join(folderPath, "AGENTS.md");
-		const tempPath = join(folderPath, ".AGENTS.md.tmp");
+		const agentsMdPath = join(folderPath, filename);
+		const tempPath = join(folderPath, `.${filename}.tmp`);
 
 		let existingContent = "";
 		try {

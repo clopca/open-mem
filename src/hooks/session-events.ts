@@ -131,7 +131,11 @@ async function triggerFolderContext(
 	try {
 		const sessionObservations = observationRepo.getBySession(sessionId);
 		if (sessionObservations.length > 0) {
-			await updateFolderContext(projectPath, sessionObservations, config.folderContextMaxDepth);
+			await updateFolderContext(projectPath, sessionObservations, {
+				mode: config.folderContextMode,
+				filename: config.folderContextFilename,
+				maxDepth: config.folderContextMaxDepth,
+			});
 		}
 	} catch (error) {
 		console.error("[open-mem] Folder context update error:", error);

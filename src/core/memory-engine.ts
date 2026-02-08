@@ -464,12 +464,45 @@ export class DefaultMemoryEngine implements MemoryEngine {
 
 	guide(): string {
 		return [
-			"open-mem workflow:",
-			"1) Use mem-find to find candidate observations by query.",
-			"2) Use mem-history to inspect session-level history and summaries.",
-			"3) Use mem-get with IDs from find/history to fetch full details.",
-			"Write/edit flow: mem-create (new), mem-revise (refine), mem-remove (tombstone).",
-			"Transfer flow: mem-export for backup/portability, mem-import to restore.",
+			"# open-mem Workflow Guide",
+			"",
+			"## Reading Memories",
+			"1. `mem-find` — Search by query (returns IDs + summaries)",
+			"2. `mem-history` — Browse session timeline and summaries",
+			"3. `mem-get` — Fetch full details by ID (from find/history results)",
+			"",
+			"## When to Save (`mem-create`)",
+			"Save when the information is **stable, reusable, and non-obvious**:",
+			'- Architectural decisions + rationale ("chose X over Y because...")',
+			"- Non-obvious gotchas or workarounds discovered",
+			"- User preferences and conventions",
+			"- Cross-session plans or migration progress",
+			'- Environment constraints ("Bedrock requires tool names matching [a-zA-Z0-9_-]+")',
+			"",
+			"## When NOT to Save",
+			"Auto-capture already handles tool executions. Don't manually save:",
+			"- Ephemeral logs or one-off command outputs",
+			"- Information already visible in code or config files",
+			"- Routine file reads or edits (auto-captured)",
+			"",
+			"## Memory Types",
+			"- `decision` — Architectural choices with rationale",
+			"- `discovery` — Non-obvious findings, gotchas, constraints",
+			"- `bugfix` — Bug root causes and fixes",
+			"- `feature` — Feature implementations and design notes",
+			"- `refactor` — Refactoring rationale and approach",
+			"- `change` — General changes worth remembering",
+			"",
+			"## Editing & Cleanup",
+			"- `mem-revise` — Update outdated memories with new revisions",
+			"- `mem-remove` — Tombstone obsolete or incorrect memories",
+			"",
+			"## Privacy",
+			"Wrap sensitive content in `<private>` tags to exclude from memory.",
+			"",
+			"## Transfer",
+			"- `mem-export` — Backup/portability as JSON",
+			"- `mem-import` — Restore from JSON export",
 		].join("\n");
 	}
 
@@ -609,12 +642,20 @@ export class DefaultMemoryEngine implements MemoryEngine {
 				this.projectPath,
 				this.sessions,
 				this.observations,
-				this.config.folderContextMaxDepth,
+				{
+					maxDepth: this.config.folderContextMaxDepth,
+					mode: this.config.folderContextMode,
+					filename: this.config.folderContextFilename,
+				},
 				dryRun,
 			);
 			return { action, dryRun, ...result };
 		}
-		const result = await cleanFolderContext(this.projectPath, dryRun);
+		const result = await cleanFolderContext(
+			this.projectPath,
+			this.config.folderContextFilename,
+			dryRun,
+		);
 		return { action: "clean", dryRun, ...result };
 	}
 

@@ -219,6 +219,66 @@ describe("generateFolderContext", () => {
 		const result = generateFolderContext("/tmp/proj/src/utils", [makeObservation()], "/tmp/proj");
 		expect(result).toContain("`src/utils/`");
 	});
+
+	test("includes decision narratives for decision-type observations", () => {
+		const obs = [
+			makeObservation({
+				type: "decision",
+				title: "Use PostgreSQL",
+				narrative:
+					"We chose PostgreSQL over MySQL for better JSON support. It also has better extensions.",
+			}),
+		];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		expect(result).toContain("**Decision details:**");
+		expect(result).toContain(
+			"- ⚖️ Use PostgreSQL: We chose PostgreSQL over MySQL for better JSON support",
+		);
+	});
+
+	test("truncates decision narratives longer than 120 chars", () => {
+		const longNarrative = "A".repeat(200);
+		const obs = [
+			makeObservation({
+				type: "decision",
+				title: "Long decision",
+				narrative: longNarrative,
+			}),
+		];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		expect(result).toContain("**Decision details:**");
+		expect(result).toContain("- ⚖️ Long decision: " + "A".repeat(117) + "...");
+		expect(result).not.toContain("A".repeat(118) + "...");
+	});
+
+	test("limits decision narratives to 3", () => {
+		const obs = Array.from({ length: 5 }, (_, i) =>
+			makeObservation({
+				id: `obs-${i}`,
+				type: "decision",
+				title: `Decision ${i}`,
+				narrative: `Narrative for decision ${i}.`,
+				createdAt: `2026-01-${String(i + 1).padStart(2, "0")}T10:00:00.000Z`,
+			}),
+		);
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		const narrativeLines = result.split("\n").filter((line) => line.startsWith("- ⚖️"));
+		expect(narrativeLines.length).toBe(3);
+	});
+
+	test("skips decision narratives when no decisions have narratives", () => {
+		const obs = [makeObservation({ type: "discovery", title: "Just a discovery" })];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		expect(result).not.toContain("**Decision details:**");
+	});
+
+	test("includes memory tip line", () => {
+		const obs = [makeObservation()];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		expect(result).toContain(
+			"💡 *Use `mem-find` to search full details across all sessions. Use `mem-create` to save important decisions.*",
+		);
+	});
 });
 
 // =============================================================================
@@ -252,7 +312,7 @@ describe("updateAgentsMd", () => {
 		const agentsMdPath = join(tempDir, "AGENTS.md");
 		cleanupFiles.push(agentsMdPath);
 
-		await updateAgentsMd(tempDir, "Test context block");
+		await updateAgentsMd(tempDir, "Test context block", "AGENTS.md");
 
 		expect(existsSync(agentsMdPath)).toBe(true);
 		const content = readFileSync(agentsMdPath, "utf-8");
@@ -262,7 +322,7 @@ describe("updateAgentsMd", () => {
 	});
 
 	test("skips non-existent folder", async () => {
-		await updateAgentsMd("/nonexistent/folder/path", "Should not write");
+		await updateAgentsMd("/nonexistent/folder/path", "Should not write", "AGENTS.md");
 		expect(existsSync("/nonexistent/folder/path/AGENTS.md")).toBe(false);
 	});
 
@@ -274,7 +334,7 @@ describe("updateAgentsMd", () => {
 		const { writeFileSync } = await import("node:fs");
 		writeFileSync(agentsMdPath, "# My Custom Notes\n\nImportant info here.\n");
 
-		await updateAgentsMd(tempDir, "Auto-generated context");
+		await updateAgentsMd(tempDir, "Auto-generated context", "AGENTS.md");
 
 		const content = readFileSync(agentsMdPath, "utf-8");
 		expect(content).toContain("# My Custom Notes");
@@ -303,7 +363,7 @@ describe("updateAgentsMd", () => {
 	test("mkdir before atomic write is idempotent on existing dirs", async () => {
 		tempDir = mkdtempSync(join(tmpdir(), "open-mem-agents-"));
 
-		await updateAgentsMd(tempDir, "idempotent mkdir test");
+		await updateAgentsMd(tempDir, "idempotent mkdir test", "AGENTS.md");
 
 		const agentsMdPath = join(tempDir, "AGENTS.md");
 		expect(existsSync(agentsMdPath)).toBe(true);
@@ -319,7 +379,7 @@ describe("updateAgentsMd", () => {
 
 		// Fire 5 concurrent writes
 		const writes = Array.from({ length: 5 }, (_, i) =>
-			updateAgentsMd(tempDir, `Concurrent write ${i}`),
+			updateAgentsMd(tempDir, `Concurrent write ${i}`, "AGENTS.md"),
 		);
 		await Promise.all(writes);
 
@@ -353,7 +413,7 @@ describe("cleanFolderContext", () => {
 		const agentsMdPath = join(tempDir, "AGENTS.md");
 		writeFileSync(agentsMdPath, `${START_TAG}\nManaged content only\n${END_TAG}\n`);
 
-		const result = await cleanFolderContext(tempDir);
+		const result = await cleanFolderContext(tempDir, "AGENTS.md");
 
 		expect(result.changed).toBe(1);
 		expect(existsSync(agentsMdPath)).toBe(false);
@@ -367,7 +427,7 @@ describe("cleanFolderContext", () => {
 			`# User Notes\n\nImportant info.\n\n${START_TAG}\nManaged content\n${END_TAG}\n`,
 		);
 
-		const result = await cleanFolderContext(tempDir);
+		const result = await cleanFolderContext(tempDir, "AGENTS.md");
 
 		expect(result.changed).toBe(1);
 		expect(existsSync(agentsMdPath)).toBe(true);
@@ -406,7 +466,11 @@ describe("updateFolderContext", () => {
 			}),
 		];
 
-		await updateFolderContext(tempDir, obs);
+		await updateFolderContext(tempDir, obs, {
+			mode: "dispersed",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
 
 		const agentsMdPath = join(subDir, "AGENTS.md");
 		expect(existsSync(agentsMdPath)).toBe(true);
@@ -419,7 +483,11 @@ describe("updateFolderContext", () => {
 	test("is a no-op for empty observations", async () => {
 		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fc-"));
 
-		await updateFolderContext(tempDir, []);
+		await updateFolderContext(tempDir, [], {
+			mode: "dispersed",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
 
 		const agentsMdPath = join(tempDir, "AGENTS.md");
 		expect(existsSync(agentsMdPath)).toBe(false);
@@ -429,6 +497,10 @@ describe("updateFolderContext", () => {
 		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fc-"));
 		const obs = [makeObservation({ title: "Error path test" })];
 
-		await updateFolderContext("/nonexistent/path/that/does/not/exist", obs);
+		await updateFolderContext("/nonexistent/path/that/does/not/exist", obs, {
+			mode: "dispersed",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
 	});
 });
