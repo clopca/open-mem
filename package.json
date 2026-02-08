@@ -1,6 +1,6 @@
 {
 	"name": "open-mem",
-	"version": "0.9.0",
+	"version": "0.10.0",
 	"description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
 	"type": "module",
 	"main": "dist/index.js",

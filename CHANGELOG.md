@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-02-08
+
+### Added
+- **OpenRouter provider support** — access 100+ models via `OPEN_MEM_PROVIDER=openrouter` + `OPENROUTER_API_KEY`. Auto-detected from env vars, default model `google/gemini-2.5-flash-lite`. Embeddings correctly return null (OpenRouter doesn't support them).
+- **Provider fallback chain** — automatic failover when primary AI provider returns retryable errors (429/500/503). Configure with `OPEN_MEM_FALLBACK_PROVIDERS=google,anthropic,openai`. Config errors (400/401/403) throw immediately without fallback. Applies only to language models, never to embeddings.
+- **Timeline anchor navigation** — `mem-history` tool now accepts `anchor` (observation ID), `depthBefore`, and `depthAfter` parameters for cross-session chronological navigation around a specific observation.
+- `src/ai/errors.ts` — shared `isRetryable()`, `isConfigError()`, and `sleep()` utilities extracted from 3 duplicated locations.
+- `src/ai/fallback.ts` — `FallbackLanguageModel` wrapper implementing Vercel AI SDK `LanguageModel` interface with try→fail→next semantics.
+- `@openrouter/ai-sdk-provider` dependency for OpenRouter integration.
+
+### Changed
+- All AI consumers (compressor, summarizer, entity-extractor, conflict-evaluator, reranker) now use `createModelWithFallback()` instead of `createModel()` — transparent fallback when configured.
+- `AGENTS.md` generation now includes observation IDs, key concepts, and decision summaries in tables.
+- `mem-create` tool description improved for clarity.
+- Context injection now includes "When to Save" guidance with `mem-create` reference.
+
 ## [0.7.0] - 2026-02-08
 
 ### Added (Interop & Ops)
