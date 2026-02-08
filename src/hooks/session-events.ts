@@ -2,6 +2,9 @@
 // open-mem — Session Event Handler
 // =============================================================================
 
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { ObservationRepository } from "../db/observations";
 import type { PendingMessageRepository } from "../db/pending";
 import type { SessionRepository } from "../db/sessions";
@@ -40,6 +43,11 @@ export async function handleSessionLifecycleEvent(
 				enforceRetention(config, observations, pendingMessages);
 			} catch (error) {
 				console.error("[open-mem] Retention enforcement error:", error);
+			}
+			try {
+				await maybeAddGitignoreEntry(projectPath);
+			} catch (error) {
+				console.error("[open-mem] Gitignore entry error:", error);
 			}
 			break;
 		}
@@ -128,4 +136,19 @@ async function triggerFolderContext(
 	} catch (error) {
 		console.error("[open-mem] Folder context update error:", error);
 	}
+}
+
+async function maybeAddGitignoreEntry(projectPath: string): Promise<void> {
+	const gitignorePath = join(projectPath, ".gitignore");
+	if (!existsSync(gitignorePath)) return;
+
+	const content = await readFile(gitignorePath, "utf-8");
+	if (content.includes("AGENTS.md")) return;
+
+	const block = `\n# open-mem: Auto-generated folder context files.\n# Uncomment to exclude from version control (recommended for large projects):\n# **/AGENTS.md\n`;
+	await writeFile(
+		gitignorePath,
+		content.endsWith("\n") ? content + block : `${content}\n${block}`,
+		"utf-8",
+	);
 }
