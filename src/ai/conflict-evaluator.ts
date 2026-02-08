@@ -6,7 +6,7 @@ import {
 	type ConflictCandidate,
 	type ConflictNewObservation,
 } from "./prompts";
-import { createModel } from "./provider";
+import { buildFallbackConfigs, createModelWithFallback } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
 /** Re-exported conflict evaluation types. */
@@ -20,6 +20,7 @@ export interface ConflictEvaluatorConfig {
 	apiKey: string | undefined;
 	model: string;
 	rateLimitingEnabled: boolean;
+	fallbackProviders?: string[];
 }
 
 /**
@@ -39,11 +40,14 @@ export class ConflictEvaluator {
 		const providerRequiresKey = config.provider !== "bedrock";
 		if (!providerRequiresKey || config.apiKey) {
 			try {
-				this.model = createModel({
-					provider: config.provider,
-					model: config.model,
-					apiKey: config.apiKey,
-				});
+				this.model = createModelWithFallback(
+					{
+						provider: config.provider,
+						model: config.model,
+						apiKey: config.apiKey,
+					},
+					buildFallbackConfigs(config),
+				);
 			} catch {
 				// Provider package not installed — fall back to no-AI mode
 			}

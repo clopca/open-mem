@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { McpServer } from "./adapters/mcp/server";
-import { createEmbeddingModel, createModel } from "./ai/provider";
+import { buildFallbackConfigs, createEmbeddingModel, createModelWithFallback } from "./ai/provider";
 import { resolveConfig } from "./config";
 import { DefaultMemoryEngine } from "./core/memory-engine";
 import { ConfigAuditRepository } from "./db/config-audit";
@@ -78,7 +78,10 @@ const embeddingModel =
 const reranker = createReranker(
 	config,
 	config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
-		? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+		? createModelWithFallback(
+				{ provider: config.provider, model: config.model, apiKey: config.apiKey },
+				buildFallbackConfigs(config),
+			)
 		: null,
 );
 

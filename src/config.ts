@@ -95,6 +95,9 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 
 	// Entity extraction
 	entityExtractionEnabled: false,
+
+	// Fallback providers
+	fallbackProviders: undefined,
 };
 
 // -----------------------------------------------------------------------------
@@ -178,6 +181,10 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES)
 		env.rerankingMaxCandidates = Number.parseInt(process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES, 10);
 	if (process.env.OPEN_MEM_ENTITY_EXTRACTION === "true") env.entityExtractionEnabled = true;
+	if (process.env.OPEN_MEM_FALLBACK_PROVIDERS)
+		env.fallbackProviders = process.env.OPEN_MEM_FALLBACK_PROVIDERS.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
 
 	return env;
 }

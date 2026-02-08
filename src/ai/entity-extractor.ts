@@ -2,7 +2,7 @@ import { generateText, type LanguageModel } from "ai";
 import { isRetryable, sleep } from "./errors";
 import { type ParsedEntityExtraction, parseEntityExtractionResponse } from "./parser";
 import { buildEntityExtractionPrompt, type EntityExtractionObservation } from "./prompts";
-import { createModel } from "./provider";
+import { buildFallbackConfigs, createModelWithFallback } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
 /** Re-exported entity extraction result types. */
@@ -21,6 +21,7 @@ export interface EntityExtractorConfig {
 	apiKey: string | undefined;
 	model: string;
 	rateLimitingEnabled: boolean;
+	fallbackProviders?: string[];
 }
 
 /**
@@ -40,11 +41,14 @@ export class EntityExtractor {
 		const providerRequiresKey = config.provider !== "bedrock";
 		if (!providerRequiresKey || config.apiKey) {
 			try {
-				this.model = createModel({
-					provider: config.provider,
-					model: config.model,
-					apiKey: config.apiKey,
-				});
+				this.model = createModelWithFallback(
+					{
+						provider: config.provider,
+						model: config.model,
+						apiKey: config.apiKey,
+					},
+					buildFallbackConfigs(config),
+				);
 			} catch {
 				// Provider package not installed — fall back to no-AI mode
 			}

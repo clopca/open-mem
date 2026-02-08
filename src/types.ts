@@ -207,6 +207,9 @@ export interface OpenMemConfig {
 
 	// Entity extraction (graph memory)
 	entityExtractionEnabled: boolean;
+
+	// Fallback providers
+	fallbackProviders?: string[];
 }
 
 // -----------------------------------------------------------------------------

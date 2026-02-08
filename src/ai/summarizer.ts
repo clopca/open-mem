@@ -6,7 +6,7 @@ import { generateText, type LanguageModel } from "ai";
 import type { Observation } from "../types";
 import { type ParsedSummary, parseSummaryResponse } from "./parser";
 import { buildSummarizationPrompt } from "./prompts";
-import { createModel } from "./provider";
+import { buildFallbackConfigs, createModelWithFallback } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
 // -----------------------------------------------------------------------------
@@ -21,6 +21,7 @@ export interface SummarizerConfig {
 	maxTokensPerCompression: number;
 	compressionEnabled: boolean;
 	rateLimitingEnabled: boolean;
+	fallbackProviders?: string[];
 }
 
 // -----------------------------------------------------------------------------
@@ -45,11 +46,14 @@ export class SessionSummarizer {
 		const providerRequiresKey = config.provider !== "bedrock";
 		if (config.compressionEnabled && (!providerRequiresKey || config.apiKey)) {
 			try {
-				this.model = createModel({
-					provider: config.provider,
-					model: config.model,
-					apiKey: config.apiKey,
-				});
+				this.model = createModelWithFallback(
+					{
+						provider: config.provider,
+						model: config.model,
+						apiKey: config.apiKey,
+					},
+					buildFallbackConfigs(config),
+				);
 			} catch {
 				// Provider package not installed — fall back to no-AI mode
 			}

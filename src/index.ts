@@ -11,7 +11,7 @@ import { createOpenCodeTools } from "./adapters/opencode/tools";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
 import { EntityExtractor } from "./ai/entity-extractor";
-import { createEmbeddingModel, createModel } from "./ai/provider";
+import { buildFallbackConfigs, createEmbeddingModel, createModelWithFallback } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import type { RuntimeStatusSnapshot } from "./core/contracts";
@@ -207,7 +207,10 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const reranker = createReranker(
 		config,
 		config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
-			? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+			? createModelWithFallback(
+					{ provider: config.provider, model: config.model, apiKey: config.apiKey },
+					buildFallbackConfigs(config),
+				)
 			: null,
 	);
 	const searchOrchestrator = new SearchOrchestrator(
