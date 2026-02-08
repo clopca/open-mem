@@ -18,12 +18,15 @@ import { dirname, join } from "node:path";
 import type { Observation } from "../../src/types";
 import {
 	generateFolderContext,
+	isHighQualityObservation,
 	replaceTaggedContent,
 	updateAgentsMd,
 	updateFolderContext,
 } from "../../src/utils/agents-md";
 import {
 	cleanFolderContext,
+	findAgentsMdFiles,
+	purgeFolderContext,
 	removeManagedSection,
 } from "../../src/utils/folder-context-maintenance";
 
@@ -502,5 +505,307 @@ describe("updateFolderContext", () => {
 			filename: "AGENTS.md",
 			maxDepth: 5,
 		});
+	});
+});
+
+// =============================================================================
+// isHighQualityObservation
+// =============================================================================
+
+describe("isHighQualityObservation", () => {
+	test("returns false for 'bash execution'", () => {
+		const obs = makeObservation({ title: "bash execution" });
+		expect(isHighQualityObservation(obs)).toBe(false);
+	});
+
+	test("returns false for 'read execution'", () => {
+		const obs = makeObservation({ title: "read execution" });
+		expect(isHighQualityObservation(obs)).toBe(false);
+	});
+
+	test("returns false for 'mem-create execution'", () => {
+		const obs = makeObservation({ title: "mem-create execution" });
+		expect(isHighQualityObservation(obs)).toBe(false);
+	});
+
+	test("returns false for 'glob execution'", () => {
+		const obs = makeObservation({ title: "glob execution" });
+		expect(isHighQualityObservation(obs)).toBe(false);
+	});
+
+	test("returns true for 'Decided to use JWT for auth'", () => {
+		const obs = makeObservation({ title: "Decided to use JWT for auth" });
+		expect(isHighQualityObservation(obs)).toBe(true);
+	});
+
+	test("returns true for 'Found auth pattern in middleware'", () => {
+		const obs = makeObservation({ title: "Found auth pattern in middleware" });
+		expect(isHighQualityObservation(obs)).toBe(true);
+	});
+
+	test("returns true for multi-word meaningful title", () => {
+		const obs = makeObservation({ title: "Refactored database connection pooling" });
+		expect(isHighQualityObservation(obs)).toBe(true);
+	});
+
+	test("is case-insensitive for noise pattern", () => {
+		const obs = makeObservation({ title: "Bash Execution" });
+		expect(isHighQualityObservation(obs)).toBe(false);
+	});
+});
+
+// =============================================================================
+// generateFolderContext — quality filtering
+// =============================================================================
+
+describe("generateFolderContext quality filtering", () => {
+	test("excludes noise observations from output", () => {
+		const obs = [
+			makeObservation({ id: "noise-1", title: "bash execution" }),
+			makeObservation({ id: "noise-2", title: "read execution" }),
+			makeObservation({ id: "quality-1", title: "Discovered auth pattern" }),
+		];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		expect(result).toContain("Discovered auth pattern");
+		expect(result).not.toContain("bash execution");
+		expect(result).not.toContain("read execution");
+	});
+
+	test("returns table with zero rows when all observations are noise", () => {
+		const obs = [
+			makeObservation({ id: "noise-1", title: "bash execution" }),
+			makeObservation({ id: "noise-2", title: "glob execution" }),
+		];
+		const result = generateFolderContext("/tmp/proj/src", obs, "/tmp/proj");
+		// Table headers should still be present, but no data rows
+		expect(result).toContain("| Type | Title | Date |");
+		const tableRows = result.split("\n").filter((line) => line.startsWith("| 🔵"));
+		expect(tableRows.length).toBe(0);
+	});
+});
+
+// =============================================================================
+// single-root mode
+// =============================================================================
+
+describe("single-root mode", () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir) {
+			try {
+				rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("creates one file at project root", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-single-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+		const obs = [
+			makeObservation({
+				title: "Important discovery",
+				filesRead: [join(subDir, "index.ts")],
+			}),
+		];
+
+		await updateFolderContext(tempDir, obs, {
+			mode: "single",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
+
+		// Root file should exist
+		const rootFile = join(tempDir, "AGENTS.md");
+		expect(existsSync(rootFile)).toBe(true);
+
+		// Per-folder file should NOT exist
+		const subFile = join(subDir, "AGENTS.md");
+		expect(existsSync(subFile)).toBe(false);
+	});
+
+	test("groups by folder with section headers", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-single-"));
+		const srcDir = join(tempDir, "src");
+		const libDir = join(tempDir, "lib");
+		mkdirSync(srcDir);
+		mkdirSync(libDir);
+
+		const obs = [
+			makeObservation({
+				id: "obs-src",
+				title: "Source discovery",
+				filesRead: [join(srcDir, "app.ts")],
+			}),
+			makeObservation({
+				id: "obs-lib",
+				title: "Library finding",
+				filesRead: [join(libDir, "utils.ts")],
+			}),
+		];
+
+		await updateFolderContext(tempDir, obs, {
+			mode: "single",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
+
+		const content = readFileSync(join(tempDir, "AGENTS.md"), "utf-8");
+		expect(content).toContain("### src/");
+		expect(content).toContain("### lib/");
+		expect(content).toContain("Source discovery");
+		expect(content).toContain("Library finding");
+	});
+
+	test("omits empty sections after quality filter", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-single-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+
+		const obs = [
+			makeObservation({
+				title: "bash execution",
+				filesRead: [join(subDir, "index.ts")],
+			}),
+		];
+
+		await updateFolderContext(tempDir, obs, {
+			mode: "single",
+			filename: "AGENTS.md",
+			maxDepth: 5,
+		});
+
+		// All noise → no file created (single mode filters first)
+		const rootFile = join(tempDir, "AGENTS.md");
+		expect(existsSync(rootFile)).toBe(false);
+	});
+});
+
+// =============================================================================
+// configurable filename
+// =============================================================================
+
+describe("configurable filename", () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir) {
+			try {
+				rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("updateAgentsMd creates file with custom name", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fname-"));
+
+		await updateAgentsMd(tempDir, "Custom filename context", "CLAUDE.md");
+
+		const customFile = join(tempDir, "CLAUDE.md");
+		const defaultFile = join(tempDir, "AGENTS.md");
+		expect(existsSync(customFile)).toBe(true);
+		expect(existsSync(defaultFile)).toBe(false);
+		const content = readFileSync(customFile, "utf-8");
+		expect(content).toContain("Custom filename context");
+	});
+
+	test("findAgentsMdFiles finds custom-named files", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fname-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+
+		// Create CLAUDE.md files in root and subfolder
+		writeFileSync(join(tempDir, "CLAUDE.md"), "root context");
+		writeFileSync(join(subDir, "CLAUDE.md"), "sub context");
+
+		const files = await findAgentsMdFiles(tempDir, "CLAUDE.md");
+		expect(files.length).toBeGreaterThanOrEqual(2);
+		expect(files.some((f) => f.endsWith("CLAUDE.md"))).toBe(true);
+	});
+
+	test("updateFolderContext uses custom filename in dispersed mode", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-fname-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+
+		const obs = [
+			makeObservation({
+				title: "Custom file test",
+				filesRead: [join(subDir, "index.ts")],
+			}),
+		];
+
+		await updateFolderContext(tempDir, obs, {
+			mode: "dispersed",
+			filename: "CLAUDE.md",
+			maxDepth: 5,
+		});
+
+		expect(existsSync(join(subDir, "CLAUDE.md"))).toBe(true);
+		expect(existsSync(join(subDir, "AGENTS.md"))).toBe(false);
+	});
+});
+
+// =============================================================================
+// purgeFolderContext
+// =============================================================================
+
+describe("purgeFolderContext", () => {
+	let tempDir: string;
+
+	afterEach(() => {
+		if (tempDir) {
+			try {
+				rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore
+			}
+		}
+	});
+
+	test("deletes all context files", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-purge-"));
+		const subDir = join(tempDir, "src");
+		mkdirSync(subDir);
+
+		// Create AGENTS.md files (managed-only)
+		writeFileSync(join(tempDir, "AGENTS.md"), `${START_TAG}\nManaged content\n${END_TAG}\n`);
+		writeFileSync(join(subDir, "AGENTS.md"), `${START_TAG}\nSub content\n${END_TAG}\n`);
+
+		const result = await purgeFolderContext(tempDir, "AGENTS.md");
+
+		expect(result.deleted).toBe(2);
+		expect(existsSync(join(tempDir, "AGENTS.md"))).toBe(false);
+		expect(existsSync(join(subDir, "AGENTS.md"))).toBe(false);
+	});
+
+	test("deletes files with user content outside tags", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-purge-"));
+
+		// Create file with user content + managed section
+		writeFileSync(
+			join(tempDir, "AGENTS.md"),
+			`# My Custom Notes\n\nImportant.\n\n${START_TAG}\nManaged\n${END_TAG}\n`,
+		);
+
+		const result = await purgeFolderContext(tempDir, "AGENTS.md");
+
+		// Purge deletes the entire file regardless of user content
+		expect(result.deleted).toBe(1);
+		expect(existsSync(join(tempDir, "AGENTS.md"))).toBe(false);
+	});
+
+	test("returns zero deleted when no files exist", async () => {
+		tempDir = mkdtempSync(join(tmpdir(), "open-mem-purge-"));
+
+		const result = await purgeFolderContext(tempDir, "AGENTS.md");
+
+		expect(result.deleted).toBe(0);
+		expect(result.files.length).toBe(0);
 	});
 });
