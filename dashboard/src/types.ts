@@ -53,14 +53,6 @@ export interface SessionSummary {
 
 export type RankingSignalSource = "fts" | "vector" | "graph" | "user-memory";
 
-export type SignalSource =
-	| "fts"
-	| "vector"
-	| "graph"
-	| "user-memory"
-	| "concept-filter"
-	| "file-filter";
-
 export interface SearchExplainSignal {
 	source: RankingSignalSource;
 	score?: number;

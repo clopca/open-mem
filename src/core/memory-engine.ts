@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { estimateTokens } from "../ai/parser";
 import {
 	buildCompactContext,
@@ -620,18 +621,18 @@ export class DefaultMemoryEngine implements MemoryEngine {
 			await doPatch(this.projectPath, rollbackPatch);
 		} catch (error) {
 			const failureEvent: ConfigAuditEvent = {
-				id: `rollback-failed-${Date.now()}`,
+				id: `rollback-failed-${randomUUID()}`,
 				timestamp: new Date().toISOString(),
 				patch: event.previousValues,
 				previousValues: event.patch,
-				source: "rollback",
+				source: "rollback-failed",
 			};
 			this.configAuditLog.push(failureEvent);
 			throw error;
 		}
 
 		const rollbackEvent: ConfigAuditEvent = {
-			id: `rollback-${Date.now()}`,
+			id: `rollback-${randomUUID()}`,
 			timestamp: new Date().toISOString(),
 			patch: event.previousValues,
 			previousValues: event.patch,

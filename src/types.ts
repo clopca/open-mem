@@ -388,7 +388,7 @@ export interface ConfigAuditEvent {
 	timestamp: string;
 	patch: Record<string, unknown>;
 	previousValues: Record<string, unknown>;
-	source: "api" | "mode" | "rollback";
+	source: "api" | "mode" | "rollback" | "rollback-failed";
 }
 
 // -----------------------------------------------------------------------------

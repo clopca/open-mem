@@ -402,23 +402,12 @@ function findLineageRef(obs: Observation): SearchLineageRef | undefined {
 }
 
 /**
- * Walk the revisionOf chain to find the lineage root and depth in a single pass.
- * Uses a `seen` Set for cycle detection to prevent infinite loops on circular chains.
+ * Resolve immediate parent for lineage info (single hop).
+ * Full chain resolution is handled by getLineage() in the memory engine.
  */
 function computeLineageInfo(obs: Observation): { rootId: string; depth: number } {
-	const seen = new Set<string>([obs.id]);
-	const current = obs;
-	let depth = 0;
-
-	while (current.revisionOf) {
-		if (seen.has(current.revisionOf)) break; // cycle detected
-		seen.add(current.revisionOf);
-		depth++;
-		// Since we only have the Observation object (not a repo lookup),
-		// we can only track one hop from the current observation.
-		// For deeper lineage, the full chain is resolved via getLineage().
-		return { rootId: current.revisionOf, depth };
+	if (obs.revisionOf && obs.revisionOf !== obs.id) {
+		return { rootId: obs.revisionOf, depth: 1 };
 	}
-
-	return { rootId: current.id, depth };
+	return { rootId: obs.id, depth: 0 };
 }

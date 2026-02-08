@@ -56,7 +56,7 @@ export function Ops() {
 				<>
 					<div
 						className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
-						role="status"
+						role="region"
 						aria-label="Service health metrics"
 					>
 						<MetricCard

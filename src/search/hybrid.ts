@@ -205,6 +205,7 @@ function mergeWithRRF(
 			score: rrfScore,
 			result: {
 				...r,
+				rankingSource: "fts",
 				explain: {
 					strategy: "hybrid",
 					matchedBy: ["fts"],

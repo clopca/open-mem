@@ -354,8 +354,13 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.patch("/v1/config", async (c) => {
+		let body: Partial<OpenMemConfig>;
 		try {
-			const body = (await c.req.json()) as Partial<OpenMemConfig>;
+			body = (await c.req.json()) as Partial<OpenMemConfig>;
+		} catch {
+			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		}
+		try {
 			const beforeConfig = await getEffectiveConfig(projectPath);
 			const effective = await patchConfig(projectPath, body);
 
@@ -378,8 +383,8 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 					warnings: effective.warnings,
 				}),
 			);
-		} catch {
-			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
 		}
 	});
 
