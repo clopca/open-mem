@@ -13,9 +13,7 @@ This guide walks you through installing, configuring, and using open-mem with Op
 bun add open-mem
 ```
 
-## Configuration
-
-### 1. Register the Plugin
+## Configure OpenCode
 
 Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencode/opencode.json`):
 
@@ -27,16 +25,20 @@ Add `open-mem` to the `plugin` array in your OpenCode config (`~/.config/opencod
 
 > **Note**: If you already have plugins, just append `"open-mem"` to the existing array.
 
-### 2. Enable AI Compression (Optional)
+That's it. open-mem starts capturing from your next OpenCode session.
 
-For intelligent compression, configure an AI provider. Google Gemini is the default (free tier):
+## Enable AI Compression (Optional)
+
+For intelligent compression of observations, configure an AI provider. Without a provider, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
+
+### Google Gemini (Default — Free Tier)
 
 ```bash
 # Get a free key at https://aistudio.google.com/apikey
 export GOOGLE_GENERATIVE_AI_API_KEY=...
 ```
 
-Or use Anthropic:
+### Anthropic
 
 ```bash
 export OPEN_MEM_PROVIDER=anthropic
@@ -44,27 +46,46 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export OPEN_MEM_MODEL=claude-sonnet-4-20250514
 ```
 
-Or use AWS Bedrock (no API key needed — uses AWS credentials):
+### AWS Bedrock
 
 ```bash
 export OPEN_MEM_PROVIDER=bedrock
 export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+# Uses AWS credentials from environment (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or AWS_PROFILE)
 ```
 
-Without this, open-mem still captures observations but uses a basic metadata extractor instead of AI compression.
+### OpenAI
 
-> **Auto-detection:** open-mem detects your provider from environment variables: `GOOGLE_GENERATIVE_AI_API_KEY` → Google, `ANTHROPIC_API_KEY` → Anthropic, AWS credentials → Bedrock.
-
-### 3. Start OpenCode
+Requires an extra dependency:
 
 ```bash
-opencode
+bun add @ai-sdk/openai
 ```
 
-open-mem will automatically:
-- Initialize a SQLite database at `.open-mem/memory.db`
-- Begin capturing tool executions
-- Inject memory context into future sessions
+```bash
+export OPEN_MEM_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
+export OPEN_MEM_MODEL=gpt-4o
+```
+
+### OpenRouter (100+ Models)
+
+```bash
+export OPEN_MEM_PROVIDER=openrouter
+export OPENROUTER_API_KEY=sk-or-...
+export OPEN_MEM_MODEL=google/gemini-2.5-flash-lite
+```
+
+### Auto-Detection
+
+open-mem detects your provider from environment variables:
+
+| Environment Variable | Provider |
+|---|---|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini |
+| `ANTHROPIC_API_KEY` | Anthropic |
+| AWS credentials (`AWS_ACCESS_KEY_ID` / `AWS_PROFILE`) | Bedrock |
+| `OPENROUTER_API_KEY` | OpenRouter |
 
 ## First Session
 
@@ -74,7 +95,7 @@ When the session goes idle, captured tool outputs are compressed into structured
 
 ## Second Session Onwards
 
-From your second session, you'll see a memory block injected into the system prompt. This gives your agent awareness of past work:
+From your second session, you'll see a memory block injected into the system prompt:
 
 ```
 🔧 [refactor] Extract pricing logic (~120 tokens) — src/pricing.ts
@@ -114,72 +135,13 @@ The agent will use `memory.history` to display session history.
 
 The agent will use `memory.get` to fetch the complete observation.
 
-## Privacy
+## Verify It Works
 
-### Exclude Sensitive Content
+1. **Check plugin is loaded** — look for `[open-mem]` messages in OpenCode logs
+2. **Check observations exist** — use the `memory.history` tool after your first session
+3. **Check context injection** — look for the memory block at the start of your second session
 
-Wrap content in `<private>` tags to prevent it from being captured:
-
-```
-<private>
-API_KEY=sk-prod-super-secret-key
-DB_PASSWORD=hunter2
-</private>
-```
-
-Private blocks are stripped before any processing — they never reach the database or the AI provider.
-
-### Automatic Redaction
-
-open-mem automatically redacts common patterns:
-- API keys (`sk-ant-...`, `ghp_...`, `Bearer ...`)
-- Passwords and secrets
-- Environment variable values matching sensitive patterns
-
-### Keep Data Out of Git
-
-Add `.open-mem/` to your `.gitignore`:
-
-```bash
-echo '.open-mem/' >> .gitignore
-```
-
-## Configuration Options
-
-All configuration is via environment variables. See the [README](../README.md#configuration) for the full reference.
-
-Common options:
-
-```bash
-# Disable AI compression (fully local mode)
-export OPEN_MEM_COMPRESSION=false
-
-# Reduce context injection budget
-export OPEN_MEM_MAX_CONTEXT_TOKENS=2000
-
-# Ignore noisy tools
-export OPEN_MEM_IGNORED_TOOLS=Bash,Glob
-
-# Shorter data retention
-export OPEN_MEM_RETENTION_DAYS=30
-
-# Debug logging
-export OPEN_MEM_LOG_LEVEL=debug
-```
-
-## Troubleshooting
-
-See [README Troubleshooting](../README.md#troubleshooting) for common issues and solutions.
-
-## Next Steps
-
-- [Architecture](./architecture.md) — understand how open-mem works internally
-- [Platform Adapter Runbook](./platform-adapter-runbook.md) — adapter ops, compatibility evidence workflow, and release gate troubleshooting
-- [MCP Compatibility Matrix](./mcp-compatibility-matrix.md) — current support claims and verification policy
-- [CONTRIBUTING.md](../CONTRIBUTING.md) — set up a development environment
-- [CHANGELOG.md](../CHANGELOG.md) — see what's changed
-
-## Optional: External Platform Workers
+## External Platform Workers
 
 If you want to ingest events from non-OpenCode platforms, enable adapter workers:
 
@@ -187,9 +149,16 @@ If you want to ingest events from non-OpenCode platforms, enable adapter workers
 export OPEN_MEM_PLATFORM_CLAUDE_CODE=true
 export OPEN_MEM_PLATFORM_CURSOR=true
 
-# start one worker per platform integration
+# Start one worker per platform integration
 bunx open-mem-claude-code --project /path/to/project
 bunx open-mem-cursor --project /path/to/project
 ```
 
 Workers consume newline-delimited JSON events on stdin and write into the same project memory database.
+
+## Next Steps
+
+- [Architecture](/architecture) — understand how open-mem works internally
+- [Memory Tools](/tools) — reference for all 9 MCP tools
+- [Configuration](/configuration) — all environment variables and options
+- [Privacy & Security](/privacy) — how your data is protected

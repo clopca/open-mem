@@ -26,6 +26,11 @@ Thumbs.db
 
 # Bun
 bun.lockb
+bun.lock
+
+# VitePress
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # Coverage
 coverage/

@@ -51,6 +51,8 @@
 		"compat:matrix": "bun run scripts/render-compat-matrix.ts",
 		"compat:smoke": "bun run scripts/smoke-platform-workers.ts",
 		"compat:gate": "bun run scripts/check-external-compat-gate.ts",
+		"docs:dev": "cd docs && npx vitepress dev",
+		"docs:build": "cd docs && npx vitepress build",
 		"lint": "bun x biome check src/",
 		"clean": "rm -rf dist",
 		"prepare": "test -d src && bun run build || true",
