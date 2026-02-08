@@ -180,6 +180,12 @@ On session end, open-mem auto-generates `AGENTS.md` files in project folders tha
 
 User content outside the managed tags is preserved. Disable with `OPEN_MEM_FOLDER_CONTEXT=false`.
 
+**Modes:**
+- **Dispersed** (default): Creates `AGENTS.md` in each touched folder with activity for that folder
+- **Single**: Creates one root file with all folder activity grouped by section headers (`### src/tools/`, `### src/hooks/`, etc.)
+
+Configure via `OPEN_MEM_FOLDER_CONTEXT_MODE=single` or `OPEN_MEM_FOLDER_CONTEXT_FILENAME=CLAUDE.md`.
+
 ### Token ROI Tracking
 
 The context injector includes a "Memory Economics" footer showing how much context compression saves: read cost vs. original discovery cost, with a savings percentage. This helps you understand the value of AI compression at a glance.
@@ -397,6 +403,8 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `OPEN_MEM_MAX_OBSERVATIONS` | `50` | Maximum observations to consider for context |
 | `OPEN_MEM_FOLDER_CONTEXT` | `true` | Set to `false` to disable AGENTS.md generation |
 | `OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH` | `5` | Max folder depth for AGENTS.md generation |
+| `OPEN_MEM_FOLDER_CONTEXT_MODE` | `dispersed` | Context file mode: `dispersed` (per-folder) or `single` (one root file) |
+| `OPEN_MEM_FOLDER_CONTEXT_FILENAME` | `AGENTS.md` | Filename for context files (e.g. `CLAUDE.md` for Claude Code) |
 | `OPEN_MEM_PLATFORM_OPENCODE` | `true` | Set to `false` to disable OpenCode adapter |
 | `OPEN_MEM_PLATFORM_CLAUDE_CODE` | `false` | Set to `true` to enable Claude Code adapter surface |
 | `OPEN_MEM_PLATFORM_CURSOR` | `false` | Set to `true` to enable Cursor adapter surface |
@@ -430,6 +438,8 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | `logLevel` | string | `warn` | Log level: `debug`, `info`, `warn`, `error` |
 | `folderContextEnabled` | boolean | `true` | Auto-generate AGENTS.md in active folders |
 | `folderContextMaxDepth` | number | `5` | Max folder depth from project root |
+| `folderContextMode` | string | `dispersed` | Context file mode: `dispersed` (per-folder) or `single` (one root file) |
+| `folderContextFilename` | string | `AGENTS.md` | Filename for context files (e.g. `CLAUDE.md` for Claude Code) |
 
 </details>
 
