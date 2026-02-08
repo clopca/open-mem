@@ -174,5 +174,22 @@ See [README Troubleshooting](../README.md#troubleshooting) for common issues and
 ## Next Steps
 
 - [Architecture](./architecture.md) — understand how open-mem works internally
+- [Platform Adapter Runbook](./platform-adapter-runbook.md) — adapter ops, compatibility evidence workflow, and release gate troubleshooting
+- [MCP Compatibility Matrix](./mcp-compatibility-matrix.md) — current support claims and verification policy
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — set up a development environment
 - [CHANGELOG.md](../CHANGELOG.md) — see what's changed
+
+## Optional: External Platform Workers
+
+If you want to ingest events from non-OpenCode platforms, enable adapter workers:
+
+```bash
+export OPEN_MEM_PLATFORM_CLAUDE_CODE=true
+export OPEN_MEM_PLATFORM_CURSOR=true
+
+# start one worker per platform integration
+bunx open-mem-claude-code --project /path/to/project
+bunx open-mem-cursor --project /path/to/project
+```
+
+Workers consume newline-delimited JSON events on stdin and write into the same project memory database.

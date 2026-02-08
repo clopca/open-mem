@@ -3,9 +3,9 @@
 // =============================================================================
 
 import {
-	type ContextBuilderConfig,
 	buildContextString,
 	buildUserContextSection,
+	type ContextBuilderConfig,
 } from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { ObservationRepository } from "../db/observations";
@@ -76,10 +76,7 @@ export function createContextInjectionHook(
 
 			if (config.userMemoryEnabled && userObservationRepo) {
 				const userIndex = userObservationRepo.getIndex(config.maxObservations);
-				const userSection = buildUserContextSection(
-					userIndex,
-					config.userMemoryMaxContextTokens,
-				);
+				const userSection = buildUserContextSection(userIndex, config.userMemoryMaxContextTokens);
 				if (userSection) {
 					contextStr += `\n\n${userSection}`;
 				}

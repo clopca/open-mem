@@ -1,25 +1,16 @@
-import { type LanguageModel, generateText } from "ai";
-import {
-	type ParsedEntityExtraction,
-	parseEntityExtractionResponse,
-} from "./parser";
-import {
-	type EntityExtractionObservation,
-	buildEntityExtractionPrompt,
-} from "./prompts";
+import { generateText, type LanguageModel } from "ai";
+import { type ParsedEntityExtraction, parseEntityExtractionResponse } from "./parser";
+import { buildEntityExtractionPrompt, type EntityExtractionObservation } from "./prompts";
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";
 
 /** Re-exported entity extraction result types. */
-export type {
-	ParsedEntityExtraction as EntityExtractionResult,
-	EntityExtractionObservation,
-};
+export type { ParsedEntityExtraction as EntityExtractionResult, EntityExtractionObservation };
 /** Re-exported entity and relation types. */
 export type {
+	EntityType,
 	ParsedEntity as ExtractedEntity,
 	ParsedRelation as ExtractedRelation,
-	EntityType,
 	RelationshipType,
 } from "./parser";
 
@@ -63,9 +54,7 @@ export class EntityExtractor {
 	 * Extract entities and relationships from an observation.
 	 * @returns Extracted entities and relations, or null if AI is unavailable.
 	 */
-	async extract(
-		observation: EntityExtractionObservation,
-	): Promise<ParsedEntityExtraction | null> {
+	async extract(observation: EntityExtractionObservation): Promise<ParsedEntityExtraction | null> {
 		if (!this.model) {
 			return null;
 		}
@@ -76,10 +65,7 @@ export class EntityExtractor {
 		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			try {
 				if (this.config.provider === "google") {
-					await enforceRateLimit(
-						this.config.model,
-						this.config.rateLimitingEnabled,
-					);
+					await enforceRateLimit(this.config.model, this.config.rateLimitingEnabled);
 				}
 				const { text } = await this._generate({
 					model: this.model,

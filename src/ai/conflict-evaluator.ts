@@ -1,12 +1,9 @@
-import { type LanguageModel, generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
+import { type ConflictEvaluation, parseConflictEvaluationResponse } from "./parser";
 import {
-	type ConflictEvaluation,
-	parseConflictEvaluationResponse,
-} from "./parser";
-import {
+	buildConflictEvaluationPrompt,
 	type ConflictCandidate,
 	type ConflictNewObservation,
-	buildConflictEvaluationPrompt,
 } from "./prompts";
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";

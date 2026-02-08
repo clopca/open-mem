@@ -299,6 +299,48 @@ Or add it to your MCP client config:
 
 The server communicates over stdin/stdout using JSON-RPC 2.0 and exposes: `memory.find`, `memory.create`, `memory.history`, `memory.get`, `memory.transfer.export`, `memory.transfer.import`, `memory.revise`, `memory.remove`, `memory.help`.
 
+Lifecycle behavior:
+- `initialize` negotiates protocol version (default `2024-11-05`)
+- `notifications/initialized` is supported
+- strict mode requires initialize before `tools/list`/`tools/call`
+
+## Platform Adapter Workers (Claude Code / Cursor)
+
+open-mem now includes dedicated adapter workers that ingest JSON events over stdin:
+
+```bash
+# Claude Code adapter worker
+bunx open-mem-claude-code --project /path/to/project
+
+# Cursor adapter worker
+bunx open-mem-cursor --project /path/to/project
+```
+
+Each line on stdin must be one JSON event. The workers normalize events into open-mem's shared platform schema and reuse the same capture/lifecycle pipeline used by OpenCode hooks.
+Each line receives a JSON response on stdout:
+- success: `{"ok":true,"code":"OK","ingested":true}`
+- parse error: `{"ok":false,"code":"INVALID_JSON",...}`
+- schema mismatch: `{"ok":false,"code":"UNSUPPORTED_EVENT",...}`
+
+Optional worker commands:
+- `{"command":"flush"}` to force queue processing
+- `{"command":"health"}` to get worker queue status
+- `{"command":"shutdown"}` to request graceful shutdown
+
+Optional HTTP bridge mode:
+
+```bash
+bunx open-mem-claude-code --project /path/to/project --http-port 37877
+```
+
+Endpoints:
+- `POST /v1/events` (same envelope/response semantics as stdio)
+- `GET /v1/health`
+
+Enable these adapters via env vars:
+- `OPEN_MEM_PLATFORM_CLAUDE_CODE=true`
+- `OPEN_MEM_PLATFORM_CURSOR=true`
+
 ## Data Model Notes
 
 - Local-first storage remains project-local in `.open-mem/` (plus optional user-level DB).
@@ -327,6 +369,8 @@ Dashboard config APIs:
 - `PATCH /api/config`
 - `GET /api/modes`
 - `POST /api/modes/:id/apply`
+- `GET /api/health`
+- `GET /api/metrics`
 
 ## Configuration
 
@@ -353,6 +397,12 @@ open-mem works out of the box with zero configuration. All settings can be custo
 | `OPEN_MEM_MAX_OBSERVATIONS` | `50` | Maximum observations to consider for context |
 | `OPEN_MEM_FOLDER_CONTEXT` | `true` | Set to `false` to disable AGENTS.md generation |
 | `OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH` | `5` | Max folder depth for AGENTS.md generation |
+| `OPEN_MEM_PLATFORM_OPENCODE` | `true` | Set to `false` to disable OpenCode adapter |
+| `OPEN_MEM_PLATFORM_CLAUDE_CODE` | `false` | Set to `true` to enable Claude Code adapter surface |
+| `OPEN_MEM_PLATFORM_CURSOR` | `false` | Set to `true` to enable Cursor adapter surface |
+| `OPEN_MEM_MCP_COMPAT_MODE` | `strict` | MCP mode: `strict` or `legacy` |
+| `OPEN_MEM_MCP_PROTOCOL_VERSION` | `2024-11-05` | Preferred MCP protocol version |
+| `OPEN_MEM_MCP_SUPPORTED_PROTOCOLS` | `2024-11-05` | Comma-separated supported protocol versions |
 
 <details>
 <summary><strong>Programmatic Configuration Reference</strong></summary>

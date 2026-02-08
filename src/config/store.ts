@@ -41,29 +41,262 @@ export interface ConfigEffectiveResponse {
 }
 
 const FIELD_SCHEMA: ConfigFieldSchema[] = [
-	{ key: "dbPath", label: "Database Path", type: "string", group: "Storage", liveApply: false, restartRequired: true },
-	{ key: "provider", label: "Provider", type: "string", group: "AI", liveApply: false, restartRequired: true, enum: ["google", "anthropic", "openai", "bedrock"] },
-	{ key: "model", label: "Model", type: "string", group: "AI", liveApply: false, restartRequired: true },
-	{ key: "maxTokensPerCompression", label: "Max Tokens Per Compression", type: "number", group: "AI", liveApply: true, restartRequired: false, min: 128, max: 8192 },
-	{ key: "compressionEnabled", label: "Compression Enabled", type: "boolean", group: "Behavior", liveApply: true, restartRequired: false },
-	{ key: "contextInjectionEnabled", label: "Context Injection Enabled", type: "boolean", group: "Behavior", liveApply: true, restartRequired: false },
-	{ key: "maxContextTokens", label: "Max Context Tokens", type: "number", group: "Behavior", liveApply: true, restartRequired: false, min: 500, max: 64000 },
-	{ key: "batchSize", label: "Batch Size", type: "number", group: "Behavior", liveApply: true, restartRequired: false, min: 1, max: 100 },
-	{ key: "batchIntervalMs", label: "Batch Interval (ms)", type: "number", group: "Behavior", liveApply: true, restartRequired: false, min: 1000, max: 300000 },
-	{ key: "ignoredTools", label: "Ignored Tools", type: "array", group: "Filtering", liveApply: true, restartRequired: false },
-	{ key: "minOutputLength", label: "Min Output Length", type: "number", group: "Filtering", liveApply: true, restartRequired: false, min: 0, max: 10000 },
-	{ key: "maxObservations", label: "Max Observations", type: "number", group: "Progressive Disclosure", liveApply: true, restartRequired: false, min: 1, max: 200 },
-	{ key: "contextFullObservationCount", label: "Full Observation Count", type: "number", group: "Progressive Disclosure", liveApply: true, restartRequired: false, min: 0, max: 20 },
-	{ key: "contextShowTokenCosts", label: "Show Token Costs", type: "boolean", group: "Progressive Disclosure", liveApply: true, restartRequired: false },
-	{ key: "sensitivePatterns", label: "Sensitive Patterns", type: "array", group: "Privacy", liveApply: true, restartRequired: false },
-	{ key: "retentionDays", label: "Retention Days", type: "number", group: "Data Retention", liveApply: false, restartRequired: true, min: 0, max: 3650 },
-	{ key: "maxDatabaseSizeMb", label: "Max Database Size (MB)", type: "number", group: "Data Retention", liveApply: false, restartRequired: true, min: 0, max: 100000 },
-	{ key: "dashboardEnabled", label: "Dashboard Enabled", type: "boolean", group: "Dashboard", liveApply: false, restartRequired: true },
-	{ key: "dashboardPort", label: "Dashboard Port", type: "number", group: "Dashboard", liveApply: false, restartRequired: true, min: 1, max: 65535 },
-	{ key: "rerankingEnabled", label: "Reranking Enabled", type: "boolean", group: "Advanced", liveApply: true, restartRequired: false },
-	{ key: "entityExtractionEnabled", label: "Entity Extraction Enabled", type: "boolean", group: "Advanced", liveApply: true, restartRequired: false },
-	{ key: "userMemoryEnabled", label: "User Memory Enabled", type: "boolean", group: "Advanced", liveApply: false, restartRequired: true },
-	{ key: "userMemoryMaxContextTokens", label: "User Memory Max Context Tokens", type: "number", group: "Advanced", liveApply: true, restartRequired: false, min: 0, max: 8000 },
+	{
+		key: "dbPath",
+		label: "Database Path",
+		type: "string",
+		group: "Storage",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "provider",
+		label: "Provider",
+		type: "string",
+		group: "AI",
+		liveApply: false,
+		restartRequired: true,
+		enum: ["google", "anthropic", "openai", "bedrock"],
+	},
+	{
+		key: "model",
+		label: "Model",
+		type: "string",
+		group: "AI",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "maxTokensPerCompression",
+		label: "Max Tokens Per Compression",
+		type: "number",
+		group: "AI",
+		liveApply: true,
+		restartRequired: false,
+		min: 128,
+		max: 8192,
+	},
+	{
+		key: "compressionEnabled",
+		label: "Compression Enabled",
+		type: "boolean",
+		group: "Behavior",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "contextInjectionEnabled",
+		label: "Context Injection Enabled",
+		type: "boolean",
+		group: "Behavior",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "maxContextTokens",
+		label: "Max Context Tokens",
+		type: "number",
+		group: "Behavior",
+		liveApply: true,
+		restartRequired: false,
+		min: 500,
+		max: 64000,
+	},
+	{
+		key: "batchSize",
+		label: "Batch Size",
+		type: "number",
+		group: "Behavior",
+		liveApply: true,
+		restartRequired: false,
+		min: 1,
+		max: 100,
+	},
+	{
+		key: "batchIntervalMs",
+		label: "Batch Interval (ms)",
+		type: "number",
+		group: "Behavior",
+		liveApply: true,
+		restartRequired: false,
+		min: 1000,
+		max: 300000,
+	},
+	{
+		key: "ignoredTools",
+		label: "Ignored Tools",
+		type: "array",
+		group: "Filtering",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "minOutputLength",
+		label: "Min Output Length",
+		type: "number",
+		group: "Filtering",
+		liveApply: true,
+		restartRequired: false,
+		min: 0,
+		max: 10000,
+	},
+	{
+		key: "maxObservations",
+		label: "Max Observations",
+		type: "number",
+		group: "Progressive Disclosure",
+		liveApply: true,
+		restartRequired: false,
+		min: 1,
+		max: 200,
+	},
+	{
+		key: "contextFullObservationCount",
+		label: "Full Observation Count",
+		type: "number",
+		group: "Progressive Disclosure",
+		liveApply: true,
+		restartRequired: false,
+		min: 0,
+		max: 20,
+	},
+	{
+		key: "contextShowTokenCosts",
+		label: "Show Token Costs",
+		type: "boolean",
+		group: "Progressive Disclosure",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "sensitivePatterns",
+		label: "Sensitive Patterns",
+		type: "array",
+		group: "Privacy",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "retentionDays",
+		label: "Retention Days",
+		type: "number",
+		group: "Data Retention",
+		liveApply: false,
+		restartRequired: true,
+		min: 0,
+		max: 3650,
+	},
+	{
+		key: "maxDatabaseSizeMb",
+		label: "Max Database Size (MB)",
+		type: "number",
+		group: "Data Retention",
+		liveApply: false,
+		restartRequired: true,
+		min: 0,
+		max: 100000,
+	},
+	{
+		key: "dashboardEnabled",
+		label: "Dashboard Enabled",
+		type: "boolean",
+		group: "Dashboard",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "dashboardPort",
+		label: "Dashboard Port",
+		type: "number",
+		group: "Dashboard",
+		liveApply: false,
+		restartRequired: true,
+		min: 1,
+		max: 65535,
+	},
+	{
+		key: "platformOpenCodeEnabled",
+		label: "OpenCode Adapter",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "platformClaudeCodeEnabled",
+		label: "Claude Code Adapter",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "platformCursorEnabled",
+		label: "Cursor Adapter",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "mcpCompatibilityMode",
+		label: "MCP Compatibility Mode",
+		type: "string",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+		enum: ["strict", "legacy"],
+	},
+	{
+		key: "mcpProtocolVersion",
+		label: "MCP Protocol Version",
+		type: "string",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "mcpSupportedProtocolVersions",
+		label: "MCP Supported Protocols",
+		type: "array",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "rerankingEnabled",
+		label: "Reranking Enabled",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "entityExtractionEnabled",
+		label: "Entity Extraction Enabled",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: true,
+		restartRequired: false,
+	},
+	{
+		key: "userMemoryEnabled",
+		label: "User Memory Enabled",
+		type: "boolean",
+		group: "Advanced",
+		liveApply: false,
+		restartRequired: true,
+	},
+	{
+		key: "userMemoryMaxContextTokens",
+		label: "User Memory Max Context Tokens",
+		type: "number",
+		group: "Advanced",
+		liveApply: true,
+		restartRequired: false,
+		min: 0,
+		max: 8000,
+	},
 ];
 
 const ENV_BY_KEY: Partial<Record<keyof OpenMemConfig, string[]>> = {
@@ -81,6 +314,12 @@ const ENV_BY_KEY: Partial<Record<keyof OpenMemConfig, string[]>> = {
 	maxObservations: ["OPEN_MEM_MAX_OBSERVATIONS"],
 	dashboardEnabled: ["OPEN_MEM_DASHBOARD"],
 	dashboardPort: ["OPEN_MEM_DASHBOARD_PORT"],
+	platformOpenCodeEnabled: ["OPEN_MEM_PLATFORM_OPENCODE"],
+	platformClaudeCodeEnabled: ["OPEN_MEM_PLATFORM_CLAUDE_CODE"],
+	platformCursorEnabled: ["OPEN_MEM_PLATFORM_CURSOR"],
+	mcpCompatibilityMode: ["OPEN_MEM_MCP_COMPAT_MODE"],
+	mcpProtocolVersion: ["OPEN_MEM_MCP_PROTOCOL_VERSION"],
+	mcpSupportedProtocolVersions: ["OPEN_MEM_MCP_SUPPORTED_PROTOCOLS"],
 	rerankingEnabled: ["OPEN_MEM_RERANKING"],
 	userMemoryEnabled: ["OPEN_MEM_USER_MEMORY"],
 };
@@ -96,14 +335,20 @@ function getFieldSchema(key: keyof OpenMemConfig): ConfigFieldSchema | undefined
 function validatePatchValue(key: keyof OpenMemConfig, value: unknown): string | null {
 	const schema = getFieldSchema(key);
 	if (!schema) return null;
-	if (schema.type === "string" && typeof value !== "string") return `${String(key)} must be a string`;
-	if (schema.type === "number" && typeof value !== "number") return `${String(key)} must be a number`;
-	if (schema.type === "boolean" && typeof value !== "boolean") return `${String(key)} must be a boolean`;
+	if (schema.type === "string" && typeof value !== "string")
+		return `${String(key)} must be a string`;
+	if (schema.type === "number" && typeof value !== "number")
+		return `${String(key)} must be a number`;
+	if (schema.type === "boolean" && typeof value !== "boolean")
+		return `${String(key)} must be a boolean`;
 	if (schema.type === "array" && !Array.isArray(value)) return `${String(key)} must be an array`;
-	if (schema.enum && typeof value === "string" && !schema.enum.includes(value)) return `${String(key)} must be one of: ${schema.enum.join(", ")}`;
+	if (schema.enum && typeof value === "string" && !schema.enum.includes(value))
+		return `${String(key)} must be one of: ${schema.enum.join(", ")}`;
 	if (typeof value === "number") {
-		if (schema.min !== undefined && value < schema.min) return `${String(key)} must be >= ${schema.min}`;
-		if (schema.max !== undefined && value > schema.max) return `${String(key)} must be <= ${schema.max}`;
+		if (schema.min !== undefined && value < schema.min)
+			return `${String(key)} must be >= ${schema.min}`;
+		if (schema.max !== undefined && value > schema.max)
+			return `${String(key)} must be <= ${schema.max}`;
 	}
 	return null;
 }
@@ -125,7 +370,10 @@ export async function readProjectConfig(projectPath: string): Promise<Partial<Op
 	}
 }
 
-export async function writeProjectConfig(projectPath: string, patch: Partial<OpenMemConfig>): Promise<void> {
+export async function writeProjectConfig(
+	projectPath: string,
+	patch: Partial<OpenMemConfig>,
+): Promise<void> {
 	const path = configFilePath(projectPath);
 	const current = await readProjectConfig(projectPath);
 	const merged = { ...current, ...patch };
@@ -155,7 +403,7 @@ export async function getEffectiveConfig(projectPath: string): Promise<ConfigEff
 		const schema = getFieldSchema(key);
 		const envKeys = ENV_BY_KEY[key] ?? [];
 		const envHit = envKeys.some((envKey) => typeof process.env[envKey] === "string");
-		const fileHasKey = Object.prototype.hasOwnProperty.call(fileConfig, key);
+		const fileHasKey = Object.hasOwn(fileConfig, key);
 		let source: ConfigValueMeta["source"] = "default";
 		if (fileHasKey) source = "file";
 		if (envHit) source = "env";
@@ -178,7 +426,10 @@ export async function getEffectiveConfig(projectPath: string): Promise<ConfigEff
 	return { config: effective, meta, warnings };
 }
 
-export async function previewConfig(projectPath: string, patch: Partial<OpenMemConfig>): Promise<ConfigEffectiveResponse> {
+export async function previewConfig(
+	projectPath: string,
+	patch: Partial<OpenMemConfig>,
+): Promise<ConfigEffectiveResponse> {
 	const errors = validatePatch(patch);
 	if (errors.length > 0) {
 		return {
@@ -196,7 +447,10 @@ export async function previewConfig(projectPath: string, patch: Partial<OpenMemC
 	return { config, meta: baseMeta, warnings: [] };
 }
 
-export async function patchConfig(projectPath: string, patch: Partial<OpenMemConfig>): Promise<ConfigEffectiveResponse> {
+export async function patchConfig(
+	projectPath: string,
+	patch: Partial<OpenMemConfig>,
+): Promise<ConfigEffectiveResponse> {
 	const errors = validatePatch(patch);
 	if (errors.length > 0) {
 		return {

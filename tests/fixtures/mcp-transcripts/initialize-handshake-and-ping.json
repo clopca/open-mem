@@ -1,0 +1,24 @@
+{
+  "name": "initialize handshake and ping",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": { "protocolVersion": "2024-11-05" }
+    },
+    { "jsonrpc": "2.0", "id": 2, "method": "ping", "params": {} }
+  ],
+  "expected": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2024-11-05",
+        "capabilities": { "tools": { "listChanged": false } },
+        "serverInfo": { "name": "open-mem", "version": "0.7.0-test" }
+      }
+    },
+    { "jsonrpc": "2.0", "id": 2, "result": {} }
+  ]
+}

@@ -53,6 +53,10 @@ export async function graphAugmentedSearch(
 			rank: 0,
 			snippet: obs.title,
 			source: "project",
+			explain: {
+				strategy: "hybrid",
+				matchedBy: ["graph"],
+			},
 		});
 	}
 

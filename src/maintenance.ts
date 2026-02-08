@@ -51,7 +51,9 @@ async function main() {
 		const dryRun = values["dry-run"] === true;
 		if (sub === "clean") {
 			const result = await cleanFolderContext(projectPath, dryRun);
-			console.log(`${dryRun ? "[dry-run] " : ""}Scanned ${result.files.length} AGENTS.md files, changed ${result.changed}.`);
+			console.log(
+				`${dryRun ? "[dry-run] " : ""}Scanned ${result.files.length} AGENTS.md files, changed ${result.changed}.`,
+			);
 			return;
 		}
 
@@ -72,7 +74,9 @@ async function main() {
 			dryRun,
 		);
 		db.close();
-		console.log(`${dryRun ? "[dry-run] " : ""}Rebuilt context from ${result.observations} observations, touched ${result.filesTouched} files.`);
+		console.log(
+			`${dryRun ? "[dry-run] " : ""}Rebuilt context from ${result.observations} observations, touched ${result.filesTouched} files.`,
+		);
 		return;
 	}
 

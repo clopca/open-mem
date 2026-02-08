@@ -2,7 +2,7 @@
 // open-mem — Search Result Reranker
 // =============================================================================
 
-import { type LanguageModel, generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import { parseRerankingResponse } from "../ai/parser";
 import { buildRerankingPrompt } from "../ai/prompts";
 import { enforceRateLimit } from "../ai/rate-limiter";
@@ -189,7 +189,13 @@ export class HeuristicReranker implements Reranker {
 
 /** Create a reranker based on config: LLM-based if model available, heuristic fallback. */
 export function createReranker(
-	config: { rerankingEnabled: boolean; rerankingMaxCandidates: number; provider?: string; model?: string; rateLimitingEnabled?: boolean },
+	config: {
+		rerankingEnabled: boolean;
+		rerankingMaxCandidates: number;
+		provider?: string;
+		model?: string;
+		rateLimitingEnabled?: boolean;
+	},
 	languageModel: LanguageModel | null,
 ): Reranker | null {
 	if (!config.rerankingEnabled) return null;

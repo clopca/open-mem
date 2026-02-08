@@ -64,6 +64,16 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	dashboardEnabled: false,
 	dashboardPort: 3737,
 
+	// Platform adapters
+	platformOpenCodeEnabled: true,
+	platformClaudeCodeEnabled: false,
+	platformCursorEnabled: false,
+
+	// MCP compatibility
+	mcpCompatibilityMode: "strict",
+	mcpProtocolVersion: "2024-11-05",
+	mcpSupportedProtocolVersions: ["2024-11-05"],
+
 	// Embeddings
 	embeddingDimension: undefined,
 
@@ -128,6 +138,17 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_DASHBOARD === "true") env.dashboardEnabled = true;
 	if (process.env.OPEN_MEM_DASHBOARD_PORT)
 		env.dashboardPort = Number.parseInt(process.env.OPEN_MEM_DASHBOARD_PORT, 10);
+	if (process.env.OPEN_MEM_PLATFORM_OPENCODE === "false") env.platformOpenCodeEnabled = false;
+	if (process.env.OPEN_MEM_PLATFORM_CLAUDE_CODE === "true") env.platformClaudeCodeEnabled = true;
+	if (process.env.OPEN_MEM_PLATFORM_CURSOR === "true") env.platformCursorEnabled = true;
+	if (process.env.OPEN_MEM_MCP_COMPAT_MODE)
+		env.mcpCompatibilityMode = process.env.OPEN_MEM_MCP_COMPAT_MODE as "strict" | "legacy";
+	if (process.env.OPEN_MEM_MCP_PROTOCOL_VERSION)
+		env.mcpProtocolVersion = process.env.OPEN_MEM_MCP_PROTOCOL_VERSION;
+	if (process.env.OPEN_MEM_MCP_SUPPORTED_PROTOCOLS)
+		env.mcpSupportedProtocolVersions = process.env.OPEN_MEM_MCP_SUPPORTED_PROTOCOLS.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
 	if (process.env.OPEN_MEM_EMBEDDING_DIMENSION)
 		env.embeddingDimension = Number.parseInt(process.env.OPEN_MEM_EMBEDDING_DIMENSION, 10);
 	if (process.env.OPEN_MEM_CONFLICT_RESOLUTION === "true") env.conflictResolutionEnabled = true;
@@ -149,10 +170,7 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 		);
 	if (process.env.OPEN_MEM_RERANKING === "true") env.rerankingEnabled = true;
 	if (process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES)
-		env.rerankingMaxCandidates = Number.parseInt(
-			process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES,
-			10,
-		);
+		env.rerankingMaxCandidates = Number.parseInt(process.env.OPEN_MEM_RERANKING_MAX_CANDIDATES, 10);
 	if (process.env.OPEN_MEM_ENTITY_EXTRACTION === "true") env.entityExtractionEnabled = true;
 
 	return env;

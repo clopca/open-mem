@@ -133,6 +133,11 @@ function runNativeVectorSearch(
 				observation: obs,
 				rank: distance - 1,
 				snippet: obs.title,
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["vector"],
+					vectorDistance: distance,
+				},
 			});
 		}
 
@@ -172,6 +177,11 @@ function runJsFallbackVectorSearch(
 			observation: obs,
 			rank: -similarity,
 			snippet: obs.title,
+			explain: {
+				strategy: "hybrid",
+				matchedBy: ["vector"],
+				vectorSimilarity: similarity,
+			},
 		});
 	}
 
@@ -189,7 +199,17 @@ function mergeWithRRF(
 	for (let i = 0; i < ftsResults.length; i++) {
 		const r = ftsResults[i];
 		const rrfScore = 1 / (RRF_K + i + 1);
-		scores.set(r.observation.id, { score: rrfScore, result: r });
+		scores.set(r.observation.id, {
+			score: rrfScore,
+			result: {
+				...r,
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["fts"],
+					ftsRank: r.rank,
+				},
+			},
+		});
 	}
 
 	for (let i = 0; i < vectorResults.length; i++) {
@@ -198,13 +218,45 @@ function mergeWithRRF(
 		const existing = scores.get(r.observation.id);
 		if (existing) {
 			existing.score += rrfScore;
+			existing.result = {
+				...existing.result,
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["fts", "vector"],
+					ftsRank: existing.result.explain?.ftsRank ?? existing.result.rank,
+					vectorDistance: r.explain?.vectorDistance,
+					vectorSimilarity: r.explain?.vectorSimilarity,
+				},
+			};
 		} else {
-			scores.set(r.observation.id, { score: rrfScore, result: r });
+			scores.set(r.observation.id, {
+				score: rrfScore,
+				result: {
+					...r,
+					explain: {
+						strategy: "hybrid",
+						matchedBy: ["vector"],
+						vectorDistance: r.explain?.vectorDistance,
+						vectorSimilarity: r.explain?.vectorSimilarity,
+					},
+				},
+			});
 		}
 	}
 
 	return [...scores.values()]
 		.sort((a, b) => b.score - a.score)
 		.slice(0, limit)
-		.map(({ result }) => result);
+		.map(({ score, result }) => ({
+			...result,
+			explain: {
+				...(result.explain ?? { strategy: "hybrid", matchedBy: [] }),
+				strategy: "hybrid",
+				matchedBy: result.explain?.matchedBy ?? [],
+				rrfScore: score,
+				ftsRank: result.explain?.ftsRank,
+				vectorDistance: result.explain?.vectorDistance,
+				vectorSimilarity: result.explain?.vectorSimilarity,
+			},
+		}));
 }

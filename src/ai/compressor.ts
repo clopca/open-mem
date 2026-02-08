@@ -2,10 +2,8 @@
 // open-mem — AI Observation Compressor
 // =============================================================================
 
-import { type LanguageModel, generateText } from "ai";
-import type { OpenMemConfig } from "../types";
-import { type ParsedObservation, parseObservationResponse } from "./parser";
-import { estimateTokens } from "./parser";
+import { generateText, type LanguageModel } from "ai";
+import { estimateTokens, type ParsedObservation, parseObservationResponse } from "./parser";
 import { buildCompressionPrompt } from "./prompts";
 import { createModel } from "./provider";
 import { enforceRateLimit } from "./rate-limiter";

@@ -228,10 +228,7 @@ export function buildCompactContext(context: ProgressiveContext): string {
  * Build a Markdown section for user-level (cross-project) observations.
  * Fits entries within the given token budget using progressive disclosure.
  */
-export function buildUserContextSection(
-	userIndex: ObservationIndex[],
-	maxTokens: number,
-): string {
+export function buildUserContextSection(userIndex: ObservationIndex[], maxTokens: number): string {
 	if (userIndex.length === 0) return "";
 
 	let budget = maxTokens;
@@ -263,10 +260,7 @@ export function buildUserContextSection(
 /**
  * Build a plain-text section for user-level context (used in compaction).
  */
-export function buildUserCompactContext(
-	userIndex: ObservationIndex[],
-	maxTokens: number,
-): string {
+export function buildUserCompactContext(userIndex: ObservationIndex[], maxTokens: number): string {
 	if (userIndex.length === 0) return "";
 
 	let budget = maxTokens;

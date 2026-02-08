@@ -5,7 +5,7 @@
 import type { EmbeddingModel } from "ai";
 import type { EntityRepository } from "../db/entities";
 import type { ObservationRepository } from "../db/observations";
-import type { UserObservationRepository, UserObservation } from "../db/user-memory";
+import type { UserObservation, UserObservationRepository } from "../db/user-memory";
 import type { Observation, ObservationType, SearchResult } from "../types";
 import { cosineSimilarity, generateEmbedding } from "./embeddings";
 import { passesFilters } from "./filters";
@@ -121,6 +121,10 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
+				explain: {
+					strategy: "filter-only",
+					matchedBy: ["concept-filter"],
+				},
 			}));
 		}
 
@@ -131,6 +135,10 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
+				explain: {
+					strategy: "filter-only",
+					matchedBy: ["file-filter"],
+				},
 			}));
 		}
 
@@ -215,6 +223,11 @@ export class SearchOrchestrator {
 					observation: obs,
 					rank: distance - 1,
 					snippet: obs.title,
+					explain: {
+						strategy: "semantic",
+						matchedBy: ["vector"],
+						vectorDistance: distance,
+					},
 				});
 			}
 
@@ -252,6 +265,11 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: -similarity,
 				snippet: obs.title,
+				explain: {
+					strategy: "semantic",
+					matchedBy: ["vector"],
+					vectorSimilarity: similarity,
+				},
 			});
 		}
 
@@ -264,7 +282,7 @@ export class SearchOrchestrator {
 
 	private searchUserMemory(
 		query: string,
-		options: OrchestratedSearchOptions,
+		_options: OrchestratedSearchOptions,
 		limit: number,
 	): SearchResult[] {
 		if (!this.userObservationRepo) return [];
@@ -276,6 +294,10 @@ export class SearchOrchestrator {
 				rank,
 				snippet: userObs.title,
 				source: "user" as const,
+				explain: {
+					strategy: "filter-only",
+					matchedBy: ["user-memory"],
+				},
 			}));
 		} catch {
 			return [];

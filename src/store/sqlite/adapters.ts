@@ -16,7 +16,9 @@ export function createSummaryStore(repo: SummaryRepository): SummaryStore {
 	return repo;
 }
 
-export function createUserObservationStore(repo: UserObservationRepository | null): UserObservationStore | null {
+export function createUserObservationStore(
+	repo: UserObservationRepository | null,
+): UserObservationStore | null {
 	if (!repo) return null;
 	return repo;
 }

@@ -193,15 +193,14 @@ export class EntityRepository {
 		const maxDepth = Math.min(depth, 2); // Cap at 2 to prevent explosion
 		const MAX_VISITED = 100;
 		const visited = new Set<string>();
-		const queue: Array<{ id: string; currentDepth: number }> = [
-			{ id: entityId, currentDepth: 0 },
-		];
+		const queue: Array<{ id: string; currentDepth: number }> = [{ id: entityId, currentDepth: 0 }];
 
 		visited.add(entityId);
 
 		while (queue.length > 0) {
 			if (visited.size >= MAX_VISITED) break;
-			const current = queue.shift()!;
+			const current = queue.shift();
+			if (!current) continue;
 			if (current.currentDepth >= maxDepth) continue;
 
 			const relations = this.getRelationsFor(current.id);

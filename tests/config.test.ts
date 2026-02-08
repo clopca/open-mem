@@ -296,4 +296,28 @@ describe("Configuration", () => {
 
 		expect(config.contextShowLastSummary).toBe(false);
 	});
+
+	test("platform adapter env flags are parsed", () => {
+		process.env.OPEN_MEM_PLATFORM_CLAUDE_CODE = "true";
+		process.env.OPEN_MEM_PLATFORM_CURSOR = "true";
+		process.env.OPEN_MEM_PLATFORM_OPENCODE = "false";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.platformClaudeCodeEnabled).toBe(true);
+		expect(config.platformCursorEnabled).toBe(true);
+		expect(config.platformOpenCodeEnabled).toBe(false);
+	});
+
+	test("MCP compatibility env flags are parsed", () => {
+		process.env.OPEN_MEM_MCP_COMPAT_MODE = "legacy";
+		process.env.OPEN_MEM_MCP_PROTOCOL_VERSION = "2024-11-05";
+		process.env.OPEN_MEM_MCP_SUPPORTED_PROTOCOLS = "2024-11-05,2025-01-01";
+
+		const config = resolveConfig("/tmp/proj");
+
+		expect(config.mcpCompatibilityMode).toBe("legacy");
+		expect(config.mcpProtocolVersion).toBe("2024-11-05");
+		expect(config.mcpSupportedProtocolVersions).toEqual(["2024-11-05", "2025-01-01"]);
+	});
 });

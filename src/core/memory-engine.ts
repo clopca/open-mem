@@ -1,8 +1,19 @@
 import { estimateTokens } from "../ai/parser";
-import { buildCompactContext, buildContextString, buildUserCompactContext, buildUserContextSection, type ContextBuilderConfig } from "../context/builder";
+import {
+	buildCompactContext,
+	buildContextString,
+	buildUserCompactContext,
+	buildUserContextSection,
+	type ContextBuilderConfig,
+} from "../context/builder";
 import { buildProgressiveContext } from "../context/progressive";
 import type { SearchOrchestrator } from "../search/orchestrator";
-import type { ObservationStore, SessionStore, SummaryStore, UserObservationStore } from "../store/ports";
+import type {
+	ObservationStore,
+	SessionStore,
+	SummaryStore,
+	UserObservationStore,
+} from "../store/ports";
 import type { Observation, OpenMemConfig, SearchResult } from "../types";
 import { cleanFolderContext, rebuildFolderContext } from "../utils/folder-context-maintenance";
 import type {
@@ -68,7 +79,12 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		this.userObservationRepo = deps.userObservationRepo ?? null;
 	}
 
-	async ingest(_input: { sessionId: string; toolName: string; output: string; callId: string }): Promise<void> {
+	async ingest(_input: {
+		sessionId: string;
+		toolName: string;
+		output: string;
+		callId: string;
+	}): Promise<void> {
 		// Capture/queue ingestion remains owned by hook+queue pipeline.
 	}
 
@@ -200,7 +216,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return deleted;
 	}
 
-	async export(scope: "project", options: MemoryExportOptions = {}): Promise<Record<string, unknown>> {
+	async export(
+		scope: "project",
+		options: MemoryExportOptions = {},
+	): Promise<Record<string, unknown>> {
 		if (scope !== "project") {
 			throw new Error("Only project scope export is supported.");
 		}
@@ -214,7 +233,9 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		if (options.type) {
 			allObservations = allObservations.filter((obs) => obs.type === options.type);
 		}
-		allObservations.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		allObservations.sort(
+			(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+		);
 		if (options.limit && options.limit < allObservations.length) {
 			allObservations = allObservations.slice(0, options.limit);
 		}
@@ -234,7 +255,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return exportData as unknown as Record<string, unknown>;
 	}
 
-	async import(payload: string, options: MemoryImportOptions = {}): Promise<{ imported: number; skipped: number }> {
+	async import(
+		payload: string,
+		options: MemoryImportOptions = {},
+	): Promise<{ imported: number; skipped: number }> {
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(payload);
@@ -305,14 +329,22 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return { imported, skipped };
 	}
 
-	async buildContext(_sessionId?: string, mode: "normal" | "compaction" = "normal"): Promise<string> {
+	async buildContext(
+		_sessionId?: string,
+		mode: "normal" | "compaction" = "normal",
+	): Promise<string> {
 		const recentSessions = this.sessions.getRecent(this.projectPath, 5);
 		const recentSummaries = recentSessions
 			.map((s) => (s.summaryId ? this.summaries.getBySessionId(s.id) : null))
 			.filter((s): s is NonNullable<typeof s> => s !== null);
-		const observationIndex = this.observations.getIndex(this.projectPath, this.config.maxObservations);
+		const observationIndex = this.observations.getIndex(
+			this.projectPath,
+			this.config.maxObservations,
+		);
 
-		const recentObsIds = observationIndex.slice(0, this.config.contextFullObservationCount).map((e) => e.id);
+		const recentObsIds = observationIndex
+			.slice(0, this.config.contextFullObservationCount)
+			.map((e) => e.id);
 		const fullObservations: Observation[] = recentObsIds
 			.map((id) => this.observations.getById(id))
 			.filter((o): o is NonNullable<typeof o> => o !== null);
@@ -389,6 +421,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		return this.observations.getById(id);
 	}
 
+	getObservationLineage(id: string): Observation[] {
+		return this.observations.getLineage(id);
+	}
+
 	listSessions(input: { limit?: number; projectPath?: string }): Array<{
 		id: string;
 		projectPath: string;
@@ -436,7 +472,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		};
 	}
 
-	async maintainFolderContext(action: "clean" | "rebuild", dryRun: boolean): Promise<FolderContextMaintenanceResult> {
+	async maintainFolderContext(
+		action: "clean" | "rebuild",
+		dryRun: boolean,
+	): Promise<FolderContextMaintenanceResult> {
 		if (action === "rebuild") {
 			const result = await rebuildFolderContext(
 				this.projectPath,

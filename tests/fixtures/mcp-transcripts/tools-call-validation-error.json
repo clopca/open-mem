@@ -1,0 +1,30 @@
+{
+  "name": "tool call deterministic validation error",
+  "messages": [
+    { "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": { "name": "memory.find", "arguments": { "query": "" } }
+    }
+  ],
+  "expectedContains": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2024-11-05",
+        "serverInfo": { "name": "open-mem" }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": { "isError": true }
+    }
+  ],
+  "outputContains": [
+    { "index": 1, "textIncludes": ["VALIDATION_ERROR", "query"] }
+  ]
+}

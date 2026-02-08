@@ -5,6 +5,8 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDashboardApp } from "./adapters/http/server";
+import { createSSERoute, SSEBroadcaster } from "./adapters/http/sse";
 import { createOpenCodeTools } from "./adapters/opencode/tools";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
@@ -15,7 +17,7 @@ import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
 import { DefaultMemoryEngine } from "./core/memory-engine";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
-import { Database, createDatabase } from "./db/database";
+import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
@@ -23,18 +25,17 @@ import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
 import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
-import { type MemoryEventBus, createEventBus } from "./events/bus";
+import { createEventBus, type MemoryEventBus } from "./events/bus";
 import { createChatCaptureHook } from "./hooks/chat-capture";
 import { createCompactionHook } from "./hooks/compaction";
 import { createContextInjectionHook } from "./hooks/context-inject";
 import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
+import { RuntimeMetricsCollector } from "./runtime/metrics";
 import { createQueueRuntime } from "./runtime/queue-runtime";
 import { SearchOrchestrator } from "./search/orchestrator";
 import { createReranker } from "./search/reranker";
-import { createDashboardApp } from "./adapters/http/server";
-import { SSEBroadcaster, createSSERoute } from "./adapters/http/sse";
 import {
 	createObservationStore,
 	createSessionStore,
@@ -141,6 +142,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			: null;
 
 	// 5. Queue processor
+	const runtimeMetrics = new RuntimeMetricsCollector();
 	const conflictEvaluator =
 		config.conflictResolutionEnabled && (!providerRequiresKey || config.apiKey)
 			? new ConflictEvaluator({
@@ -174,6 +176,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		conflictEvaluator,
 		entityExtractor,
 		entityRepo,
+		runtimeMetrics.createQueueObserver(),
 	);
 	const queueRuntime = createQueueRuntime(queue);
 	queueRuntime.start();
@@ -252,6 +255,23 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 			embeddingModel,
 			memoryEngine,
+			runtimeStatusProvider: () => {
+				const queueStats = queue.getStats();
+				const snapshot = runtimeMetrics.snapshot({
+					mode: queue.getMode(),
+					running: queue.isRunning,
+					processing: queueStats.processing,
+					pending: queueStats.pending,
+				});
+				return {
+					status: snapshot.queue.lastError ? "degraded" : "ok",
+					timestamp: new Date().toISOString(),
+					uptimeMs: snapshot.uptimeMs,
+					queue: snapshot.queue,
+					batches: snapshot.batches,
+					enqueueCount: snapshot.enqueueCount,
+				};
+			},
 			sseHandler: createSSERoute(sseBroadcaster),
 			dashboardDir: join(distDir, "dashboard"),
 		});
@@ -348,12 +368,30 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 // Re-exports for consumers
 // -----------------------------------------------------------------------------
 
+export type {
+	BridgeEnvelope,
+	BridgeResponse,
+	NormalizedPlatformEvent,
+	PlatformAdapter,
+	PlatformAdapterDescriptor,
+} from "./adapters/platform";
+export {
+	createClaudeCodeAdapter,
+	createCommandEnvelope,
+	createCursorAdapter,
+	createEventEnvelope,
+	createOpenCodePlatformAdapter,
+	getBridgeHealth,
+	isBridgeSuccess,
+	PlatformIngestionRuntime,
+	sendBridgeHttpEvent,
+} from "./adapters/platform";
+/** Re-exported configuration helpers. */
+export { getDefaultConfig, resolveConfig } from "./config";
 /** Re-exported core types for library consumers. */
 export type {
-	OpenMemConfig,
 	Observation,
+	OpenMemConfig,
 	Session,
 	SessionSummary,
 } from "./types";
-/** Re-exported configuration helpers. */
-export { resolveConfig, getDefaultConfig } from "./config";

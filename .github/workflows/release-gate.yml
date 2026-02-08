@@ -1,0 +1,17 @@
+name: release-gate
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  compat-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install
+        run: bun install
+      - name: External compatibility release gate
+        run: bun run compat:gate

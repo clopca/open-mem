@@ -287,9 +287,7 @@ const VALID_RELATIONSHIP_TYPES = new Set<string>([
 ]);
 
 /** Parse an LLM entity extraction response into entities and relations. */
-export function parseEntityExtractionResponse(
-	response: string,
-): ParsedEntityExtraction | null {
+export function parseEntityExtractionResponse(response: string): ParsedEntityExtraction | null {
 	const extraction = extractTag(response, "extraction");
 	if (!extraction) return null;
 

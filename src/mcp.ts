@@ -6,10 +6,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { McpServer } from "./adapters/mcp/server";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { resolveConfig } from "./config";
 import { DefaultMemoryEngine } from "./core/memory-engine";
-import { Database, createDatabase } from "./db/database";
+import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { initializeSchema } from "./db/schema";
@@ -18,7 +19,6 @@ import { SummaryRepository } from "./db/summaries";
 import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
 import { SearchOrchestrator } from "./search/orchestrator";
 import { createReranker } from "./search/reranker";
-import { McpServer } from "./adapters/mcp/server";
 import {
 	createObservationStore,
 	createSessionStore,
@@ -64,7 +64,11 @@ if (config.userMemoryEnabled) {
 const providerRequiresKey = config.provider !== "bedrock";
 const embeddingModel =
 	config.compressionEnabled && (!providerRequiresKey || config.apiKey)
-		? createEmbeddingModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+		? createEmbeddingModel({
+				provider: config.provider,
+				model: config.model,
+				apiKey: config.apiKey,
+			})
 		: null;
 
 const reranker = createReranker(
@@ -98,6 +102,9 @@ const server = new McpServer({
 		userObservationRepo: createUserObservationStore(userObservationRepo),
 	}),
 	version: pkgJson.version,
+	compatibilityMode: config.mcpCompatibilityMode,
+	protocolVersion: config.mcpProtocolVersion,
+	supportedProtocolVersions: config.mcpSupportedProtocolVersions,
 });
 
 let closed = false;
