@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-08
+
+### Added
+- **Pluggable workflow modes** — JSON-based mode definitions that customize observation types, concept vocabulary, entity types, and AI prompt templates. Ships with `code` (default) and `research` modes. Configure via `OPEN_MEM_MODE` env var. New `/v1/workflow-modes` API endpoint.
+- **Enhanced session compaction** — compaction hook now injects compressed recent observation narratives, facts, and key decisions with smart budget allocation (40% summaries/index, 40% observation details, 20% decisions). Graceful degradation when full observations unavailable.
+- **VitePress documentation website** — 11-page docs site covering getting started, architecture, tools reference, search guide, configuration, platforms, privacy, API, troubleshooting, and changelog. Build with `bun run docs:build`.
+- **Dashboard documentation** in README — "Web Dashboard" section describing all 6 pages (Timeline, Sessions, Search, Stats, Operations, Settings) with enable/access instructions.
+- **"Why open-mem?" section** in README — competitive positioning highlighting native vector search, knowledge graph, 5 AI providers, revision lineage, and MIT license.
+- **Feature highlights comparison table** in README — side-by-side comparison vs typical alternatives.
+
+### Fixed
+- CI platform worker tests now use portable bun path and project root.
+
 ## [0.10.0] - 2026-02-08
 
 ### Added
