@@ -18,7 +18,7 @@ export function Ops() {
 	const adapters = useAPI<AdapterStatus[]>("/v1/adapters/status");
 
 	const loading = health.loading || metrics.loading || platforms.loading;
-	const error = health.error || metrics.error || platforms.error || adapters.error;
+	const error = health.error || metrics.error || platforms.error;
 
 	return (
 		<div className="mx-auto max-w-5xl">

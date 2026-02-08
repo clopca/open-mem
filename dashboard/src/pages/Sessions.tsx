@@ -68,12 +68,13 @@ export function Sessions() {
 			{!loading && !error && sessions && sessions.length > 0 && (
 				<div className="space-y-3" role="list" aria-label="Coding sessions">
 					{sessions.map((session) => (
-						<SessionCard
-							key={session.id}
-							session={session}
-							isExpanded={expandedId === session.id}
-							onToggle={() => toggleSession(session.id)}
-						/>
+						<div key={session.id} role="listitem">
+							<SessionCard
+								session={session}
+								isExpanded={expandedId === session.id}
+								onToggle={() => toggleSession(session.id)}
+							/>
+						</div>
 					))}
 				</div>
 			)}

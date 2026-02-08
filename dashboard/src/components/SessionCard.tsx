@@ -181,9 +181,11 @@ function ObservationRow({
 }
 
 function ExpandedObservations({ sessionId }: { sessionId: string }) {
-	const { data: details, loading } = useAPI<SessionWithObservations>(
-		`/v1/memory/sessions/${sessionId}`,
-	);
+	const {
+		data: details,
+		loading,
+		error,
+	} = useAPI<SessionWithObservations>(`/v1/memory/sessions/${sessionId}`);
 	const [expandedObsId, setExpandedObsId] = useState<string | null>(null);
 
 	const toggleObs = useCallback((id: string) => {
@@ -202,6 +204,14 @@ function ExpandedObservations({ sessionId }: { sessionId: string }) {
 					<Skeleton className="h-4 w-4 rounded-full" />
 					Loading observations…
 				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div role="alert" className="py-8 text-center text-sm text-red-500">
+				Failed to load observations: {error}
 			</div>
 		);
 	}

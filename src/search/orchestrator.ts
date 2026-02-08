@@ -127,7 +127,7 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
-				rankingSource: "fts" as const,
+				rankingSource: "graph" as const,
 				explain: {
 					strategy: "filter-only",
 					matchedBy: ["concept-filter"],
@@ -142,7 +142,7 @@ export class SearchOrchestrator {
 				observation: obs,
 				rank: 0,
 				snippet: obs.title,
-				rankingSource: "fts" as const,
+				rankingSource: "graph" as const,
 				explain: {
 					strategy: "filter-only",
 					matchedBy: ["file-filter"],

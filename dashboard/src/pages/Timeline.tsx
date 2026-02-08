@@ -154,7 +154,7 @@ export function Timeline() {
 
 		if (dateTo) {
 			const toDate = new Date(dateTo);
-			toDate.setHours(23, 59, 59, 999);
+			toDate.setUTCHours(23, 59, 59, 999);
 			result = result.filter((obs) => new Date(obs.createdAt) <= toDate);
 		}
 

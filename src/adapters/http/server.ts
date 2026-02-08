@@ -388,14 +388,19 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.post("/v1/config/rollback", async (c) => {
+		let body: { eventId: string };
 		try {
-			const body = (await c.req.json()) as { eventId: string };
-			if (!body.eventId) return c.json(fail("VALIDATION_ERROR", "eventId is required"), 400);
+			body = (await c.req.json()) as { eventId: string };
+		} catch {
+			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		}
+		if (!body.eventId) return c.json(fail("VALIDATION_ERROR", "eventId is required"), 400);
+		try {
 			const result = await memoryEngine.rollbackConfig(body.eventId);
 			if (!result) return c.json(fail("NOT_FOUND", "Audit event not found"), 404);
 			return c.json(ok(result));
-		} catch {
-			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
 		}
 	});
 
@@ -429,43 +434,51 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		const id = c.req.param("id");
 		const preset = MODE_PRESETS[id];
 		if (!preset) return c.json(fail("NOT_FOUND", "Unknown mode"), 404);
-		const beforeConfig = await getEffectiveConfig(projectPath);
-		const effective = await patchConfig(projectPath, preset);
+		try {
+			const beforeConfig = await getEffectiveConfig(projectPath);
+			const effective = await patchConfig(projectPath, preset);
 
-		const previousValues: Record<string, unknown> = {};
-		for (const key of Object.keys(preset)) {
-			previousValues[key] = (beforeConfig.config as unknown as Record<string, unknown>)[key];
+			const previousValues: Record<string, unknown> = {};
+			for (const key of Object.keys(preset)) {
+				previousValues[key] = (beforeConfig.config as unknown as Record<string, unknown>)[key];
+			}
+			memoryEngine.trackConfigAudit({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				patch: preset as unknown as Record<string, unknown>,
+				previousValues,
+				source: "mode",
+			});
+
+			return c.json(
+				ok({
+					applied: id,
+					config: redactConfig(effective.config),
+					meta: effective.meta,
+					warnings: effective.warnings,
+				}),
+			);
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
 		}
-		memoryEngine.trackConfigAudit({
-			id: randomUUID(),
-			timestamp: new Date().toISOString(),
-			patch: preset as unknown as Record<string, unknown>,
-			previousValues,
-			source: "mode",
-		});
-
-		return c.json(
-			ok({
-				applied: id,
-				config: redactConfig(effective.config),
-				meta: effective.meta,
-				warnings: effective.warnings,
-			}),
-		);
 	});
 
 	app.post("/v1/maintenance/folder-context/dry-run", async (c) => {
-		const body = (await c.req.json().catch(() => ({}))) as { action?: "clean" | "rebuild" };
-		const action = body.action ?? "clean";
-		const result = await memoryEngine.maintainFolderContext(action, true);
-		memoryEngine.trackMaintenanceResult({
-			id: randomUUID(),
-			timestamp: new Date().toISOString(),
-			action: `folder-context-${action}-dry-run`,
-			dryRun: true,
-			result: result as unknown as Record<string, unknown>,
-		});
-		return c.json(ok(result));
+		try {
+			const body = (await c.req.json().catch(() => ({}))) as { action?: "clean" | "rebuild" };
+			const action = body.action ?? "clean";
+			const result = await memoryEngine.maintainFolderContext(action, true);
+			memoryEngine.trackMaintenanceResult({
+				id: randomUUID(),
+				timestamp: new Date().toISOString(),
+				action: `folder-context-${action}-dry-run`,
+				dryRun: true,
+				result: result as unknown as Record<string, unknown>,
+			});
+			return c.json(ok(result));
+		} catch (error) {
+			return c.json(fail("INTERNAL_ERROR", String(error)), 500);
+		}
 	});
 
 	app.post("/v1/maintenance/folder-context/clean", async (c) => {

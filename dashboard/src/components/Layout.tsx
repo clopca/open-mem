@@ -20,7 +20,7 @@ export function Layout() {
 					className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
 					onClick={() => setSidebarOpen(false)}
 					onKeyDown={(e) => {
-						if (e.key === "Escape") setSidebarOpen(false);
+						if (e.key === "Escape" || e.key === "Enter" || e.key === " ") setSidebarOpen(false);
 					}}
 					role="button"
 					tabIndex={0}
