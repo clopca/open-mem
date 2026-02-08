@@ -43,7 +43,7 @@ function useSearch() {
 			params.set("type", selectedType);
 		}
 
-		fetch(`/api/search?${params.toString()}`, {
+		fetch(`/v1/memory/search?${params.toString()}`, {
 			signal: controller.signal,
 			headers: { "Content-Type": "application/json" },
 		})
@@ -55,9 +55,9 @@ function useSearch() {
 				}
 				return response.json();
 			})
-			.then((data: SearchResultType[]) => {
+			.then((json: SearchResultType[] | { data: SearchResultType[] }) => {
 				if (!controller.signal.aborted) {
-					setResults(data);
+					setResults(Array.isArray(json) ? json : (json.data ?? []));
 					setLoading(false);
 				}
 			})

@@ -28,7 +28,7 @@ export const TABLES = {
 // Migrations
 // -----------------------------------------------------------------------------
 
-/** Ordered list of database migrations from v1 to v9. */
+/** Ordered list of database migrations from v1 to v10. */
 export const MIGRATIONS: Migration[] = [
 	// v1 — Core tables
 	{
@@ -354,6 +354,20 @@ export const MIGRATIONS: Migration[] = [
 				INSERT INTO entities_fts(rowid, name, entity_type)
 				VALUES (new._rowid, new.name, new.entity_type);
 			END;
+		`,
+	},
+	{
+		version: 10,
+		name: "add-v1-revision-tombstone-columns",
+		up: `
+			ALTER TABLE observations ADD COLUMN scope TEXT NOT NULL DEFAULT 'project'
+				CHECK (scope IN ('project','user'));
+			ALTER TABLE observations ADD COLUMN revision_of TEXT;
+			ALTER TABLE observations ADD COLUMN deleted_at TEXT;
+
+			CREATE INDEX IF NOT EXISTS idx_observations_scope ON observations(scope);
+			CREATE INDEX IF NOT EXISTS idx_observations_revision_of ON observations(revision_of);
+			CREATE INDEX IF NOT EXISTS idx_observations_deleted_at ON observations(deleted_at);
 		`,
 	},
 ];

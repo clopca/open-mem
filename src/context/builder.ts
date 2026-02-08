@@ -55,14 +55,14 @@ export function buildContextString(
 		"**💡 Progressive Disclosure:** This is a compact index showing WHAT was observed and retrieval COST.",
 	);
 	parts.push(
-		"Use `mem-search` to find observations by query, then `mem-recall` with IDs to fetch full details.",
+		"Use `memory.find` to find observations by query, then `memory.get` with IDs to fetch full details.",
 	);
 	parts.push("");
 	parts.push("**3-Layer Memory Access:**");
-	parts.push("- **Layer 1** `mem-search` — Find observations by query (returns IDs + summaries)");
-	parts.push("- **Layer 2** `mem-timeline` — Browse session history and drill into sessions");
+	parts.push("- **Layer 1** `memory.find` — Find observations by query (returns IDs + summaries)");
+	parts.push("- **Layer 2** `memory.history` — Browse session history and drill into sessions");
 	parts.push(
-		"- **Layer 3** `mem-recall` — Get full details by ID (use IDs from search results or the index below)",
+		"- **Layer 3** `memory.get` — Get full details by ID (use IDs from search results or the index below)",
 	);
 
 	if (config.showLastSummary && context.recentSummaries.length > 0) {

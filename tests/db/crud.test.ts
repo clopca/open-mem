@@ -374,10 +374,12 @@ describe("ObservationRepository", () => {
 	test("update syncs FTS5 index", () => {
 		const { observations } = createSessionAndObs(db);
 		const obs = observations.create(makeObservationData({ title: "Original title" }));
-		observations.update(obs.id, { title: "Quantum computing breakthrough" });
+		const updated = observations.update(obs.id, { title: "Quantum computing breakthrough" });
+		expect(updated).not.toBeNull();
+		expect(updated?.id).not.toBe(obs.id);
 		const results = observations.search({ query: "quantum computing" });
 		expect(results.length).toBeGreaterThanOrEqual(1);
-		expect(results[0].observation.id).toBe(obs.id);
+		expect(results[0].observation.id).toBe(updated?.id);
 		const oldResults = observations.search({ query: "Original title" });
 		const matchesOld = oldResults.some((r) => r.observation.id === obs.id);
 		expect(matchesOld).toBe(false);

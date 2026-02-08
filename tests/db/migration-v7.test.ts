@@ -40,7 +40,7 @@ describe("Migration v7: importance column", () => {
 			const migrations = db.all<{ version: number }>(
 				"SELECT version FROM _migrations ORDER BY version",
 			);
-			expect(migrations).toHaveLength(9); // v1 through v9
+			expect(migrations).toHaveLength(10); // v1 through v10
 		} finally {
 			db.close();
 			cleanupTestDb(dbPath);

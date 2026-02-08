@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { resolveConfig } from "./config";
+import { DefaultMemoryEngine } from "./core/memory-engine";
 import { Database, createDatabase } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
@@ -17,7 +18,13 @@ import { SummaryRepository } from "./db/summaries";
 import { UserMemoryDatabase, UserObservationRepository } from "./db/user-memory";
 import { SearchOrchestrator } from "./search/orchestrator";
 import { createReranker } from "./search/reranker";
-import { McpServer } from "./servers/mcp-server";
+import { McpServer } from "./adapters/mcp/server";
+import {
+	createObservationStore,
+	createSessionStore,
+	createSummaryStore,
+	createUserObservationStore,
+} from "./store/sqlite/adapters";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
 const { values } = parseArgs({
@@ -81,11 +88,15 @@ const searchOrchestrator = new SearchOrchestrator(
 const pkgJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 
 const server = new McpServer({
-	observations,
-	sessions,
-	summaries,
-	searchOrchestrator,
-	projectPath,
+	memoryEngine: new DefaultMemoryEngine({
+		observations: createObservationStore(observations),
+		sessions: createSessionStore(sessions),
+		summaries: createSummaryStore(summaries),
+		searchOrchestrator,
+		projectPath,
+		config,
+		userObservationRepo: createUserObservationStore(userObservationRepo),
+	}),
 	version: pkgJson.version,
 });
 

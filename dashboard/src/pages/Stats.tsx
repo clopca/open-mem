@@ -15,7 +15,7 @@ function formatNumber(n: number): string {
 }
 
 export function Stats() {
-	const { data, loading, error } = useAPI<StatsResponse>("/api/stats");
+	const { data, loading, error } = useAPI<StatsResponse>("/v1/memory/stats");
 
 	return (
 		<div className="mx-auto max-w-4xl">

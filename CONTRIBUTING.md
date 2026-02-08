@@ -97,7 +97,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 Examples:
 ```
-feat: add mem-recall tool for observation retrieval
+feat: add memory.get tool for observation retrieval
 fix: correct context injection token counting
 docs: update configuration table in README
 chore: bump @anthropic-ai/sdk to 0.40.0

@@ -76,10 +76,10 @@ function seedData() {
 }
 
 // =============================================================================
-// mem-export
+// memory.transfer.export
 // =============================================================================
 
-describe("mem-export", () => {
+describe("memory.transfer.export", () => {
 	test("produces valid JSON with version marker", async () => {
 		seedData();
 		const tool = createExportTool(observations, summaries, sessions, "/tmp/proj");
@@ -150,10 +150,10 @@ describe("mem-export", () => {
 });
 
 // =============================================================================
-// mem-import
+// memory.transfer.import
 // =============================================================================
 
-describe("mem-import", () => {
+describe("memory.transfer.import", () => {
 	test("creates observations from exported JSON", async () => {
 		seedData();
 		const exportTool = createExportTool(observations, summaries, sessions, "/tmp/proj");

@@ -37,7 +37,7 @@ describe("Migration v8: conflict resolution columns", () => {
 			const migrations = db.all<{ version: number }>(
 				"SELECT version FROM _migrations ORDER BY version",
 			);
-			expect(migrations).toHaveLength(9);
+			expect(migrations).toHaveLength(10);
 		} finally {
 			db.close();
 			cleanupTestDb(dbPath);
@@ -115,10 +115,13 @@ describe("Migration v8: conflict resolution columns", () => {
 
 			repo.supersede(obs1.id, obs2.id);
 
-			const updated = repo.getById(obs1.id);
+			const updated = db.get<{ superseded_by: string | null; superseded_at: string | null }>(
+				"SELECT superseded_by, superseded_at FROM observations WHERE id = ?",
+				[obs1.id],
+			);
 			expect(updated).not.toBeNull();
-			expect(updated?.supersededBy).toBe(obs2.id);
-			expect(updated?.supersededAt).not.toBeNull();
+			expect(updated?.superseded_by).toBe(obs2.id);
+			expect(updated?.superseded_at).not.toBeNull();
 
 			const unchanged = repo.getById(obs2.id);
 			expect(unchanged?.supersededBy).toBeNull();

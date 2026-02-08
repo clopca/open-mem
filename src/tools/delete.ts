@@ -37,10 +37,10 @@ Only observations belonging to the current project can be deleted.`,
 				const title = existing.title;
 				const deleted = observations.delete(args.id);
 				if (!deleted) {
-					return `Delete error: failed to delete observation "${args.id}".`;
+					return `Delete error: failed to tombstone observation "${args.id}".`;
 				}
 
-				return `Deleted observation: [${existing.type}] "${title}" (ID: ${args.id})`;
+				return `Tombstoned observation: [${existing.type}] "${title}" (ID: ${args.id})`;
 			} catch (error) {
 				return `Delete error: ${error}`;
 			}

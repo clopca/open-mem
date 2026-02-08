@@ -75,7 +75,7 @@ Without any provider configured, open-mem still works — it falls back to a bas
 - 🔍 **Hybrid search** — FTS5 full-text search + vector embeddings with Reciprocal Rank Fusion
 - 💡 **Progressive disclosure** with token-cost-aware context injection and ROI tracking
 - 🔒 **Privacy controls** with `<private>` tag support
-- 🛠️ **Six custom tools**: mem-search, mem-save, mem-timeline, mem-recall, mem-export, mem-import
+- 🛠️ **Nine custom tools**: memory.find, memory.create, memory.history, memory.get, memory.transfer.export, memory.transfer.import, memory.revise, memory.remove, memory.help
 - 🌐 **MCP server mode** — expose memory tools to any MCP-compatible AI client
 - 🌳 **Git worktree support** — shared memory across all worktrees
 - 📂 **AGENTS.md generation** — auto-generated folder-level context on session end
@@ -110,12 +110,15 @@ open-mem runs in the background as an OpenCode plugin. When you use tools (readi
 │                                                              │
 │  session.end ──────────> [AGENTS.md Generation]              │
 │                                                              │
-│  mem-search ─────────> [Hybrid Search (FTS5 + Vector/RRF)]   │
-│  mem-save ───────────> [Direct Save]                         │
-│  mem-timeline ───────> [Session Query]                       │
-│  mem-recall ─────────> [Full Observation Fetch]              │
-│  mem-export ─────────> [JSON Export]                         │
-│  mem-import ─────────> [JSON Import]                         │
+│  memory.find ─────────> [Hybrid Search (FTS5 + Vector/RRF)]   │
+│  memory.create ───────────> [Direct Save]                         │
+│  memory.history ───────> [Session Query]                       │
+│  memory.get ─────────> [Full Observation Fetch]              │
+│  memory.transfer.export ─────────> [JSON Export]                         │
+│  memory.transfer.import ─────────> [JSON Import]                         │
+│  memory.revise ─────────> [Create Revision]                     │
+│  memory.remove ─────────> [Tombstone Observation]               │
+│  memory.help ──────────> [Workflow Guidance]                   │
 │                                                              │
 │  ┌──────────────────────────────────────────┐                │
 │  │  MCP Server (stdin/stdout, JSON-RPC 2.0) │                │
@@ -144,7 +147,7 @@ If no API key is set, a fallback compressor extracts basic metadata without AI.
 
 open-mem injects a compact index into the system prompt at session start. Each entry shows a type icon, title, token cost, and related files — giving the agent a map of what's in memory without consuming the full context window.
 
-The agent sees *what* exists and decides *what to fetch* using `mem-search` and `mem-recall`. This minimizes context window usage while providing full access to all stored observations.
+The agent sees *what* exists and decides *what to fetch* using `memory.find` and `memory.get`. This minimizes context window usage while providing full access to all stored observations.
 
 Example of an injected index entry:
 
@@ -183,7 +186,7 @@ The context injector includes a "Memory Economics" footer showing how much conte
 
 ## Custom Tools
 
-### mem-search
+### memory.find
 
 Search through past observations and session summaries. Uses hybrid search (FTS5 + vector embeddings) when an embedding-capable provider is configured, or FTS5-only otherwise.
 
@@ -193,7 +196,7 @@ Search through past observations and session summaries. Uses hybrid search (FTS5
 | `type` | enum | no | Filter by type: `decision`, `bugfix`, `feature`, `refactor`, `discovery`, `change` |
 | `limit` | number | no | Max results (1–50, default: 10) |
 
-### mem-save
+### memory.create
 
 Manually save an important observation to memory.
 
@@ -205,7 +208,7 @@ Manually save an important observation to memory.
 | `concepts` | string[] | no | Related concepts/tags |
 | `files` | string[] | no | Related file paths |
 
-### mem-timeline
+### memory.history
 
 View a timeline of past coding sessions for the current project.
 
@@ -214,16 +217,16 @@ View a timeline of past coding sessions for the current project.
 | `limit` | number | no | Number of recent sessions (1–20, default: 5) |
 | `sessionId` | string | no | Show details for a specific session |
 
-### mem-recall
+### memory.get
 
-Fetch full observation details by ID. Use after `mem-search` to get complete narratives, facts, concepts, and file lists for specific observations.
+Fetch full observation details by ID. Use after `memory.find` to get complete narratives, facts, concepts, and file lists for specific observations.
 
 | Argument | Type | Required | Description |
 |----------|------|----------|-------------|
 | `ids` | string[] | yes | Observation IDs to fetch |
 | `limit` | number | no | Maximum number of results (1–50, default: 10) |
 
-### mem-export
+### memory.transfer.export
 
 Export project memories (observations and session summaries) as portable JSON for backup or transfer between machines.
 
@@ -233,13 +236,41 @@ Export project memories (observations and session summaries) as portable JSON fo
 | `type` | enum | no | Filter by observation type |
 | `limit` | number | no | Maximum observations to export |
 
-### mem-import
+### memory.transfer.import
 
 Import observations and summaries from a JSON export. Skips duplicates by ID.
 
 | Argument | Type | Required | Description |
 |----------|------|----------|-------------|
-| `data` | string | yes | JSON string from a mem-export output |
+| `data` | string | yes | JSON string from a memory.transfer.export output |
+
+### memory.revise
+
+Update an existing project observation by ID.
+This is immutable: the update creates a new revision and supersedes the previous active revision.
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | yes | Observation ID to update |
+| `title` | string | no | Updated title |
+| `narrative` | string | no | Updated narrative |
+| `type` | enum | no | Updated observation type |
+| `concepts` | string[] | no | Updated concepts/tags |
+| `importance` | number | no | Updated importance (1-5) |
+
+### memory.remove
+
+Tombstone an existing project observation by ID.
+This is a soft delete: the observation is hidden from default recall/search but retained for lineage.
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | yes | Observation ID to delete |
+
+### memory.help
+
+Returns a short workflow guide for using memory tools effectively:
+`memory.find` -> `memory.history` -> `memory.get`, plus write/edit/import/export patterns.
 
 ## MCP Server Mode
 
@@ -266,7 +297,36 @@ Or add it to your MCP client config:
 }
 ```
 
-The server communicates over stdin/stdout using JSON-RPC 2.0 and exposes: `mem-search`, `mem-save`, `mem-timeline`, `mem-recall`.
+The server communicates over stdin/stdout using JSON-RPC 2.0 and exposes: `memory.find`, `memory.create`, `memory.history`, `memory.get`, `memory.transfer.export`, `memory.transfer.import`, `memory.revise`, `memory.remove`, `memory.help`.
+
+## Data Model Notes
+
+- Local-first storage remains project-local in `.open-mem/` (plus optional user-level DB).
+- `memory.revise` uses revision lineage, not in-place mutation.
+- `memory.remove` uses tombstones, not hard delete, for safer auditability and conflict handling.
+- Pre-`0.7.0` databases are not auto-migrated to lineage semantics. Use:
+
+```bash
+bunx open-mem-maintenance reset-db --project /path/to/your/project
+```
+
+## Config Control Plane
+
+open-mem now supports a canonical project config file at `.open-mem/config.json`, in addition to environment variables.
+
+Precedence:
+1. defaults
+2. `.open-mem/config.json`
+3. environment variables
+4. programmatic overrides
+
+Dashboard config APIs:
+- `GET /api/config/schema`
+- `GET /api/config/effective`
+- `POST /api/config/preview`
+- `PATCH /api/config`
+- `GET /api/modes`
+- `POST /api/modes/:id/apply`
 
 ## Configuration
 
@@ -392,7 +452,7 @@ rm -rf .open-mem/
 
 1. Verify the plugin is loaded: check OpenCode logs for `[open-mem]` messages
 2. Ensure `OPEN_MEM_CONTEXT_INJECTION` is not set to `false`
-3. Check that observations exist: use the `mem-timeline` tool
+3. Check that observations exist: use the `memory.history` tool
 4. The first session won't have context — observations must be captured first
 
 ### High memory usage

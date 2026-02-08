@@ -47,7 +47,7 @@ function seedObservation(sessionId = "sess-1") {
 	});
 }
 
-describe("mem-update", () => {
+describe("memory.revise", () => {
 	test("updates observation title", async () => {
 		const obs = seedObservation();
 		const tool = createUpdateTool(observations, sessions, PROJECT_PATH);
@@ -57,7 +57,11 @@ describe("mem-update", () => {
 		);
 		expect(result).toContain("Updated observation");
 		expect(result).toContain("title");
-		const fetched = observations.getById(obs.id);
+		const match = result.match(/new revision ID: ([^,\s)]+)/);
+		expect(match).not.toBeNull();
+		const newId = match?.[1] ?? "";
+		expect(observations.getById(obs.id)).toBeNull();
+		const fetched = observations.getById(newId);
 		expect(fetched?.title).toBe("Updated JWT pattern");
 	});
 
@@ -75,7 +79,11 @@ describe("mem-update", () => {
 			{ sessionID: "sess-1", abort },
 		);
 		expect(result).toContain("Updated observation");
-		const fetched = observations.getById(obs.id);
+		const match = result.match(/new revision ID: ([^,\s)]+)/);
+		expect(match).not.toBeNull();
+		const newId = match?.[1] ?? "";
+		expect(observations.getById(obs.id)).toBeNull();
+		const fetched = observations.getById(newId);
 		expect(fetched?.title).toBe("New title");
 		expect(fetched?.narrative).toBe("New narrative");
 		expect(fetched?.type).toBe("decision");
@@ -134,12 +142,12 @@ describe("mem-update", () => {
 	});
 });
 
-describe("mem-delete", () => {
+describe("memory.remove", () => {
 	test("deletes observation and returns confirmation", async () => {
 		const obs = seedObservation();
 		const tool = createDeleteTool(observations, sessions, PROJECT_PATH);
 		const result = await tool.execute({ id: obs.id }, { sessionID: "sess-1", abort });
-		expect(result).toContain("Deleted observation");
+		expect(result).toContain("Tombstoned observation");
 		expect(observations.getById(obs.id)).toBeNull();
 	});
 

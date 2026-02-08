@@ -81,10 +81,10 @@ function seedData() {
 const abort = new AbortController().signal;
 
 // =============================================================================
-// mem-search
+// memory.find
 // =============================================================================
 
-describe("mem-search", () => {
+describe("memory.find", () => {
 	test("returns formatted results", async () => {
 		seedData();
 		const tool = createSearchTool(new SearchOrchestrator(observations, null, false), summaries);
@@ -132,10 +132,10 @@ describe("mem-search", () => {
 });
 
 // =============================================================================
-// mem-save
+// memory.create
 // =============================================================================
 
-describe("mem-save", () => {
+describe("memory.create", () => {
 	test("creates observation and returns confirmation", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		const tool = createSaveTool(observations, sessions, "/tmp/proj");
@@ -188,10 +188,10 @@ describe("mem-save", () => {
 });
 
 // =============================================================================
-// mem-timeline
+// memory.history
 // =============================================================================
 
-describe("mem-timeline", () => {
+describe("memory.history", () => {
 	test("shows recent sessions", async () => {
 		seedData();
 		const tool = createTimelineTool(sessions, summaries, observations, "/tmp/proj");
@@ -217,10 +217,10 @@ describe("mem-timeline", () => {
 });
 
 // =============================================================================
-// mem-recall
+// memory.get
 // =============================================================================
 
-describe("mem-recall", () => {
+describe("memory.get", () => {
 	test("returns full details for valid ID", async () => {
 		seedData();
 		const allObs = observations.getBySession("sess-1");

@@ -179,7 +179,7 @@ function ObservationRow({
 }
 
 function ExpandedObservations({ sessionId }: { sessionId: string }) {
-	const { data: details, loading } = useAPI<SessionWithObservations>(`/api/sessions/${sessionId}`);
+	const { data: details, loading } = useAPI<SessionWithObservations>(`/v1/memory/sessions/${sessionId}`);
 	const [expandedObsId, setExpandedObsId] = useState<string | null>(null);
 
 	const toggleObs = useCallback((id: string) => {

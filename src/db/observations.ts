@@ -28,6 +28,7 @@ function escapeLike(value: string): string {
 interface ObservationRow {
 	id: string;
 	session_id: string;
+	scope: string;
 	type: string;
 	title: string;
 	subtitle: string;
@@ -43,6 +44,8 @@ interface ObservationRow {
 	discovery_tokens: number;
 	embedding: string | null;
 	importance: number;
+	revision_of: string | null;
+	deleted_at: string | null;
 	superseded_by: string | null;
 	superseded_at: string | null;
 }
@@ -77,20 +80,27 @@ export class ObservationRepository {
 	// ---------------------------------------------------------------------------
 
 	/** Create a new observation and return it with generated ID and timestamp. */
-	create(data: Omit<Observation, "id" | "createdAt" | "supersededBy" | "supersededAt">): Observation {
+	create(
+		data: Omit<
+			Observation,
+			"id" | "createdAt" | "supersededBy" | "supersededAt" | "revisionOf" | "deletedAt"
+		>,
+	): Observation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		const discoveryTokens = data.discoveryTokens ?? 0;
 		const importance = data.importance ?? 3;
+		const scope = data.scope ?? "project";
 		this.db.run(
 			`INSERT INTO observations
-				(id, session_id, type, title, subtitle, facts, narrative,
+				(id, session_id, scope, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens, importance)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				id,
 				data.sessionId,
+				scope,
 				data.type,
 				data.title,
 				data.subtitle,
@@ -105,22 +115,36 @@ export class ObservationRepository {
 				data.tokenCount,
 				discoveryTokens,
 				importance,
+				null,
+				null,
 			],
 		);
-		return { ...data, id, createdAt: now, discoveryTokens, importance, supersededBy: null, supersededAt: null };
+		return {
+			...data,
+			id,
+			scope,
+			createdAt: now,
+			discoveryTokens,
+			importance,
+			revisionOf: null,
+			deletedAt: null,
+			supersededBy: null,
+			supersededAt: null,
+		};
 	}
 
 	/** Import an observation with a pre-existing ID (for data migration). */
 	importObservation(data: Observation): void {
 		this.db.run(
 			`INSERT INTO observations
-				(id, session_id, type, title, subtitle, facts, narrative,
+				(id, session_id, scope, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens, importance)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				data.id,
 				data.sessionId,
+				data.scope ?? "project",
 				data.type,
 				data.title,
 				data.subtitle,
@@ -135,6 +159,8 @@ export class ObservationRepository {
 				data.tokenCount,
 				data.discoveryTokens ?? 0,
 				data.importance ?? 3,
+				data.revisionOf ?? null,
+				data.deletedAt ?? null,
 			],
 		);
 	}
@@ -145,7 +171,10 @@ export class ObservationRepository {
 
 	/** Get an observation by its unique ID. */
 	getById(id: string): Observation | null {
-		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
+		const row = this.db.get<ObservationRow>(
+			"SELECT * FROM observations WHERE id = ? AND superseded_by IS NULL AND deleted_at IS NULL",
+			[id],
+		);
 		return row ? this.mapRow(row) : null;
 	}
 
@@ -153,7 +182,7 @@ export class ObservationRepository {
 	getBySession(sessionId: string): Observation[] {
 		return this.db
 			.all<ObservationRow>(
-				"SELECT * FROM observations WHERE session_id = ? ORDER BY created_at ASC",
+				"SELECT * FROM observations WHERE session_id = ? AND superseded_by IS NULL AND deleted_at IS NULL ORDER BY created_at ASC",
 				[sessionId],
 			)
 			.map((r) => this.mapRow(r));
@@ -179,7 +208,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.session_id, o.type, o.title, o.token_count, o.discovery_tokens, o.created_at, o.importance
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ? AND o.superseded_by IS NULL
+				 WHERE s.project_path = ? AND o.superseded_by IS NULL AND o.deleted_at IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -208,7 +237,7 @@ export class ObservationRepository {
 			FROM observations o
 			JOIN observations_fts fts ON o._rowid = fts.rowid
 			${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
-			WHERE observations_fts MATCH ? AND o.superseded_by IS NULL
+			WHERE observations_fts MATCH ? AND o.superseded_by IS NULL AND o.deleted_at IS NULL
 		`;
 		const params: (string | number)[] = [query.query];
 
@@ -280,7 +309,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
-				 AND o.superseded_by IS NULL
+				 AND o.superseded_by IS NULL AND o.deleted_at IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
@@ -300,7 +329,7 @@ export class ObservationRepository {
 				 JOIN observations_fts fts ON o._rowid = fts.rowid
 				 ${hasProjectPath ? "JOIN sessions s ON o.session_id = s.id" : ""}
 				 WHERE observations_fts MATCH ?
-				 AND o.superseded_by IS NULL
+				 AND o.superseded_by IS NULL AND o.deleted_at IS NULL
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
@@ -336,7 +365,7 @@ export class ObservationRepository {
 				`SELECT o.id, o.embedding, o.title
 				 FROM observations o
 				 JOIN sessions s ON o.session_id = s.id
-				 WHERE s.project_path = ? AND o.embedding IS NOT NULL AND o.superseded_by IS NULL
+				 WHERE s.project_path = ? AND o.embedding IS NOT NULL AND o.superseded_by IS NULL AND o.deleted_at IS NULL
 				 ORDER BY o.created_at DESC
 				 LIMIT ?`,
 				[projectPath, limit],
@@ -368,7 +397,7 @@ export class ObservationRepository {
 	): Array<{ id: string; similarity: number }> {
 		const rows = this.db.all<{ id: string; embedding: string }>(
 			`SELECT id, embedding FROM observations
-			 WHERE embedding IS NOT NULL AND type = ? AND superseded_by IS NULL
+			 WHERE embedding IS NOT NULL AND type = ? AND superseded_by IS NULL AND deleted_at IS NULL
 			 ORDER BY created_at DESC
 			 LIMIT 200`,
 			[type],
@@ -500,59 +529,36 @@ export class ObservationRepository {
 	// Update / Delete
 	// ---------------------------------------------------------------------------
 
-	/** Update selected fields of an observation. */
+	/** Update selected fields by creating a successor revision (immutable history). */
 	update(
 		id: string,
 		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
+		if (Object.keys(data).length === 0) return existing;
 
-		const setClauses: string[] = [];
-		const params: (string | number)[] = [];
+		const revision = this.create({
+			sessionId: existing.sessionId,
+			scope: existing.scope ?? "project",
+			type: data.type ?? existing.type,
+			title: data.title ?? existing.title,
+			subtitle: data.subtitle ?? existing.subtitle,
+			facts: data.facts ?? existing.facts,
+			narrative: data.narrative ?? existing.narrative,
+			concepts: data.concepts ?? existing.concepts,
+			filesRead: data.filesRead ?? existing.filesRead,
+			filesModified: data.filesModified ?? existing.filesModified,
+			rawToolOutput: existing.rawToolOutput,
+			toolName: "memory.revise",
+			tokenCount: existing.tokenCount,
+			discoveryTokens: existing.discoveryTokens,
+			importance: data.importance ?? existing.importance,
+		});
 
-		if (data.title !== undefined) {
-			setClauses.push("title = ?");
-			params.push(data.title);
-		}
-		if (data.narrative !== undefined) {
-			setClauses.push("narrative = ?");
-			params.push(data.narrative);
-		}
-		if (data.type !== undefined) {
-			setClauses.push("type = ?");
-			params.push(data.type);
-		}
-		if (data.concepts !== undefined) {
-			setClauses.push("concepts = ?");
-			params.push(JSON.stringify(data.concepts));
-		}
-		if (data.importance !== undefined) {
-			setClauses.push("importance = ?");
-			params.push(data.importance);
-		}
-		if (data.facts !== undefined) {
-			setClauses.push("facts = ?");
-			params.push(JSON.stringify(data.facts));
-		}
-		if (data.subtitle !== undefined) {
-			setClauses.push("subtitle = ?");
-			params.push(data.subtitle);
-		}
-		if (data.filesRead !== undefined) {
-			setClauses.push("files_read = ?");
-			params.push(JSON.stringify(data.filesRead));
-		}
-		if (data.filesModified !== undefined) {
-			setClauses.push("files_modified = ?");
-			params.push(JSON.stringify(data.filesModified));
-		}
-
-		if (setClauses.length === 0) return existing;
-
-		params.push(id);
-		this.db.run(`UPDATE observations SET ${setClauses.join(", ")} WHERE id = ?`, params);
-		return this.getById(id);
+		this.db.run("UPDATE observations SET revision_of = ? WHERE id = ?", [id, revision.id]);
+		this.supersede(id, revision.id);
+		return this.getById(revision.id);
 	}
 
 	/** Mark an observation as superseded by a newer one. */
@@ -564,14 +570,12 @@ export class ObservationRepository {
 		);
 	}
 
-	/** Delete an observation by ID, including its embeddings. */
+	/** Tombstone an observation by ID (soft delete), including embeddings cleanup. */
 	delete(id: string): boolean {
-		const result = this.db.all<{ id: string }>(
-			"DELETE FROM observations WHERE id = ? RETURNING id",
-			[id],
-		);
+		const result = this.db.all<{ id: string }>("SELECT id FROM observations WHERE id = ?", [id]);
 		if (result.length === 0) return false;
-
+		const now = new Date().toISOString();
+		this.db.run("UPDATE observations SET deleted_at = ? WHERE id = ?", [now, id]);
 		this.deleteEmbeddingsForObservations([id]);
 		return true;
 	}
@@ -584,7 +588,7 @@ export class ObservationRepository {
 	deleteOlderThan(days: number): number {
 		const deleted = this.db.all<{ id: string }>(
 			`DELETE FROM observations
-			 WHERE created_at < datetime('now', '-' || ? || ' days')
+			 WHERE (created_at < datetime('now', '-' || ? || ' days') OR deleted_at IS NOT NULL)
 			 AND session_id NOT IN (SELECT id FROM sessions WHERE status != 'completed')
 			 RETURNING id`,
 			[days],
@@ -616,6 +620,7 @@ export class ObservationRepository {
 		return {
 			id: row.id,
 			sessionId: row.session_id,
+			scope: (row.scope as "project" | "user") ?? "project",
 			type: row.type as ObservationType,
 			title: row.title,
 			subtitle: row.subtitle,
@@ -630,6 +635,8 @@ export class ObservationRepository {
 			tokenCount: row.token_count,
 			discoveryTokens: row.discovery_tokens ?? 0,
 			importance: row.importance ?? 3,
+			revisionOf: row.revision_of ?? null,
+			deletedAt: row.deleted_at ?? null,
 			supersededBy: row.superseded_by ?? null,
 			supersededAt: row.superseded_at ?? null,
 		};

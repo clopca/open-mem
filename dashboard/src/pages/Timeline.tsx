@@ -31,12 +31,12 @@ export function Timeline() {
 
 	const apiUrl = useMemo(
 		() =>
-			`/api/observations?limit=${PAGE_SIZE}&offset=${offset}${typeFilter ? `&type=${typeFilter}` : ""}`,
+			`/v1/memory/observations?limit=${PAGE_SIZE}&offset=${offset}${typeFilter ? `&type=${typeFilter}` : ""}`,
 		[offset, typeFilter],
 	);
 	const { data, loading, error } = useAPI<Observation[]>(apiUrl);
 
-	const { events, clearEvents } = useSSE<SSEEvent>("/api/events");
+	const { events, clearEvents } = useSSE<SSEEvent>("/v1/events");
 	const processedEventCount = useRef(0);
 
 	useEffect(() => {

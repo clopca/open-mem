@@ -1,6 +1,6 @@
 {
 	"name": "open-mem",
-	"version": "0.6.1",
+	"version": "0.7.0",
 	"description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
 	"type": "module",
 	"main": "dist/index.js",
@@ -14,23 +14,27 @@
 	},
 	"bin": {
 		"open-mem-mcp": "./dist/mcp.js",
-		"open-mem-daemon": "./dist/daemon.js"
+		"open-mem-daemon": "./dist/daemon.js",
+		"open-mem-maintenance": "./dist/maintenance.js"
 	},
 	"files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
 	"scripts": {
-		"build": "bun run build:bundle && bun run build:mcp && bun run build:daemon && bun run build:dashboard && bun run build:types",
+		"build": "bun run clean && bun run build:bundle && bun run build:mcp && bun run build:daemon && bun run build:maintenance && bun run build:dashboard && bun run build:types",
 		"build:dashboard": "cd dashboard && bun install && bun run build && cp -r dist ../dist/dashboard",
 		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec --external zod",
 		"build:mcp": "bun build src/mcp.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec --external zod",
 		"build:daemon": "bun build src/daemon.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec --external zod",
+		"build:maintenance": "bun build src/maintenance.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external sqlite-vec --external zod",
 		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
 		"dev": "bun run --watch src/index.ts",
 		"test": "bun test",
 		"typecheck": "bun x tsc --noEmit",
+		"check:boundaries": "bun run scripts/check-import-boundaries.ts",
+		"quality:gate": "bun run scripts/quality-gate.ts",
 		"lint": "bun x biome check src/",
 		"clean": "rm -rf dist",
 		"prepare": "test -d src && bun run build || true",
-		"prepublishOnly": "bun run build && bun test"
+		"prepublishOnly": "bun run check:boundaries && bun run quality:gate && bun run build && bun test"
 	},
 	"keywords": [
 		"opencode",
@@ -60,7 +64,6 @@
 		"@ai-sdk/anthropic": "^3.0.38",
 		"@ai-sdk/google": "^3.0.22",
 		"ai": "^6.0.77",
-		"open-mem": "0.6.1",
 		"sqlite-vec": "^0.1.7-alpha.2",
 		"zod": "^4.3.6"
 	},

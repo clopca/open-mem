@@ -7,6 +7,12 @@ interface APIState<T> {
 	refetch: () => void;
 }
 
+interface ApiEnvelope<T> {
+	data: T;
+	error: { code: string; message: string } | null;
+	meta: Record<string, unknown>;
+}
+
 export function useAPI<T>(url: string): APIState<T> {
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -37,9 +43,16 @@ export function useAPI<T>(url: string): APIState<T> {
 					throw new Error(text || `HTTP ${response.status}`);
 				}
 
-				const json = (await response.json()) as T;
+				const json = (await response.json()) as T | ApiEnvelope<T>;
+				const payload =
+					json &&
+					typeof json === "object" &&
+					"data" in json &&
+					"error" in json
+						? (json as ApiEnvelope<T>).data
+						: (json as T);
 				if (!controller.signal.aborted) {
-					setData(json);
+					setData(payload);
 				}
 			} catch (err) {
 				if (err instanceof DOMException && err.name === "AbortError") {

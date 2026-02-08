@@ -105,11 +105,11 @@ describe("buildContextString", () => {
 		const output = buildContextString(context);
 		expect(output).toContain("## open-mem");
 		expect(output).toContain("Progressive Disclosure");
-		expect(output).toContain("mem-search");
-		expect(output).toContain("mem-recall");
+		expect(output).toContain("memory.find");
+		expect(output).toContain("memory.get");
 	});
 
-	test("includes mem-search and mem-recall hints", () => {
+	test("includes memory.find and memory.get hints", () => {
 		const context: ProgressiveContext = {
 			recentSummaries: [],
 			observationIndex: [makeIndexEntry()],
@@ -117,8 +117,8 @@ describe("buildContextString", () => {
 			totalTokens: 5,
 		};
 		const output = buildContextString(context);
-		expect(output).toContain("mem-search");
-		expect(output).toContain("mem-recall");
+		expect(output).toContain("memory.find");
+		expect(output).toContain("memory.get");
 	});
 
 	test("omits empty sections", () => {

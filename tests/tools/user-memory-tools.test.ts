@@ -56,10 +56,10 @@ afterEach(() => {
 });
 
 // =============================================================================
-// mem-save with scope
+// memory.create with scope
 // =============================================================================
 
-describe("mem-save with scope", () => {
+describe("memory.create with scope", () => {
 	test("scope defaults to project — saves to project DB", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		const tool = createSaveTool(observations, sessions, "/tmp/proj", userObservationRepo);
@@ -133,10 +133,10 @@ describe("mem-save with scope", () => {
 });
 
 // =============================================================================
-// mem-search with user memory
+// memory.find with user memory
 // =============================================================================
 
-describe("mem-search with user memory", () => {
+describe("memory.find with user memory", () => {
 	test("returns results from both project and user DBs", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		observations.create({
@@ -163,7 +163,7 @@ describe("mem-search with user memory", () => {
 			concepts: ["TypeScript"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "mem-save",
+			toolName: "memory.create",
 			tokenCount: 40,
 			importance: 4,
 			sourceProject: "/other/project",
@@ -213,7 +213,7 @@ describe("mem-search with user memory", () => {
 			concepts: ["auth"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "mem-save",
+			toolName: "memory.create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",
@@ -269,10 +269,10 @@ describe("mem-search with user memory", () => {
 });
 
 // =============================================================================
-// mem-recall with user memory
+// memory.get with user memory
 // =============================================================================
 
-describe("mem-recall with user memory", () => {
+describe("memory.get with user memory", () => {
 	test("recalls observation from project DB", async () => {
 		sessions.create("sess-1", "/tmp/proj");
 		const obs = observations.create({
@@ -306,7 +306,7 @@ describe("mem-recall with user memory", () => {
 			concepts: ["testing"],
 			filesRead: [],
 			filesModified: [],
-			toolName: "mem-save",
+			toolName: "memory.create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",
@@ -376,7 +376,7 @@ describe("mem-recall with user memory", () => {
 			concepts: [],
 			filesRead: [],
 			filesModified: [],
-			toolName: "mem-save",
+			toolName: "memory.create",
 			tokenCount: 40,
 			importance: 3,
 			sourceProject: "/other/project",

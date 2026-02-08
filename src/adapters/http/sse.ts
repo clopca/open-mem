@@ -1,0 +1,90 @@
+import type { Context } from "hono";
+import { streamSSE } from "hono/streaming";
+import type { MemoryEventBus, MemoryEventMap, MemoryEventName } from "../../events/bus";
+
+export type SSEWriter = (event: string, data: string) => void | Promise<void>;
+
+export class SSEBroadcaster {
+  private clients = new Set<SSEWriter>();
+  private cleanups: Array<() => void> = [];
+
+  constructor(private eventBus: MemoryEventBus) {
+    this.subscribeToAll();
+  }
+
+  addClient(writer: SSEWriter): void {
+    this.clients.add(writer);
+  }
+
+  removeClient(writer: SSEWriter): void {
+    this.clients.delete(writer);
+  }
+
+  get clientCount(): number {
+    return this.clients.size;
+  }
+
+  destroy(): void {
+    for (const cleanup of this.cleanups) cleanup();
+    this.cleanups = [];
+    this.clients.clear();
+  }
+
+  private subscribeToAll(): void {
+    const eventNames: MemoryEventName[] = [
+      "observation:created",
+      "observation:updated",
+      "session:started",
+      "session:ended",
+      "summary:created",
+      "pending:enqueued",
+      "pending:processed",
+    ];
+
+    for (const eventName of eventNames) {
+      const listener = (payload: MemoryEventMap[typeof eventName]) => this.broadcast(eventName, payload);
+      this.eventBus.on(eventName, listener);
+      this.cleanups.push(() => this.eventBus.off(eventName, listener));
+    }
+  }
+
+  private broadcast(eventName: string, data: unknown): void {
+    const json = JSON.stringify(data);
+    for (const writer of this.clients) {
+      try {
+        const result = writer(eventName, json);
+        if (result && typeof result.catch === "function") {
+          result.catch(() => this.clients.delete(writer));
+        }
+      } catch {
+        this.clients.delete(writer);
+      }
+    }
+  }
+}
+
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
+export function createSSERoute(broadcaster: SSEBroadcaster) {
+  return (c: Context) => {
+    return streamSSE(c, async (stream) => {
+      const writer: SSEWriter = (event: string, data: string) => {
+        stream.writeSSE({ event, data, id: Date.now().toString() });
+      };
+
+      broadcaster.addClient(writer);
+      const heartbeat = setInterval(() => {
+        stream.writeSSE({ event: "heartbeat", data: "", id: Date.now().toString() });
+      }, HEARTBEAT_INTERVAL_MS);
+
+      stream.onAbort(() => {
+        broadcaster.removeClient(writer);
+        clearInterval(heartbeat);
+      });
+
+      while (!stream.aborted) {
+        await stream.sleep(1000);
+      }
+    });
+  };
+}

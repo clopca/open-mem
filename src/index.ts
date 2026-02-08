@@ -5,12 +5,14 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createOpenCodeTools } from "./adapters/opencode/tools";
 import { ObservationCompressor } from "./ai/compressor";
 import { ConflictEvaluator } from "./ai/conflict-evaluator";
 import { EntityExtractor } from "./ai/entity-extractor";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
+import { DefaultMemoryEngine } from "./core/memory-engine";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
 import { Database, createDatabase } from "./db/database";
@@ -28,18 +30,17 @@ import { createContextInjectionHook } from "./hooks/context-inject";
 import { createEventHandler } from "./hooks/session-events";
 import { createToolCaptureHook } from "./hooks/tool-capture";
 import { QueueProcessor } from "./queue/processor";
+import { createQueueRuntime } from "./runtime/queue-runtime";
 import { SearchOrchestrator } from "./search/orchestrator";
 import { createReranker } from "./search/reranker";
-import { createDashboardApp } from "./servers/http-server";
-import { SSEBroadcaster, createSSERoute } from "./servers/sse-broadcaster";
-import { createDeleteTool } from "./tools/delete";
-import { createExportTool } from "./tools/export";
-import { createImportTool } from "./tools/import";
-import { createRecallTool } from "./tools/recall";
-import { createSaveTool } from "./tools/save";
-import { createSearchTool } from "./tools/search";
-import { createTimelineTool } from "./tools/timeline";
-import { createUpdateTool } from "./tools/update";
+import { createDashboardApp } from "./adapters/http/server";
+import { SSEBroadcaster, createSSERoute } from "./adapters/http/sse";
+import {
+	createObservationStore,
+	createSessionStore,
+	createSummaryStore,
+	createUserObservationStore,
+} from "./store/sqlite/adapters";
 import type { Hooks, PluginInput } from "./types";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
@@ -174,7 +175,34 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		entityExtractor,
 		entityRepo,
 	);
-	queue.start();
+	const queueRuntime = createQueueRuntime(queue);
+	queueRuntime.start();
+
+	// 5b. Search + memory engine
+	const reranker = createReranker(
+		config,
+		config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
+			? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
+			: null,
+	);
+	const searchOrchestrator = new SearchOrchestrator(
+		observationRepo,
+		embeddingModel,
+		db.hasVectorExtension,
+		reranker,
+		userObservationRepo,
+		entityRepo,
+	);
+	const memoryEngine = new DefaultMemoryEngine({
+		observations: createObservationStore(observationRepo),
+		sessions: createSessionStore(sessionRepo),
+		summaries: createSummaryStore(summaryRepo),
+		searchOrchestrator,
+		projectPath,
+		config,
+		userObservationRepo: createUserObservationStore(userObservationRepo),
+	});
+	const openCodeTools = createOpenCodeTools(memoryEngine);
 
 	// 6. Daemon mode (opt-in)
 	let daemonManager: DaemonManager | null = null;
@@ -191,15 +219,13 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 
 		const started = daemonManager.start();
 		if (started) {
-			queue.setMode("enqueue-only");
-			queue.setOnEnqueue(() => daemonManager?.signal("PROCESS_NOW"));
+			queueRuntime.setEnqueueOnly(() => daemonManager?.signal("PROCESS_NOW"));
 			console.log("[open-mem] Background daemon started — processing delegated");
 
 			daemonLivenessTimer = setInterval(() => {
 				if (daemonManager && !daemonManager.isRunning()) {
 					console.warn("[open-mem] Daemon died, falling back to in-process processing");
-					queue.setMode("in-process");
-					queue.start();
+					queueRuntime.setInProcess();
 					if (daemonLivenessTimer) {
 						clearInterval(daemonLivenessTimer);
 						daemonLivenessTimer = null;
@@ -222,12 +248,10 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		sseBroadcaster = new SSEBroadcaster(eventBus);
 
 		const app = createDashboardApp({
-			observationRepo,
-			sessionRepo,
-			summaryRepo,
 			config,
 			projectPath,
 			embeddingModel,
+			memoryEngine,
 			sseHandler: createSSERoute(sseBroadcaster),
 			dashboardDir: join(distDir, "dashboard"),
 		});
@@ -242,6 +266,8 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 				dashboardServer = Bun.serve({
 					port,
 					hostname: "127.0.0.1",
+					// Keep long-running dashboard requests/SSE streams from timing out at Bun's default 10s.
+					idleTimeout: 0,
 					fetch: app.fetch,
 				});
 				started = true;
@@ -271,8 +297,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const cleanup = () => {
 		if (daemonLivenessTimer) clearInterval(daemonLivenessTimer);
 		if (daemonManager) daemonManager.stop();
-		queue.setOnEnqueue(null);
-		queue.stop();
+		queueRuntime.stop();
 		if (dashboardServer) dashboardServer.stop();
 		if (sseBroadcaster) sseBroadcaster.destroy();
 		if (userMemoryDb) userMemoryDb.close();
@@ -280,23 +305,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	};
 	process.on("beforeExit", cleanup);
 
-	// 9. Search orchestrator
-	const reranker = createReranker(
-		config,
-		config.rerankingEnabled && (!providerRequiresKey || config.apiKey)
-			? createModel({ provider: config.provider, model: config.model, apiKey: config.apiKey })
-			: null,
-	);
-	const searchOrchestrator = new SearchOrchestrator(
-		observationRepo,
-		embeddingModel,
-		db.hasVectorExtension,
-		reranker,
-		userObservationRepo,
-		entityRepo,
-	);
-
-	// 10. Build hooks
+	// 9. Build hooks
 	return {
 		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
 		"chat.message": createChatCaptureHook(
@@ -330,14 +339,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			userObservationRepo,
 		),
 		tool: {
-			"mem-search": createSearchTool(searchOrchestrator, summaryRepo, projectPath),
-			"mem-save": createSaveTool(observationRepo, sessionRepo, projectPath, userObservationRepo ?? undefined),
-			"mem-timeline": createTimelineTool(sessionRepo, summaryRepo, observationRepo, projectPath),
-			"mem-recall": createRecallTool(observationRepo, userObservationRepo ?? undefined),
-			"mem-export": createExportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
-			"mem-import": createImportTool(observationRepo, summaryRepo, sessionRepo, projectPath),
-			"mem-update": createUpdateTool(observationRepo, sessionRepo, projectPath),
-			"mem-delete": createDeleteTool(observationRepo, sessionRepo, projectPath),
+			...openCodeTools,
 		},
 	};
 }

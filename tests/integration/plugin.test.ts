@@ -49,20 +49,22 @@ describe("Plugin entry point", () => {
 		expect(hooks["experimental.session.compacting"]).toBeDefined();
 	});
 
-	test("returns 8 tools", async () => {
+	test("returns 10 tools", async () => {
 		const dir = `/tmp/open-mem-plugin-test-${randomUUID()}`;
 		cleanupDirs.push(dir);
 		const hooks = await plugin(makeInput(dir));
-		expect(Object.keys(hooks.tool!)).toHaveLength(8);
+		expect(Object.keys(hooks.tool!)).toHaveLength(10);
 		const names = Object.keys(hooks.tool ?? {});
-		expect(names).toContain("mem-search");
-		expect(names).toContain("mem-save");
-		expect(names).toContain("mem-timeline");
-		expect(names).toContain("mem-recall");
-		expect(names).toContain("mem-export");
-		expect(names).toContain("mem-import");
-		expect(names).toContain("mem-update");
-		expect(names).toContain("mem-delete");
+		expect(names).toContain("memory.find");
+		expect(names).toContain("memory.create");
+		expect(names).toContain("memory.history");
+		expect(names).toContain("memory.get");
+		expect(names).toContain("memory.transfer.export");
+		expect(names).toContain("memory.transfer.import");
+		expect(names).toContain("memory.revise");
+		expect(names).toContain("memory.remove");
+		expect(names).toContain("memory.maintenance");
+		expect(names).toContain("memory.help");
 	});
 
 	test("creates database file", async () => {

@@ -2,6 +2,7 @@
 // open-mem — Configuration Management
 // =============================================================================
 
+import { existsSync, readFileSync } from "node:fs";
 import type { ObservationType, OpenMemConfig } from "./types";
 
 // -----------------------------------------------------------------------------
@@ -157,6 +158,19 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	return env;
 }
 
+function loadFromProjectFile(projectDir: string): Partial<OpenMemConfig> {
+	const path = `${projectDir}/.open-mem/config.json`;
+	if (!existsSync(path)) return {};
+	try {
+		const raw = readFileSync(path, "utf-8");
+		const parsed = JSON.parse(raw) as Partial<OpenMemConfig>;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		return parsed;
+	} catch {
+		return {};
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Embedding Dimension Defaults
 // -----------------------------------------------------------------------------
@@ -189,10 +203,12 @@ export function resolveConfig(
 	projectDir: string,
 	overrides?: Partial<OpenMemConfig>,
 ): OpenMemConfig {
+	const fileConfig = loadFromProjectFile(projectDir);
 	const envConfig = loadFromEnv();
 
 	const config: OpenMemConfig = {
 		...DEFAULT_CONFIG,
+		...fileConfig,
 		...envConfig,
 		...overrides,
 	};

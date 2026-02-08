@@ -4,7 +4,7 @@ import { useAPI } from "../hooks/useAPI";
 import type { Session } from "../types";
 
 export function Sessions() {
-	const { data: sessions, loading, error } = useAPI<Session[]>("/api/sessions?limit=20");
+	const { data: sessions, loading, error } = useAPI<Session[]>("/v1/memory/sessions?limit=20");
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 
 	const toggleSession = useCallback((id: string) => {

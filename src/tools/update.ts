@@ -52,7 +52,7 @@ Only observations belonging to the current project can be updated.`,
 					(k) => updateData[k as keyof typeof updateData] !== undefined,
 				);
 
-				return `Updated observation "${updated.title}" (ID: ${updated.id}). Changed: ${changedFields.join(", ") || "nothing"}.`;
+				return `Updated observation "${updated.title}" (new revision ID: ${updated.id}, previous ID: ${args.id}). Changed: ${changedFields.join(", ") || "nothing"}.`;
 			} catch (error) {
 				return `Update error: ${error}`;
 			}

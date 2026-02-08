@@ -1,170 +1,124 @@
 # Architecture
 
-This document describes the internal architecture of open-mem.
+This document describes the current modular architecture of open-mem.
 
-## Overview
+## Design Goals
 
-open-mem is an [OpenCode](https://opencode.ai) plugin that provides persistent memory across coding sessions. It captures tool executions, compresses them into structured observations using AI, and injects relevant context into new sessions.
+1. Keep memory behavior consistent across OpenCode hooks, MCP tools, and dashboard APIs.
+2. Keep local-first storage and predictable capture-to-recall latency.
+3. Keep boundaries strict so retrieval/policy changes do not require cross-cutting rewrites.
 
-## System Diagram
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                       OpenCode                          │
-│                                                         │
-│  tool.execute.after ────────> [Tool Capture Hook]       │
-│                                      │                  │
-│                                      v                  │
-│                             [Pending Queue]             │
-│                                      │                  │
-│  session.idle ──────────────> [Queue Processor]         │
-│                                      │                  │
-│                                      v                  │
-│                            [AI Compressor] ──> Anthropic│
-│                                      │                  │
-│                                      v                  │
-│                            [SQLite + FTS5]              │
-│                                      │                  │
-│  system.transform <──────── [Context Injector]          │
-│                                                         │
-│  session.compacting <────── [Compaction Hook]           │
-│                                                         │
-│  mem-search ────────────────> [FTS5 Search]             │
-│  mem-save ──────────────────> [Direct Save]             │
-│  mem-timeline ──────────────> [Session Query]           │
-│  mem-recall ────────────────> [Full Observation Fetch]  │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Source Layout
+## Layered Modules
 
 ```
 src/
-├── index.ts                 Plugin entry point — wires everything together
-├── types.ts                 TypeScript interfaces (Observation, Session, Config, etc.)
-├── config.ts                Configuration resolution from env vars + defaults
-│
-├── db/                      SQLite + FTS5 data layer
-│   ├── database.ts          Database connection factory
-│   ├── schema.ts            Schema initialization + migrations (v1→v2→v3)
-│   ├── observations.ts      Observation CRUD + FTS5 search
-│   ├── sessions.ts          Session tracking repository
-│   ├── summaries.ts         Session summary storage
-│   └── pending.ts           Pending message queue storage
-│
-├── ai/                      AI compression & summarization
-│   ├── compressor.ts        Tool output → structured observation (via Claude)
-│   ├── summarizer.ts        Session → narrative summary (via Claude)
-│   ├── prompts.ts           System prompts for AI operations
-│   └── parser.ts            Response parsing + validation
-│
-├── hooks/                   OpenCode hook handlers
-│   ├── tool-capture.ts      Captures tool executions → pending queue
-│   ├── context-inject.ts    Injects memory into system prompt
-│   ├── session-events.ts    Handles session lifecycle events
-│   └── compaction.ts        Preserves memory during session compaction
-│
-├── queue/                   Batch processing
-│   └── processor.ts         Batches pending observations, triggers compression
-│
-├── context/                 Context retrieval & formatting
-│   ├── builder.ts           Builds the injected context block
-│   └── progressive.ts       Token-budget-aware progressive disclosure
-│
-└── tools/                   Custom MCP tools
-    ├── search.ts            mem-search — FTS5 full-text search
-    ├── save.ts              mem-save — manual observation creation
-    ├── timeline.ts          mem-timeline — session history view
-    └── recall.ts            mem-recall — fetch full observation by ID
+├── core/                  Domain contracts + MemoryEngine orchestration
+├── store/                 Store ports + SQLite adapters
+├── runtime/               Queue/daemon lifecycle orchestration
+├── adapters/
+│   ├── opencode/          OpenCode hook + tool bindings
+│   ├── mcp/               MCP server entry bindings
+│   └── http/              Dashboard API bindings
+├── db/                    SQLite repositories + schema/migrations
+├── queue/                 Processing pipeline implementation
+└── hooks/                 Capture/context hook implementations
 ```
+
+## Boundary Rules
+
+1. `core` has no protocol or DB concrete imports.
+2. `store` is the only layer allowed to import SQLite store implementations.
+3. `adapters` translate protocol payloads to `MemoryEngine` calls.
+4. `runtime` coordinates queue/daemon mode, independent of adapter protocols.
+
+Boundary checks are enforced with:
+
+```bash
+bun run check:boundaries
+```
+
+## Core Contract
+
+`MemoryEngine` is the single orchestration surface for:
+
+- ingest/process pending work
+- search/timeline/recall
+- save/update/delete
+- export/import
+- context assembly and dashboard reads
+
+OpenCode, MCP, and HTTP surfaces call engine methods directly.
+
+## Storage Model
+
+SQLite remains local and project-scoped (`.open-mem/memory.db`), with optional user-level DB.
+
+Observation lineage is immutable:
+
+1. `memory.revise` creates a new revision row and marks prior active row superseded.
+2. `memory.remove` writes a tombstone (`deleted_at`) on active row.
+3. Default retrieval/search returns only active rows (`superseded_by IS NULL` and `deleted_at IS NULL`).
+
+Schema baseline includes v10 migration columns:
+
+- `scope`
+- `revision_of`
+- `deleted_at`
+
+## Runtime Modes
+
+1. Default: in-process queue processing.
+2. Optional: daemon mode delegates processing to background worker.
+
+Queue runtime controls switching between modes and liveness fallback.
 
 ## Data Flow
 
-### 1. Capture Phase
+The memory lifecycle has three phases:
 
-When a tool executes in OpenCode, the `tool.execute.after` hook fires. The hook:
-
-1. Checks if the tool is in the ignore list
-2. Strips `<private>` content blocks
-3. Redacts sensitive patterns (API keys, tokens, passwords)
-4. Validates minimum output length
-5. Pushes the raw capture to the pending queue
-
-### 2. Compression Phase
-
-On `session.idle`, the queue processor:
-
-1. Batches pending observations (default: 5 per batch)
-2. Sends each batch to Claude for semantic compression
-3. Claude returns structured observations with:
-   - Type: `decision`, `bugfix`, `feature`, `refactor`, `discovery`, `change`
-   - Title and narrative summary
-   - Key facts extracted
-   - Concepts/tags for FTS5 indexing
-   - Files involved
-4. Stores compressed observations in SQLite with FTS5 indexing
-5. If no API key is set, falls back to basic metadata extraction
-
-### 3. Retrieval Phase
-
-At session start (`experimental.chat.system.transform`):
-
-1. Queries recent observations within the token budget
-2. Builds a progressive disclosure index:
-   - Recent observations shown in full (configurable count)
-   - Older observations shown as compact index entries (type icon, title, token cost, files)
-3. Injects the formatted block into the system prompt
-
-### 4. Session Compaction
-
-When OpenCode compacts a session (`experimental.session.compacting`):
-
-1. Retrieves current session's observations
-2. Injects them as context to preserve across the compaction boundary
-3. Ensures the agent retains memory of the current session's work
-
-## Database Schema
-
-SQLite with FTS5 for full-text search. Three migrations:
-
-- **v1**: Base tables (observations, sessions, pending_messages, observation_fts)
-- **v2**: Session summaries table
-- **v3**: Structured summary columns (request, investigated, learned, completed, next_steps)
-
-Key tables:
-
-| Table | Purpose |
-|-------|---------|
-| `observations` | Compressed observations with metadata |
-| `observation_fts` | FTS5 virtual table for full-text search |
-| `sessions` | Session tracking (start/end, directory) |
-| `session_summaries` | AI-generated session narratives |
-| `pending_messages` | Queue of unprocessed tool outputs |
-
-## Plugin Lifecycle
+1. **Capture** — OpenCode hooks (`tool.execute.after`, `chat.message`) intercept tool outputs and user prompts, redact sensitive content, and enqueue pending observations.
+2. **Processing** — On `session.idle`, the queue processor batches pending items and sends them to the AI compressor. Each raw capture is distilled into a typed observation with title, narrative, concepts, and importance. Embeddings are generated in parallel when a vector-capable provider is configured.
+3. **Retrieval** — At session start, the context injector assembles a token-budgeted index from recent observations and injects it into the system prompt. During the session, `memory.find` performs hybrid search (FTS5 + vector/RRF) and `memory.get` fetches full observation details on demand.
 
 ```
-plugin(input) called by OpenCode
-  │
-  ├── resolveConfig() — merge env vars + defaults
-  ├── createDatabase() — open/create SQLite
-  ├── initializeSchema() — run migrations
-  ├── create repositories (session, observation, summary, pending)
-  ├── create AI services (compressor, summarizer)
-  ├── QueueProcessor.start() — begin batch processing
-  │
-  └── return hooks:
-       ├── tool.execute.after → capture tool outputs
-       ├── event → handle session start/end/idle
-       ├── system.transform → inject context into system prompt
-       ├── session.compacting → preserve memory during compaction
-       └── tools → [mem-search, mem-save, mem-timeline, mem-recall]
+Hooks ──> Pending Queue ──> AI Compressor + Embeddings ──> SQLite/FTS5/Vectors
+                                                                  │
+Context Injector <── search/recall <── memory.find / memory.get <─┘
 ```
 
 ## Key Design Decisions
 
-1. **SQLite + FTS5** — Single-file database with built-in full-text search. No external dependencies.
-2. **Progressive disclosure** — Show observation titles/costs in the index, not full content. Agent decides what to fetch.
-3. **Batch compression** — Tool outputs are queued and compressed in batches during idle time, not synchronously.
-4. **Graceful degradation** — Works without an API key via fallback metadata extraction.
-5. **Privacy-first** — `<private>` tags, automatic redaction, and local-only storage by default.
+- **`MemoryEngine` as single orchestration surface** — All transports (OpenCode, MCP, HTTP) call the same engine interface, eliminating duplicated business logic across adapters.
+- **Ports-and-Adapters for transport independence** — `core/contracts.ts` defines the engine port; `store/ports.ts` defines storage ports. Adapters in `adapters/` translate protocol payloads without leaking transport concerns inward.
+- **SQLite + FTS5 + sqlite-vec for zero external dependencies** — Local-first storage with full-text search and vector similarity in a single embedded database. No Redis, no Postgres, no network services.
+- **Immutable observation lineage** — `memory.revise` creates successor revisions rather than mutating in place; `memory.remove` writes tombstones. This preserves audit history and simplifies conflict resolution.
+- **Progressive disclosure** — The context injector shows a compact index (type, title, token cost) rather than full observations. The agent decides what to fetch, minimizing context window consumption.
+- **Privacy-first** — Sensitive content is redacted before storage, `<private>` blocks are stripped at capture time, and all data stays local unless AI compression is explicitly enabled.
+
+## External Surfaces
+
+### OpenCode
+
+- Hooks: `tool.execute.after`, `chat.message`, `event`, `experimental.chat.system.transform`, `experimental.session.compacting`
+- Tools: `memory.find`, `memory.create`, `memory.history`, `memory.get`, `memory.revise`, `memory.remove`, `memory.transfer.export`, `memory.transfer.import`, `memory.help`
+
+### MCP
+
+- Same 9 tools over stdin/stdout JSON-RPC (`memory.*` namespace).
+
+### Dashboard
+
+- Existing observations/sessions/search/stats routes
+- Config control plane:
+  - `GET /api/config/schema`
+  - `GET /api/config/effective`
+  - `POST /api/config/preview`
+  - `PATCH /api/config`
+- Folder-context maintenance:
+  - `POST /api/maintenance/folder-context/dry-run`
+  - `POST /api/maintenance/folder-context/clean`
+  - `POST /api/maintenance/folder-context/rebuild`
+
+## Compatibility Policy
+
+`0.7.0` does not preserve internal compatibility with earlier schema internals. For pre-`0.7.0` local data, use maintenance reset flow.

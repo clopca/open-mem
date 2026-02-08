@@ -550,14 +550,24 @@ describe("Conflict Resolution — Full Pipeline", () => {
 		expect(processed).toBe(1);
 
 		const allObs = observationRepo.getBySession("sess-1");
-		expect(allObs).toHaveLength(2);
+		expect(allObs).toHaveLength(1);
 
-		const old = observationRepo.getById(existing.id);
-		expect(old?.supersededBy).not.toBeNull();
-		expect(old?.supersededAt).not.toBeNull();
+		const totalRows = db.get<{ count: number }>(
+			"SELECT COUNT(*) as count FROM observations WHERE session_id = ?",
+			["sess-1"],
+		);
+		expect(totalRows?.count).toBe(2);
 
-		const newObs = allObs.find((o) => o.id !== existing.id);
-		expect(newObs?.supersededBy).toBeNull();
+		const old = db.get<{ superseded_by: string | null; superseded_at: string | null }>(
+			"SELECT superseded_by, superseded_at FROM observations WHERE id = ?",
+			[existing.id],
+		);
+		expect(old?.superseded_by).not.toBeNull();
+		expect(old?.superseded_at).not.toBeNull();
+
+		const newObs = allObs[0];
+		expect(newObs.id).not.toBe(existing.id);
+		expect(newObs.supersededBy).toBeNull();
 	});
 
 	test("pipeline: pending → compression → dedup → conflict eval (duplicate) → skip", async () => {

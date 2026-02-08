@@ -7,7 +7,7 @@ interface SSEState<T> {
 }
 
 export function useSSE<T = unknown>(
-	url = "/api/events",
+	url = "/v1/events",
 ): SSEState<T> & { clearEvents: () => void } {
 	const [events, setEvents] = useState<T[]>([]);
 	const [connected, setConnected] = useState(false);

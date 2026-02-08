@@ -85,6 +85,8 @@ async function simulateToolCapture(
 // ---------------------------------------------------------------------------
 
 describe("E2E lifecycle", () => {
+	const parse = (value: string) => JSON.parse(value) as { data: unknown; error: unknown };
+
 	test("plugin initializes with default config", async () => {
 		const { hooks } = await createTestPlugin();
 
@@ -92,7 +94,7 @@ describe("E2E lifecycle", () => {
 		expect(hooks["experimental.chat.system.transform"]).toBeFunction();
 		expect(hooks["experimental.session.compacting"]).toBeFunction();
 		expect(hooks.event).toBeFunction();
-		expect(Object.keys(hooks.tool!)).toHaveLength(8);
+		expect(Object.keys(hooks.tool!)).toHaveLength(10);
 	});
 
 	test("full lifecycle: capture → process → recall", async () => {
@@ -146,8 +148,8 @@ describe("E2E lifecycle", () => {
 		// Give a moment for async processing
 		await new Promise((r) => setTimeout(r, 100));
 
-		// Search for the captured observations using mem-search tool
-		const searchTool = hooks.tool!["mem-search"];
+		// Search for the captured observations using memory.find tool
+		const searchTool = hooks.tool!["memory.find"];
 		const result = await searchTool.execute(
 			{ query: "config", limit: 10 },
 			mockToolContext(sessionId),
@@ -157,13 +159,13 @@ describe("E2E lifecycle", () => {
 		expect(typeof result).toBe("string");
 	});
 
-	test("mem-save creates searchable observation", async () => {
+	test("memory.create creates searchable observation", async () => {
 		const { hooks } = await createTestPlugin();
 		const sessionId = randomUUID();
 		const ctx = mockToolContext(sessionId);
 
 		// Save an observation manually
-		const saveTool = hooks.tool!["mem-save"];
+		const saveTool = hooks.tool!["memory.create"];
 		const saveResult = await saveTool.execute(
 			{
 				title: "Important architecture decision",
@@ -175,36 +177,40 @@ describe("E2E lifecycle", () => {
 			ctx,
 		);
 
-		expect(saveResult).toContain("Saved observation");
-		expect(saveResult).toContain("decision");
-		expect(saveResult).toContain("Important architecture decision");
+		const savePayload = parse(saveResult);
+		expect(savePayload.error).toBeNull();
+		expect(JSON.stringify(savePayload.data)).toContain("Important architecture decision");
 
 		// Search for the saved observation
-		const searchTool = hooks.tool!["mem-search"];
+		const searchTool = hooks.tool!["memory.find"];
 		const searchResult = await searchTool.execute({ query: "FTS5 architecture", limit: 10 }, ctx);
 
-		expect(searchResult).toContain("FTS5");
+		const searchPayload = parse(searchResult);
+		expect(searchPayload.error).toBeNull();
+		expect(JSON.stringify(searchPayload.data)).toContain("FTS5");
 	});
 
-	test("mem-search returns no results gracefully", async () => {
+	test("memory.find returns no results gracefully", async () => {
 		const { hooks } = await createTestPlugin();
 
-		const searchTool = hooks.tool!["mem-search"];
+		const searchTool = hooks.tool!["memory.find"];
 		const result = await searchTool.execute(
 			{ query: "nonexistent_query_xyz_12345", limit: 5 },
 			mockToolContext(),
 		);
 
-		expect(result).toContain("No matching");
+		const payload = parse(result);
+		expect(payload.error).toBeNull();
+		expect(JSON.stringify(payload.data)).toContain("\"results\":[]");
 	});
 
-	test("mem-timeline shows session history", async () => {
+	test("memory.history shows session history", async () => {
 		const { hooks } = await createTestPlugin();
 		const sessionId = randomUUID();
 		const ctx = mockToolContext(sessionId);
 
 		// Create some activity in a session
-		const saveTool = hooks.tool!["mem-save"];
+		const saveTool = hooks.tool!["memory.create"];
 		await saveTool.execute(
 			{
 				title: "Test observation for timeline",
@@ -215,10 +221,12 @@ describe("E2E lifecycle", () => {
 		);
 
 		// Check timeline
-		const timelineTool = hooks.tool!["mem-timeline"];
+		const timelineTool = hooks.tool!["memory.history"];
 		const timeline = await timelineTool.execute({ limit: 5 }, ctx);
 
-		expect(timeline).toContain("Session");
+		const timelinePayload = parse(timeline);
+		expect(timelinePayload.error).toBeNull();
+		expect(JSON.stringify(timelinePayload.data)).toContain("session");
 	});
 
 	test("context injection does not throw on empty database", async () => {

@@ -82,7 +82,7 @@ From your second session, you'll see a memory block injected into the system pro
 🐛 [bugfix] Fix off-by-one in pagination (~95 tokens) — src/api/list.ts
 ```
 
-The agent can then use `mem-search` and `mem-recall` to fetch full details about any observation.
+The agent can then use `memory.find` and `memory.get` to fetch full details about any observation.
 
 ## Using the Tools
 
@@ -92,7 +92,7 @@ Ask your agent to search memory naturally:
 
 > "What do we know about the pricing module?"
 
-The agent will use `mem-search` to find relevant observations.
+The agent will use `memory.find` to find relevant observations.
 
 ### Save Important Context
 
@@ -100,19 +100,19 @@ Ask the agent to remember something:
 
 > "Remember that we decided to use SQLite instead of PostgreSQL for the local cache."
 
-The agent will use `mem-save` to create a manual observation.
+The agent will use `memory.create` to create a manual observation.
 
 ### View Session History
 
 > "Show me what we worked on in recent sessions."
 
-The agent will use `mem-timeline` to display session history.
+The agent will use `memory.history` to display session history.
 
 ### Recall Full Details
 
 > "Get the full details on observation #abc123."
 
-The agent will use `mem-recall` to fetch the complete observation.
+The agent will use `memory.get` to fetch the complete observation.
 
 ## Privacy
 

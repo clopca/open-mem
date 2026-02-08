@@ -4,7 +4,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { type MemoryEventBus, createEventBus } from "../../src/events/bus";
-import { SSEBroadcaster, type SSEWriter } from "../../src/servers/sse-broadcaster";
+import { SSEBroadcaster, type SSEWriter } from "../../src/adapters/http/sse";
 import type { Observation, Session, SessionSummary } from "../../src/types";
 
 // -----------------------------------------------------------------------------
