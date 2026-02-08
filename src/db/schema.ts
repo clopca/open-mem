@@ -14,6 +14,8 @@ export const TABLES = {
 	OBSERVATIONS: "observations",
 	SESSION_SUMMARIES: "session_summaries",
 	PENDING_MESSAGES: "pending_messages",
+	CONFIG_AUDIT_EVENTS: "config_audit_events",
+	MAINTENANCE_HISTORY: "maintenance_history",
 	OBSERVATIONS_FTS: "observations_fts",
 	SUMMARIES_FTS: "summaries_fts",
 	OBSERVATION_EMBEDDINGS: "observation_embeddings",
@@ -28,7 +30,7 @@ export const TABLES = {
 // Migrations
 // -----------------------------------------------------------------------------
 
-/** Ordered list of database migrations from v1 to v10. */
+/** Ordered list of database migrations from v1 to v11. */
 export const MIGRATIONS: Migration[] = [
 	// v1 — Core tables
 	{
@@ -368,6 +370,34 @@ export const MIGRATIONS: Migration[] = [
 			CREATE INDEX IF NOT EXISTS idx_observations_scope ON observations(scope);
 			CREATE INDEX IF NOT EXISTS idx_observations_revision_of ON observations(revision_of);
 			CREATE INDEX IF NOT EXISTS idx_observations_deleted_at ON observations(deleted_at);
+		`,
+	},
+	{
+		version: 11,
+		name: "create-config-audit-and-maintenance-history",
+		up: `
+			CREATE TABLE IF NOT EXISTS config_audit_events (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				timestamp TEXT NOT NULL,
+				patch TEXT NOT NULL,
+				previous_values TEXT NOT NULL,
+				source TEXT NOT NULL
+					CHECK (source IN ('api','mode','rollback','rollback-failed'))
+			);
+			CREATE INDEX IF NOT EXISTS idx_config_audit_timestamp
+				ON config_audit_events(timestamp DESC);
+
+			CREATE TABLE IF NOT EXISTS maintenance_history (
+				_rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+				id TEXT UNIQUE NOT NULL,
+				timestamp TEXT NOT NULL,
+				action TEXT NOT NULL,
+				dry_run INTEGER NOT NULL DEFAULT 0,
+				result TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_maintenance_history_timestamp
+				ON maintenance_history(timestamp DESC);
 		`,
 	},
 ];

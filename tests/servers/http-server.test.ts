@@ -3,7 +3,9 @@ import { rmSync } from "node:fs";
 import type { Hono } from "hono";
 import { createDashboardApp, type DashboardDeps } from "../../src/adapters/http/server";
 import { DefaultMemoryEngine } from "../../src/core/memory-engine";
+import { ConfigAuditRepository } from "../../src/db/config-audit";
 import type { Database } from "../../src/db/database";
+import { MaintenanceHistoryRepository } from "../../src/db/maintenance-history";
 import { ObservationRepository } from "../../src/db/observations";
 import { SessionRepository } from "../../src/db/sessions";
 import { SummaryRepository } from "../../src/db/summaries";
@@ -22,6 +24,8 @@ let app: Hono;
 let observationRepo: ObservationRepository;
 let sessionRepo: SessionRepository;
 let summaryRepo: SummaryRepository;
+let configAuditRepo: ConfigAuditRepository;
+let maintenanceHistoryRepo: MaintenanceHistoryRepository;
 
 const TEST_PROJECT_PATH = "/tmp/test-project";
 
@@ -79,6 +83,8 @@ beforeEach(() => {
 	observationRepo = new ObservationRepository(db);
 	sessionRepo = new SessionRepository(db);
 	summaryRepo = new SummaryRepository(db);
+	configAuditRepo = new ConfigAuditRepository(db);
+	maintenanceHistoryRepo = new MaintenanceHistoryRepository(db);
 
 	const memoryEngine = new DefaultMemoryEngine({
 		observations: createObservationStore(observationRepo),
@@ -87,6 +93,8 @@ beforeEach(() => {
 		searchOrchestrator: new SearchOrchestrator(observationRepo, null, false, null, null, null),
 		projectPath: TEST_PROJECT_PATH,
 		config: { ...TEST_CONFIG, dbPath },
+		configAuditStore: configAuditRepo,
+		maintenanceHistoryStore: maintenanceHistoryRepo,
 	});
 
 	const deps: DashboardDeps = {
@@ -429,6 +437,41 @@ describe("HTTP v1 contract", () => {
 	test("GET /v1/memory/observations/:id/revision-diff requires against param", async () => {
 		const res = await app.request("/v1/memory/observations/some-id/revision-diff");
 		expect(res.status).toBe(400);
+	});
+
+	test("GET /v1/memory/observations/:id/revision-diff supports v1 compatibility response", async () => {
+		sessionRepo.create("sess-diff-v1", TEST_PROJECT_PATH);
+		const first = observationRepo.create({
+			sessionId: "sess-diff-v1",
+			type: "feature",
+			title: "Original title",
+			subtitle: "",
+			facts: [],
+			narrative: "Original narrative",
+			concepts: [],
+			filesRead: [],
+			filesModified: [],
+			rawToolOutput: "",
+			toolName: "tool",
+			tokenCount: 10,
+			discoveryTokens: 10,
+		});
+		const second = observationRepo.update(first.id, { title: "Updated title" });
+		expect(second).not.toBeNull();
+
+		const res = await app.request(
+			`/v1/memory/observations/${first.id}/revision-diff?against=${second!.id}&version=1`,
+		);
+		expect(res.status).toBe(200);
+		const payload = parseEnvelope<{
+			baseId: string;
+			againstId: string;
+			changes: Array<{ field: string; before: unknown; after: unknown }>;
+		}>(await res.json());
+		expect(payload.error).toBeNull();
+		expect(payload.data.baseId).toBe(first.id);
+		expect(payload.data.againstId).toBe(second!.id);
+		expect(payload.data.changes.length).toBeGreaterThan(0);
 	});
 
 	test("GET /v1/adapters/status returns adapter list", async () => {

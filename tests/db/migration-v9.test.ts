@@ -35,7 +35,7 @@ describe("Migration v9: entity graph tables", () => {
 			const migrations = db.all<{ version: number }>(
 				"SELECT version FROM _migrations ORDER BY version",
 			);
-			expect(migrations).toHaveLength(10);
+			expect(migrations).toHaveLength(11);
 		} finally {
 			db.close();
 			cleanupTestDb(dbPath);

@@ -10,8 +10,10 @@ import { McpServer } from "./adapters/mcp/server";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { resolveConfig } from "./config";
 import { DefaultMemoryEngine } from "./core/memory-engine";
+import { ConfigAuditRepository } from "./db/config-audit";
 import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
+import { MaintenanceHistoryRepository } from "./db/maintenance-history";
 import { ObservationRepository } from "./db/observations";
 import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
@@ -49,6 +51,8 @@ initializeSchema(db, {
 const sessions = new SessionRepository(db);
 const observations = new ObservationRepository(db);
 const summaries = new SummaryRepository(db);
+const configAuditRepo = new ConfigAuditRepository(db);
+const maintenanceHistoryRepo = new MaintenanceHistoryRepository(db);
 
 let userMemoryDb: UserMemoryDatabase | null = null;
 let userObservationRepo: UserObservationRepository | null = null;
@@ -100,6 +104,8 @@ const server = new McpServer({
 		projectPath,
 		config,
 		userObservationRepo: createUserObservationStore(userObservationRepo),
+		configAuditStore: configAuditRepo,
+		maintenanceHistoryStore: maintenanceHistoryRepo,
 	}),
 	version: pkgJson.version,
 	compatibilityMode: config.mcpCompatibilityMode,

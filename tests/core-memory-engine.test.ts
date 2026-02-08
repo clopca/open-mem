@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { DefaultMemoryEngine } from "../src/core/memory-engine";
 import type { RuntimeStatusSnapshot } from "../src/core/contracts";
+import { ConfigAuditRepository } from "../src/db/config-audit";
 import type { Database } from "../src/db/database";
+import { MaintenanceHistoryRepository } from "../src/db/maintenance-history";
 import { ObservationRepository } from "../src/db/observations";
 import { SessionRepository } from "../src/db/sessions";
 import { SummaryRepository } from "../src/db/summaries";
@@ -18,6 +20,8 @@ let db: Database;
 let dbPath: string;
 let observationRepo: ObservationRepository;
 let sessionRepo: SessionRepository;
+let configAuditRepo: ConfigAuditRepository;
+let maintenanceHistoryRepo: MaintenanceHistoryRepository;
 
 const TEST_PROJECT_PATH = "/tmp/test-project";
 
@@ -71,6 +75,8 @@ function createEngine(runtimeSnapshotProvider?: () => RuntimeStatusSnapshot) {
 		projectPath: TEST_PROJECT_PATH,
 		config: { ...TEST_CONFIG, dbPath },
 		runtimeSnapshotProvider,
+		configAuditStore: configAuditRepo,
+		maintenanceHistoryStore: maintenanceHistoryRepo,
 	});
 }
 
@@ -80,6 +86,8 @@ beforeEach(() => {
 	dbPath = result.dbPath;
 	observationRepo = new ObservationRepository(db);
 	sessionRepo = new SessionRepository(db);
+	configAuditRepo = new ConfigAuditRepository(db);
+	maintenanceHistoryRepo = new MaintenanceHistoryRepository(db);
 });
 
 afterEach(() => {
@@ -272,5 +280,32 @@ describe("DefaultMemoryEngine contracts", () => {
 		expect(health.timestamp).toBe("2026-02-08T00:00:00.000Z");
 		expect(health.components.queue.status).toBe("degraded");
 		expect(health.components.queue.detail).toBe("queue-failure");
+	});
+
+	test("config audit and maintenance history persist across engine instances", () => {
+		const engineA = createEngine();
+		engineA.trackConfigAudit({
+			id: "audit-1",
+			timestamp: "2026-02-08T10:00:00.000Z",
+			patch: { batchSize: 10 },
+			previousValues: { batchSize: 5 },
+			source: "api",
+		});
+		engineA.trackMaintenanceResult({
+			id: "maint-1",
+			timestamp: "2026-02-08T11:00:00.000Z",
+			action: "folder-context-clean",
+			dryRun: false,
+			result: { changed: 2 },
+		});
+
+		const engineB = createEngine();
+		const audit = engineB.getConfigAuditTimeline();
+		const maintenance = engineB.getMaintenanceHistory();
+
+		expect(audit).toHaveLength(1);
+		expect(audit[0]?.id).toBe("audit-1");
+		expect(maintenance).toHaveLength(1);
+		expect(maintenance[0]?.id).toBe("maint-1");
 	});
 });

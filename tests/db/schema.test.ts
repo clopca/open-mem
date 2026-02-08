@@ -28,6 +28,8 @@ describe("Schema and FTS5", () => {
 		expect(tables).toContain("observations");
 		expect(tables).toContain("session_summaries");
 		expect(tables).toContain("pending_messages");
+		expect(tables).toContain("config_audit_events");
+		expect(tables).toContain("maintenance_history");
 		db.close();
 	});
 
@@ -73,7 +75,7 @@ describe("Schema and FTS5", () => {
 		const migrations = db.all<{ version: number }>(
 			"SELECT version FROM _migrations ORDER BY version",
 		);
-		expect(migrations).toHaveLength(10); // v1 through v10
+		expect(migrations).toHaveLength(11); // v1 through v11
 		db.close();
 	});
 
