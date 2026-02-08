@@ -176,6 +176,16 @@ export interface OpenMemConfig {
 	dashboardEnabled: boolean; // Enable web dashboard (default: false)
 	dashboardPort: number; // Dashboard HTTP port (default: 3737)
 
+	// Platform adapters
+	platformOpenCodeEnabled?: boolean; // Enable OpenCode adapter surface
+	platformClaudeCodeEnabled?: boolean; // Enable Claude Code adapter surface
+	platformCursorEnabled?: boolean; // Enable Cursor adapter surface
+
+	// MCP compatibility
+	mcpCompatibilityMode?: "strict" | "legacy";
+	mcpProtocolVersion?: string;
+	mcpSupportedProtocolVersions?: string[];
+
 	// Embeddings
 	embeddingDimension?: number; // Embedding vector dimension (auto-detected from provider)
 
@@ -301,6 +311,14 @@ export interface SearchResult {
 	rank: number; // FTS5 rank score
 	snippet: string; // FTS5 highlighted snippet
 	source?: "project" | "user";
+	explain?: {
+		strategy?: "filter-only" | "semantic" | "hybrid";
+		matchedBy: Array<"fts" | "vector" | "graph" | "user-memory" | "concept-filter" | "file-filter">;
+		ftsRank?: number;
+		vectorDistance?: number;
+		vectorSimilarity?: number;
+		rrfScore?: number;
+	};
 }
 
 /** A session with its summary and observation count for timeline display. */

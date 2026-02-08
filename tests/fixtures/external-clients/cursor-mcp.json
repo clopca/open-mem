@@ -1,0 +1,55 @@
+{
+  "client": "cursor",
+  "protocolVersion": "2024-11-05",
+  "scenarios": [
+    {
+      "id": "happy-path-handshake-tool",
+      "name": "initialize + notifications/initialized + tools/list + tools/call + ping",
+      "messages": [
+        { "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2024-11-05" } },
+        { "jsonrpc": "2.0", "method": "notifications/initialized", "params": {} },
+        { "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {} },
+        { "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "memory.help", "arguments": {} } },
+        { "jsonrpc": "2.0", "id": 4, "method": "ping", "params": {} }
+      ],
+      "assertions": [
+        { "responseId": 1, "contains": ["protocolVersion", "2024-11-05"] },
+        { "responseId": 2, "contains": ["tools", "memory.find"] },
+        { "responseId": 3, "contains": ["result", "memory.find"] },
+        { "responseId": 4, "contains": ["result"] }
+      ]
+    },
+    {
+      "id": "strict-preinit-reject",
+      "name": "strict rejects tools/list before initialize",
+      "messages": [
+        { "jsonrpc": "2.0", "id": 11, "method": "tools/list", "params": {} }
+      ],
+      "assertions": [
+        { "responseId": 11, "contains": ["-32002", "Server not initialized"] }
+      ]
+    },
+    {
+      "id": "validation-error-determinism",
+      "name": "invalid tool args return structured VALIDATION_ERROR",
+      "messages": [
+        { "jsonrpc": "2.0", "id": 21, "method": "initialize", "params": { "protocolVersion": "2024-11-05" } },
+        { "jsonrpc": "2.0", "id": 22, "method": "tools/call", "params": { "name": "memory.find", "arguments": { "query": "" } } }
+      ],
+      "assertions": [
+        { "responseId": 22, "contains": ["VALIDATION_ERROR", "query", "isError"] }
+      ]
+    },
+    {
+      "id": "unknown-method-mapping",
+      "name": "unknown method maps to -32601",
+      "messages": [
+        { "jsonrpc": "2.0", "id": 31, "method": "initialize", "params": { "protocolVersion": "2024-11-05" } },
+        { "jsonrpc": "2.0", "id": 32, "method": "unknown/method", "params": {} }
+      ],
+      "assertions": [
+        { "responseId": 32, "contains": ["-32601", "Method not found"] }
+      ]
+    }
+  ]
+}

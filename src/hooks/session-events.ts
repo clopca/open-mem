@@ -10,6 +10,66 @@ import type { OpenCodeEvent, OpenMemConfig } from "../types";
 import { updateFolderContext } from "../utils/agents-md";
 import { enforceRetention } from "../utils/retention";
 
+export interface SessionLifecycleDeps {
+	queue: QueueProcessor;
+	sessions: SessionRepository;
+	projectPath: string;
+	config: OpenMemConfig;
+	observations: ObservationRepository;
+	pendingMessages: PendingMessageRepository;
+}
+
+export type SessionLifecycleEventType =
+	| "session.created"
+	| "session.idle"
+	| "session.completed"
+	| "session.ended";
+
+export async function handleSessionLifecycleEvent(
+	deps: SessionLifecycleDeps,
+	eventType: SessionLifecycleEventType,
+	sessionId?: string,
+): Promise<void> {
+	const { queue, sessions, projectPath, config, observations, pendingMessages } = deps;
+	switch (eventType) {
+		case "session.created": {
+			if (sessionId) {
+				sessions.getOrCreate(sessionId, projectPath);
+			}
+			try {
+				enforceRetention(config, observations, pendingMessages);
+			} catch (error) {
+				console.error("[open-mem] Retention enforcement error:", error);
+			}
+			break;
+		}
+
+		case "session.idle": {
+			void queue.processBatch().catch((error) => {
+				console.error("[open-mem] Background processing error:", error);
+			});
+			if (sessionId) {
+				sessions.updateStatus(sessionId, "idle");
+				void triggerFolderContext(sessionId, projectPath, config, observations).catch((error) => {
+					console.error("[open-mem] Folder context error:", error);
+				});
+			}
+			break;
+		}
+
+		case "session.completed":
+		case "session.ended": {
+			if (sessionId) {
+				await queue.processBatch();
+				await queue.summarizeSession(sessionId);
+				sessions.markCompleted(sessionId);
+				await triggerFolderContext(sessionId, projectPath, config, observations);
+			}
+			break;
+		}
+	}
+}
+
 /**
  * Factory for the `event` hook.
  *
@@ -34,48 +94,17 @@ export function createEventHandler(
 			const { event } = input;
 			const rawSessionId = event.properties.sessionID;
 			const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
-
-			switch (event.type) {
-				case "session.created": {
-					if (sessionId) {
-						sessions.getOrCreate(sessionId, projectPath);
-					}
-					try {
-						enforceRetention(config, observations, pendingMessages);
-					} catch (error) {
-						console.error("[open-mem] Retention enforcement error:", error);
-					}
-					break;
-				}
-
-				case "session.idle": {
-					void queue.processBatch().catch((error) => {
-						console.error("[open-mem] Background processing error:", error);
-					});
-					if (sessionId) {
-						sessions.updateStatus(sessionId, "idle");
-						void triggerFolderContext(sessionId, projectPath, config, observations).catch(
-							(error) => {
-								console.error("[open-mem] Folder context error:", error);
-							},
-						);
-					}
-					break;
-				}
-
-				case "session.completed":
-				case "session.ended": {
-					if (sessionId) {
-						await queue.processBatch();
-						await queue.summarizeSession(sessionId);
-						sessions.markCompleted(sessionId);
-						await triggerFolderContext(sessionId, projectPath, config, observations);
-					}
-					break;
-				}
-
-				default:
-					break;
+			if (
+				event.type === "session.created" ||
+				event.type === "session.idle" ||
+				event.type === "session.completed" ||
+				event.type === "session.ended"
+			) {
+				await handleSessionLifecycleEvent(
+					{ queue, sessions, projectPath, config, observations, pendingMessages },
+					event.type,
+					sessionId,
+				);
 			}
 		} catch (error) {
 			console.error("[open-mem] Event handler error:", error);

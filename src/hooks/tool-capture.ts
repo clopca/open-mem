@@ -7,6 +7,39 @@ import type { QueueProcessor } from "../queue/processor";
 import type { OpenMemConfig } from "../types";
 import { redactSensitive, stripPrivateBlocks } from "../utils/privacy";
 
+export interface ToolCaptureInput {
+	config: OpenMemConfig;
+	queue: QueueProcessor;
+	sessions: SessionRepository;
+	projectPath: string;
+	tool: string;
+	sessionId: string;
+	callId: string;
+	toolOutput: string;
+}
+
+/** Shared capture path for any platform tool-execution event. */
+export function enqueueToolCapture(input: ToolCaptureInput): boolean {
+	const { config, queue, sessions, projectPath, tool, sessionId, callId, toolOutput } = input;
+
+	// Skip ignored tools
+	if (config.ignoredTools.includes(tool)) return false;
+
+	// Skip empty or very short outputs
+	if (!toolOutput || toolOutput.length < config.minOutputLength) return false;
+
+	// Redact sensitive content and strip <private> blocks
+	let processedOutput = redactSensitive(toolOutput, config.sensitivePatterns);
+	processedOutput = stripPrivateBlocks(processedOutput, "[PRIVATE]");
+
+	// Ensure session record exists
+	sessions.getOrCreate(sessionId, projectPath);
+
+	// Enqueue for async processing
+	queue.enqueue(sessionId, tool, processedOutput, callId);
+	return true;
+}
+
 /**
  * Factory for the `tool.execute.after` hook.
  *
@@ -36,22 +69,16 @@ export function createToolCaptureHook(
 		try {
 			const { tool, sessionID, callID } = input;
 			const { output: toolOutput } = output;
-
-			// Skip ignored tools
-			if (config.ignoredTools.includes(tool)) return;
-
-			// Skip empty or very short outputs
-			if (!toolOutput || toolOutput.length < config.minOutputLength) return;
-
-			// Redact sensitive content and strip <private> blocks
-			let processedOutput = redactSensitive(toolOutput, config.sensitivePatterns);
-			processedOutput = stripPrivateBlocks(processedOutput, "[PRIVATE]");
-
-			// Ensure session record exists
-			sessions.getOrCreate(sessionID, projectPath);
-
-			// Enqueue for async processing
-			queue.enqueue(sessionID, tool, processedOutput, callID);
+			enqueueToolCapture({
+				config,
+				queue,
+				sessions,
+				projectPath,
+				tool,
+				sessionId: sessionID,
+				callId: callID,
+				toolOutput,
+			});
 		} catch (error) {
 			// Never let hook errors propagate to OpenCode
 			console.error("[open-mem] Tool capture error:", error);

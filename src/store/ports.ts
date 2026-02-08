@@ -1,14 +1,45 @@
-import type { Observation, ObservationIndex, ObservationType, SearchQuery, SearchResult, Session, SessionSummary } from "../types";
+import type {
+	Observation,
+	ObservationIndex,
+	ObservationType,
+	SearchQuery,
+	SearchResult,
+	Session,
+	SessionSummary,
+} from "../types";
 
 export interface ObservationStore {
-	create(data: Omit<Observation, "id" | "createdAt" | "supersededBy" | "supersededAt" | "revisionOf" | "deletedAt">): Observation;
+	create(
+		data: Omit<
+			Observation,
+			"id" | "createdAt" | "supersededBy" | "supersededAt" | "revisionOf" | "deletedAt"
+		>,
+	): Observation;
 	importObservation(data: Observation): void;
 	getById(id: string): Observation | null;
+	getByIdIncludingArchived(id: string): Observation | null;
+	getLineage(id: string): Observation[];
 	getBySession(sessionId: string): Observation[];
 	getCount(sessionId?: string): number;
 	getIndex(projectPath: string, limit?: number): ObservationIndex[];
 	search(query: SearchQuery): SearchResult[];
-	update(id: string, data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>): Observation | null;
+	update(
+		id: string,
+		data: Partial<
+			Pick<
+				Observation,
+				| "title"
+				| "narrative"
+				| "type"
+				| "concepts"
+				| "importance"
+				| "facts"
+				| "subtitle"
+				| "filesRead"
+				| "filesModified"
+			>
+		>,
+	): Observation | null;
 	delete(id: string): boolean;
 }
 
@@ -27,7 +58,11 @@ export interface SummaryStore {
 }
 
 export interface UserObservationStore {
-	getById(id: string): (Omit<Observation, "sessionId" | "rawToolOutput" | "discoveryTokens"> & { sourceProject: string }) | null;
+	getById(id: string):
+		| (Omit<Observation, "sessionId" | "rawToolOutput" | "discoveryTokens"> & {
+				sourceProject: string;
+		  })
+		| null;
 	getIndex(limit?: number): ObservationIndex[];
 	create(data: {
 		type: ObservationType;
@@ -42,5 +77,20 @@ export interface UserObservationStore {
 		tokenCount: number;
 		importance: number;
 		sourceProject: string;
-	}): { id: string; type: ObservationType; title: string; subtitle: string; facts: string[]; narrative: string; concepts: string[]; filesRead: string[]; filesModified: string[]; toolName: string; createdAt: string; tokenCount: number; importance: number; sourceProject: string };
+	}): {
+		id: string;
+		type: ObservationType;
+		title: string;
+		subtitle: string;
+		facts: string[];
+		narrative: string;
+		concepts: string[];
+		filesRead: string[];
+		filesModified: string[];
+		toolName: string;
+		createdAt: string;
+		tokenCount: number;
+		importance: number;
+		sourceProject: string;
+	};
 }

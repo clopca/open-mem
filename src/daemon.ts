@@ -12,7 +12,7 @@ import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
 import { getPidPath, removePid, writePid } from "./daemon/pid";
 import { DaemonWorker } from "./daemon/worker";
-import { Database, createDatabase } from "./db/database";
+import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";

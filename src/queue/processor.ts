@@ -32,6 +32,19 @@ export interface QueueProcessorConfig {
 	entityExtractionEnabled?: boolean;
 }
 
+/** Optional observer for queue lifecycle and performance instrumentation. */
+export interface QueueObserver {
+	onEnqueue?(payload: { sessionId: string; toolName: string; createdAt: string }): void;
+	onBatchStart?(payload: { pending: number; mode: ProcessingMode; startedAt: string }): void;
+	onBatchEnd?(payload: {
+		processed: number;
+		failed: number;
+		durationMs: number;
+		finishedAt: string;
+	}): void;
+	onItemFailed?(payload: { pendingId: string; error: string; failedAt: string }): void;
+}
+
 // -----------------------------------------------------------------------------
 // QueueProcessor
 // -----------------------------------------------------------------------------
@@ -63,6 +76,7 @@ export class QueueProcessor {
 		private conflictEvaluator: ConflictEvaluator | null = null,
 		private entityExtractor: EntityExtractor | null = null,
 		private entityRepo: EntityRepository | null = null,
+		private observer: QueueObserver | null = null,
 	) {}
 
 	setMode(mode: ProcessingMode): void {
@@ -87,6 +101,7 @@ export class QueueProcessor {
 	/** Add a new pending message to the queue */
 	enqueue(sessionId: string, toolName: string, toolOutput: string, callId: string): void {
 		this.pendingRepo.create({ sessionId, toolName, toolOutput, callId });
+		this.observer?.onEnqueue?.({ sessionId, toolName, createdAt: new Date().toISOString() });
 		if (this.mode === "enqueue-only") {
 			this.onEnqueue?.();
 		}
@@ -107,12 +122,19 @@ export class QueueProcessor {
 
 		this.processing = true;
 		let processed = 0;
+		let failed = 0;
+		const startedAt = Date.now();
 
 		try {
 			// Recover any items stuck in "processing" from a prior crash
 			this.pendingRepo.resetStale(5);
 
 			const pending = this.pendingRepo.getPending(this.config.batchSize);
+			this.observer?.onBatchStart?.({
+				pending: pending.length,
+				mode: this.mode,
+				startedAt: new Date(startedAt).toISOString(),
+			});
 			if (pending.length === 0) return 0;
 
 			for (const item of pending) {
@@ -124,69 +146,66 @@ export class QueueProcessor {
 					const observation =
 						parsed ?? this.compressor.createFallbackObservation(item.toolName, item.toolOutput);
 
-				// ---------------------------------------------------------------
-				// Dedup / Conflict Resolution
-				// ---------------------------------------------------------------
-				let skipObservation = false;
-				let conflictSupersedesId: string | null = null;
+					// ---------------------------------------------------------------
+					// Dedup / Conflict Resolution
+					// ---------------------------------------------------------------
+					let skipObservation = false;
+					let conflictSupersedesId: string | null = null;
 
-				if (this.embeddingModel) {
-					try {
-						const dedupText = prepareObservationText({
-							title: observation.title,
-							narrative: observation.narrative,
-							concepts: observation.concepts,
-						});
-						const dedupEmbedding = await generateEmbedding(this.embeddingModel, dedupText);
-						if (dedupEmbedding) {
-							const conflictEnabled =
-								this.config.conflictResolutionEnabled && this.conflictEvaluator;
-							const bandLow = this.config.conflictSimilarityBandLow ?? 0.7;
-							const bandHigh = this.config.conflictSimilarityBandHigh ?? 0.92;
+					if (this.embeddingModel) {
+						try {
+							const dedupText = prepareObservationText({
+								title: observation.title,
+								narrative: observation.narrative,
+								concepts: observation.concepts,
+							});
+							const dedupEmbedding = await generateEmbedding(this.embeddingModel, dedupText);
+							if (dedupEmbedding) {
+								const conflictEnabled =
+									this.config.conflictResolutionEnabled && this.conflictEvaluator;
+								const bandLow = this.config.conflictSimilarityBandLow ?? 0.7;
+								const bandHigh = this.config.conflictSimilarityBandHigh ?? 0.92;
 
-							if (conflictEnabled) {
-								// Conflict resolution path: use lower threshold to catch gray-zone
-								const similar = this.observationRepo.findSimilar(
-									dedupEmbedding,
-									observation.type,
-									bandLow,
-									5,
-								);
-
-								// Fast path: any result above bandHigh → skip (same as original dedup)
-								const exactDup = similar.find((s) => s.similarity > bandHigh);
-								if (exactDup) {
-									console.log(
-										`[open-mem] Dedup: skipping duplicate of ${exactDup.id} (similarity: ${exactDup.similarity.toFixed(3)})`,
+								if (conflictEnabled) {
+									// Conflict resolution path: use lower threshold to catch gray-zone
+									const similar = this.observationRepo.findSimilar(
+										dedupEmbedding,
+										observation.type,
+										bandLow,
+										5,
 									);
-									skipObservation = true;
-								} else {
-									// Gray zone: results in [bandLow, bandHigh]
-									const grayZone = similar.filter(
-										(s) => s.similarity >= bandLow && s.similarity <= bandHigh,
-									);
-									if (grayZone.length > 0) {
-										try {
-											const candidates = grayZone
-												.map((s) => {
-													const obs = this.observationRepo.getById(s.id);
-													return obs
-														? {
-																id: obs.id,
-																title: obs.title,
-																narrative: obs.narrative,
-																concepts: obs.concepts,
-																type: obs.type,
-															}
-														: null;
-												})
-												.filter(
-													(c): c is NonNullable<typeof c> => c !== null,
-												);
 
-											if (candidates.length > 0) {
-												const evaluation =
-													await this.conflictEvaluator!.evaluate(
+									// Fast path: any result above bandHigh → skip (same as original dedup)
+									const exactDup = similar.find((s) => s.similarity > bandHigh);
+									if (exactDup) {
+										console.log(
+											`[open-mem] Dedup: skipping duplicate of ${exactDup.id} (similarity: ${exactDup.similarity.toFixed(3)})`,
+										);
+										skipObservation = true;
+									} else {
+										// Gray zone: results in [bandLow, bandHigh]
+										const grayZone = similar.filter(
+											(s) => s.similarity >= bandLow && s.similarity <= bandHigh,
+										);
+										if (grayZone.length > 0) {
+											try {
+												const candidates = grayZone
+													.map((s) => {
+														const obs = this.observationRepo.getById(s.id);
+														return obs
+															? {
+																	id: obs.id,
+																	title: obs.title,
+																	narrative: obs.narrative,
+																	concepts: obs.concepts,
+																	type: obs.type,
+																}
+															: null;
+													})
+													.filter((c): c is NonNullable<typeof c> => c !== null);
+
+												if (candidates.length > 0 && this.conflictEvaluator) {
+													const evaluation = await this.conflictEvaluator.evaluate(
 														{
 															title: observation.title,
 															narrative: observation.narrative,
@@ -196,76 +215,72 @@ export class QueueProcessor {
 														candidates,
 													);
 
-												if (
-													evaluation &&
-													evaluation.outcome === "duplicate"
-												) {
-													console.log(
-														`[open-mem] Conflict eval: duplicate (${evaluation.reason})`,
-													);
-													skipObservation = true;
-												} else if (
-													evaluation &&
-													evaluation.outcome === "update" &&
-													evaluation.supersedesId
-												) {
-													console.log(
-														`[open-mem] Conflict eval: update supersedes ${evaluation.supersedesId} (${evaluation.reason})`,
-													);
-													conflictSupersedesId =
-														evaluation.supersedesId;
+													if (evaluation && evaluation.outcome === "duplicate") {
+														console.log(
+															`[open-mem] Conflict eval: duplicate (${evaluation.reason})`,
+														);
+														skipObservation = true;
+													} else if (
+														evaluation &&
+														evaluation.outcome === "update" &&
+														evaluation.supersedesId
+													) {
+														console.log(
+															`[open-mem] Conflict eval: update supersedes ${evaluation.supersedesId} (${evaluation.reason})`,
+														);
+														conflictSupersedesId = evaluation.supersedesId;
+													}
+													// else: new_fact or null → fall through to create
 												}
-												// else: new_fact or null → fall through to create
+											} catch {
+												// Evaluator failure → fall through to create new observation
 											}
-										} catch {
-											// Evaluator failure → fall through to create new observation
 										}
 									}
-								}
-							} else {
-								// Original behavior: simple dedup at 0.92
-								const similar = this.observationRepo.findSimilar(
-									dedupEmbedding,
-									observation.type,
-									0.92,
-									1,
-								);
-								if (similar.length > 0) {
-									console.log(
-										`[open-mem] Dedup: skipping duplicate of ${similar[0].id} (similarity: ${similar[0].similarity.toFixed(3)})`,
+								} else {
+									// Original behavior: simple dedup at 0.92
+									const similar = this.observationRepo.findSimilar(
+										dedupEmbedding,
+										observation.type,
+										0.92,
+										1,
 									);
-									skipObservation = true;
+									if (similar.length > 0) {
+										console.log(
+											`[open-mem] Dedup: skipping duplicate of ${similar[0].id} (similarity: ${similar[0].similarity.toFixed(3)})`,
+										);
+										skipObservation = true;
+									}
 								}
 							}
+						} catch {
+							// Dedup failure must not block observation creation
 						}
-					} catch {
-						// Dedup failure must not block observation creation
 					}
-				}
 
-				if (skipObservation) {
-					this.pendingRepo.markCompleted(item.id);
-					continue;
-				}
+					if (skipObservation) {
+						this.pendingRepo.markCompleted(item.id);
+						continue;
+					}
 
-				const created = this.observationRepo.create({
-					sessionId: item.sessionId,
-					type: observation.type,
-					title: observation.title,
-					subtitle: observation.subtitle,
-					facts: observation.facts,
-					narrative: observation.narrative,
-					concepts: observation.concepts,
-					filesRead: observation.filesRead,
-					filesModified: observation.filesModified,
-					rawToolOutput: item.toolOutput,
-					toolName: item.toolName,
-					tokenCount: estimateTokens(
-						`${observation.title} ${observation.narrative} ${observation.facts.join(" ")}`,
-					),
-					discoveryTokens: observation.discoveryTokens ?? estimateTokens(item.toolOutput),
-					importance: observation.importance ?? 3,
-				});
+					const created = this.observationRepo.create({
+						sessionId: item.sessionId,
+						type: observation.type,
+						title: observation.title,
+						subtitle: observation.subtitle,
+						facts: observation.facts,
+						narrative: observation.narrative,
+						concepts: observation.concepts,
+						filesRead: observation.filesRead,
+						filesModified: observation.filesModified,
+						rawToolOutput: item.toolOutput,
+						toolName: item.toolName,
+						tokenCount: estimateTokens(
+							`${observation.title} ${observation.narrative} ${observation.facts.join(" ")}`,
+						),
+						discoveryTokens: observation.discoveryTokens ?? estimateTokens(item.toolOutput),
+						importance: observation.importance ?? 3,
+					});
 
 					if (this.embeddingModel) {
 						try {
@@ -289,10 +304,10 @@ export class QueueProcessor {
 							console.log(
 								`[open-mem] Superseded observation ${conflictSupersedesId} with ${created.id}`,
 							);
-					} catch (error) {
-						// Supersede failure must not block observation creation
-						console.error(`[open-mem] Failed to supersede ${conflictSupersedesId}:`, error);
-					}
+						} catch (error) {
+							// Supersede failure must not block observation creation
+							console.error(`[open-mem] Failed to supersede ${conflictSupersedesId}:`, error);
+						}
 					}
 
 					// ---------------------------------------------------------------
@@ -334,11 +349,23 @@ export class QueueProcessor {
 					processed++;
 				} catch (error) {
 					this.pendingRepo.markFailed(item.id, String(error));
+					failed++;
+					this.observer?.onItemFailed?.({
+						pendingId: item.id,
+						error: String(error),
+						failedAt: new Date().toISOString(),
+					});
 				}
 			}
 
 			return processed;
 		} finally {
+			this.observer?.onBatchEnd?.({
+				processed,
+				failed,
+				durationMs: Date.now() - startedAt,
+				finishedAt: new Date().toISOString(),
+			});
 			this.processing = false;
 		}
 	}

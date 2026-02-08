@@ -48,6 +48,67 @@ function extractConcepts(text: string): string[] {
 	return [...new Set(words)].slice(0, 5);
 }
 
+export interface ChatCaptureInput {
+	observations: ObservationRepository;
+	sessions: SessionRepository;
+	projectPath: string;
+	sessionId: string;
+	text: string;
+	agent?: string;
+	sensitivePatterns?: string[];
+}
+
+/** Shared capture path for chat messages across platforms. */
+export function persistChatMessage(input: ChatCaptureInput): boolean {
+	const {
+		observations,
+		sessions,
+		projectPath,
+		sessionId,
+		text,
+		agent,
+		sensitivePatterns = [],
+	} = input;
+
+	// User messages have agent=undefined; assistant messages have agent set to model name
+	if (agent !== undefined && agent !== "user") return false;
+
+	// Strip private blocks and redact sensitive content before any processing
+	const processedText = redactSensitive(stripPrivateBlocks(text), sensitivePatterns);
+	if (processedText.length < MIN_MESSAGE_LENGTH) return false;
+
+	sessions.getOrCreate(sessionId, projectPath);
+
+	const truncatedContent =
+		processedText.length > MAX_TITLE_CONTENT_LENGTH
+			? `${processedText.slice(0, MAX_TITLE_CONTENT_LENGTH)}...`
+			: processedText;
+	const title = `User request: ${truncatedContent}`;
+
+	const narrative =
+		processedText.length > MAX_NARRATIVE_LENGTH
+			? `${processedText.slice(0, MAX_NARRATIVE_LENGTH)}...`
+			: processedText;
+
+	observations.create({
+		sessionId,
+		type: "discovery",
+		title,
+		subtitle: "",
+		facts: [],
+		narrative,
+		concepts: extractConcepts(processedText),
+		filesRead: [],
+		filesModified: [],
+		rawToolOutput: "",
+		toolName: "chat.message",
+		tokenCount: Math.ceil(narrative.length / 4),
+		discoveryTokens: 0,
+		importance: 3,
+	});
+	return true;
+}
+
 /**
  * Factory for the `chat.message` hook.
  *
@@ -78,39 +139,14 @@ export function createChatCaptureHook(
 			if (agent !== undefined && agent !== "user") return;
 
 			const text = extractTextFromParts(output.parts);
-
-			// Strip private blocks and redact sensitive content before any processing
-			const processedText = redactSensitive(stripPrivateBlocks(text), sensitivePatterns);
-			if (processedText.length < MIN_MESSAGE_LENGTH) return;
-
-			sessions.getOrCreate(sessionID, projectPath);
-
-			const truncatedContent =
-				processedText.length > MAX_TITLE_CONTENT_LENGTH
-					? `${processedText.slice(0, MAX_TITLE_CONTENT_LENGTH)}...`
-					: processedText;
-			const title = `User request: ${truncatedContent}`;
-
-			const narrative =
-				processedText.length > MAX_NARRATIVE_LENGTH
-					? `${processedText.slice(0, MAX_NARRATIVE_LENGTH)}...`
-					: processedText;
-
-			observations.create({
+			persistChatMessage({
+				observations,
+				sessions,
+				projectPath,
 				sessionId: sessionID,
-				type: "discovery",
-				title,
-				subtitle: "",
-				facts: [],
-				narrative,
-				concepts: extractConcepts(processedText),
-				filesRead: [],
-				filesModified: [],
-				rawToolOutput: "",
-				toolName: "chat.message",
-				tokenCount: Math.ceil(narrative.length / 4),
-				discoveryTokens: 0,
-				importance: 3,
+				text,
+				agent,
+				sensitivePatterns,
 			});
 		} catch (error) {
 			console.error("[open-mem] Chat capture error:", error);

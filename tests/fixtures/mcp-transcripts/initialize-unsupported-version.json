@@ -1,0 +1,22 @@
+{
+  "name": "initialize unsupported protocol",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": { "protocolVersion": "1999-01-01" }
+    }
+  ],
+  "expected": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "error": {
+        "code": -32602,
+        "message": "Unsupported protocol version: 1999-01-01",
+        "data": { "supported": ["2024-11-05"] }
+      }
+    }
+  ]
+}

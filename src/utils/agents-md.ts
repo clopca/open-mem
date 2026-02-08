@@ -197,7 +197,10 @@ export async function updateAgentsMd(folderPath: string, contextBlock: string): 
 		}
 	});
 
-	folderLocks.set(folderPath, currentOp.catch(() => {}));
+	folderLocks.set(
+		folderPath,
+		currentOp.catch(() => {}),
+	);
 	return currentOp;
 }
 

@@ -37,12 +37,17 @@ export function createRecallTool(
 					} else if (userObservationRepo) {
 						const userObs = userObservationRepo.getById(id);
 						if (userObs) {
-							results.push(formatObservation({
-								...userObs,
-								sessionId: "",
-								rawToolOutput: "",
-								discoveryTokens: 0,
-							}, "user"));
+							results.push(
+								formatObservation(
+									{
+										...userObs,
+										sessionId: "",
+										rawToolOutput: "",
+										discoveryTokens: 0,
+									},
+									"user",
+								),
+							);
 						} else {
 							results.push(`## ID: ${id}\n*Not found*`);
 						}

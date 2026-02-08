@@ -18,6 +18,7 @@ src/
 ├── adapters/
 │   ├── opencode/          OpenCode hook + tool bindings
 │   ├── mcp/               MCP server entry bindings
+│   ├── platform/          Cross-platform event normalization + capabilities
 │   └── http/              Dashboard API bindings
 ├── db/                    SQLite repositories + schema/migrations
 ├── queue/                 Processing pipeline implementation
@@ -105,10 +106,14 @@ Context Injector <── search/recall <── memory.find / memory.get <─┘
 ### MCP
 
 - Same 9 tools over stdin/stdout JSON-RPC (`memory.*` namespace).
+- Strict lifecycle support (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`, `ping`) with protocol-version negotiation.
 
 ### Dashboard
 
 - Existing observations/sessions/search/stats routes
+- Runtime operations routes:
+  - `GET /v1/health`
+  - `GET /v1/metrics`
 - Config control plane:
   - `GET /api/config/schema`
   - `GET /api/config/effective`

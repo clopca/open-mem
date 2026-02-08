@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - 2026-02-08
 
-### Added
+### Added (Interop & Ops)
+- MCP strict lifecycle support and protocol negotiation (`initialize`, `notifications/initialized`, strict pre-init gating)
+- Deterministic MCP validation errors and JSON-schema tool metadata generation
+- Runtime ops APIs: `GET /v1/health` and `GET /v1/metrics`
+- Platform adapter foundation (`adapters/platform`) with normalized event schema and capability descriptors for OpenCode, Claude Code, and Cursor
+- Dashboard Operations page showing runtime health, queue state, and throughput counters
+- Benchmark scripts:
+  - `bun run bench:search`
+  - `bun run bench:platform`
+- MCP compatibility matrix documentation (`docs/mcp-compatibility-matrix.md`)
+- External compatibility GA scaffolding:
+  - verification harness (`scripts/verify-external-clients.ts`)
+  - worker bridge smoke checks (`scripts/smoke-platform-workers.ts`)
+  - matrix renderer + release gate scripts (`scripts/render-compat-matrix.ts`, `scripts/check-external-compat-gate.ts`)
+  - CI workflows for nightly compatibility evidence and release blocking (`.github/workflows/external-compat.yml`, `.github/workflows/release-gate.yml`)
+
+### Added (Core 0.7.0)
 - Modular architecture boundaries: `core`, `store`, `runtime`, and `adapters` layers
 - `MemoryEngine` interface as single orchestration surface for all transports
 - Shared API contracts with Zod schemas and `ok()`/`fail()` envelope (`contracts/api.ts`)

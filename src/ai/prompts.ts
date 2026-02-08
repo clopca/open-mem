@@ -206,9 +206,7 @@ export interface EntityExtractionObservation {
  * Build a prompt that instructs the AI to extract entities and relationships
  * from an observation.
  */
-export function buildEntityExtractionPrompt(
-	obs: EntityExtractionObservation,
-): string {
+export function buildEntityExtractionPrompt(obs: EntityExtractionObservation): string {
 	const allFiles = [...obs.filesRead, ...obs.filesModified];
 
 	return `<entity_extraction>

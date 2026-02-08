@@ -178,6 +178,12 @@ export class ObservationRepository {
 		return row ? this.mapRow(row) : null;
 	}
 
+	/** Get an observation by ID, including superseded and tombstoned revisions. */
+	getByIdIncludingArchived(id: string): Observation | null {
+		const row = this.db.get<ObservationRow>("SELECT * FROM observations WHERE id = ?", [id]);
+		return row ? this.mapRow(row) : null;
+	}
+
 	/** Get all observations for a session, ordered by creation time. */
 	getBySession(sessionId: string): Observation[] {
 		return this.db
@@ -298,6 +304,11 @@ export class ObservationRepository {
 			observation: this.mapRow(row),
 			rank: row.rank,
 			snippet: row.title,
+			explain: {
+				strategy: "filter-only",
+				matchedBy: ["fts"],
+				ftsRank: row.rank,
+			},
 		}));
 	}
 
@@ -532,7 +543,20 @@ export class ObservationRepository {
 	/** Update selected fields by creating a successor revision (immutable history). */
 	update(
 		id: string,
-		data: Partial<Pick<Observation, "title" | "narrative" | "type" | "concepts" | "importance" | "facts" | "subtitle" | "filesRead" | "filesModified">>,
+		data: Partial<
+			Pick<
+				Observation,
+				| "title"
+				| "narrative"
+				| "type"
+				| "concepts"
+				| "importance"
+				| "facts"
+				| "subtitle"
+				| "filesRead"
+				| "filesModified"
+			>
+		>,
 	): Observation | null {
 		const existing = this.getById(id);
 		if (!existing) return null;
@@ -564,10 +588,11 @@ export class ObservationRepository {
 	/** Mark an observation as superseded by a newer one. */
 	supersede(observationId: string, newObservationId: string): void {
 		const now = new Date().toISOString();
-		this.db.run(
-			"UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?",
-			[newObservationId, now, observationId],
-		);
+		this.db.run("UPDATE observations SET superseded_by = ?, superseded_at = ? WHERE id = ?", [
+			newObservationId,
+			now,
+			observationId,
+		]);
 	}
 
 	/** Tombstone an observation by ID (soft delete), including embeddings cleanup. */
@@ -578,6 +603,35 @@ export class ObservationRepository {
 		this.db.run("UPDATE observations SET deleted_at = ? WHERE id = ?", [now, id]);
 		this.deleteEmbeddingsForObservations([id]);
 		return true;
+	}
+
+	/** Return full revision/tombstone lineage for an observation from oldest to newest. */
+	getLineage(id: string): Observation[] {
+		const anchor = this.getByIdIncludingArchived(id);
+		if (!anchor) return [];
+
+		const seen = new Set<string>([anchor.id]);
+		const chain: Observation[] = [anchor];
+
+		// Walk backwards to oldest known revision.
+		while (chain[0].revisionOf) {
+			const previous = this.getByIdIncludingArchived(chain[0].revisionOf);
+			if (!previous || seen.has(previous.id)) break;
+			chain.unshift(previous);
+			seen.add(previous.id);
+		}
+
+		// Walk forwards to latest revision.
+		while (chain[chain.length - 1].supersededBy) {
+			const nextId = chain[chain.length - 1].supersededBy;
+			if (!nextId) break;
+			const next = this.getByIdIncludingArchived(nextId);
+			if (!next || seen.has(next.id)) break;
+			chain.push(next);
+			seen.add(next.id);
+		}
+
+		return chain;
 	}
 
 	// ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Observation, ObservationType } from "../types";
+import { useEffect, useState } from "react";
+import type { Observation, ObservationLineageResponse, ObservationType } from "../types";
 
 const TYPE_ICONS: Record<ObservationType, string> = {
 	bugfix: "\u{1F41B}",
@@ -61,16 +61,39 @@ interface TimelineItemProps {
 
 export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 	const [expanded, setExpanded] = useState(false);
+	const [lineage, setLineage] = useState<Observation[] | null>(null);
+	const [lineageError, setLineageError] = useState<string | null>(null);
 	const icon = TYPE_ICONS[observation.type] ?? "\u{1F4DD}";
 	const colorClasses = TYPE_COLORS[observation.type] ?? TYPE_COLORS.change;
 	const dotColor = DOT_COLORS[observation.type] ?? DOT_COLORS.change;
 
-	const hasExpandableContent =
-		observation.narrative ||
-		observation.facts.length > 0 ||
-		observation.concepts.length > 0 ||
-		observation.filesRead.length > 0 ||
-		observation.filesModified.length > 0;
+	const hasExpandableContent = true;
+
+	useEffect(() => {
+		if (!expanded || lineage || lineageError) return;
+		let cancelled = false;
+
+		fetch(`/v1/memory/observations/${observation.id}/lineage`, {
+			headers: { "Content-Type": "application/json" },
+		})
+			.then((response) => {
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				return response.json();
+			})
+			.then((json) => {
+				if (cancelled) return;
+				const data = (json as { data?: ObservationLineageResponse }).data;
+				setLineage(data?.lineage ?? []);
+			})
+			.catch((err: unknown) => {
+				if (cancelled) return;
+				setLineageError(err instanceof Error ? err.message : "Unable to load lineage");
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [expanded, lineage, lineageError, observation.id]);
 
 	return (
 		<div className={`timeline-item relative pl-8 ${isNew ? "timeline-item-new" : ""}`}>
@@ -221,6 +244,48 @@ export function TimelineItem({ observation, isNew }: TimelineItemProps) {
 								</div>
 							</div>
 						)}
+
+						<div>
+							<h4 className="mb-1.5 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
+								Lineage
+							</h4>
+							{lineageError && <p className="text-xs text-red-500">{lineageError}</p>}
+							{!lineage && !lineageError && <p className="text-xs text-stone-400">Loading...</p>}
+							{lineage && lineage.length > 0 && (
+								<div className="space-y-1.5">
+									{lineage.map((item) => (
+										<div
+											key={`${observation.id}-lineage-${item.id}`}
+											className="flex items-center justify-between rounded border border-stone-200 bg-stone-50 px-2 py-1"
+										>
+											<div className="min-w-0">
+												<p className="truncate text-xs font-medium text-stone-700">{item.title}</p>
+												<p className="text-[10px] text-stone-400">
+													{new Date(item.createdAt).toLocaleString()}
+												</p>
+											</div>
+											<div className="ml-2 flex items-center gap-1">
+												{item.deletedAt && (
+													<span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">
+														tombstoned
+													</span>
+												)}
+												{item.supersededBy && !item.deletedAt && (
+													<span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+														superseded
+													</span>
+												)}
+												{!item.supersededBy && !item.deletedAt && (
+													<span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
+														current
+													</span>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
 					</div>
 				)}
 			</div>

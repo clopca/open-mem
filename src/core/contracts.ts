@@ -64,7 +64,12 @@ export interface FolderContextMaintenanceResult {
 }
 
 export interface MemoryEngine {
-	ingest(input: { sessionId: string; toolName: string; output: string; callId: string }): Promise<void>;
+	ingest(input: {
+		sessionId: string;
+		toolName: string;
+		output: string;
+		callId: string;
+	}): Promise<void>;
 	processPending(sessionId?: string): Promise<number>;
 	search(query: string, filters?: MemorySearchFilters): Promise<SearchResult[]>;
 	timeline(args?: { limit?: number; sessionId?: string }): Promise<TimelineResult[]>;
@@ -73,13 +78,25 @@ export interface MemoryEngine {
 	update(patch: MemoryUpdatePatch): Promise<Observation | null>;
 	delete(ids: string[]): Promise<number>;
 	export(scope: "project", options?: MemoryExportOptions): Promise<Record<string, unknown>>;
-	import(payload: string, options?: MemoryImportOptions): Promise<{ imported: number; skipped: number }>;
+	import(
+		payload: string,
+		options?: MemoryImportOptions,
+	): Promise<{ imported: number; skipped: number }>;
 	buildContext(sessionId?: string, mode?: "normal" | "compaction"): Promise<string>;
 	guide(): string;
-	listObservations(input: { limit?: number; offset?: number; type?: ObservationType; sessionId?: string }): Observation[];
+	listObservations(input: {
+		limit?: number;
+		offset?: number;
+		type?: ObservationType;
+		sessionId?: string;
+	}): Observation[];
 	getObservation(id: string): Observation | null;
+	getObservationLineage(id: string): Observation[];
 	listSessions(input: { limit?: number; projectPath?: string }): Session[];
 	getSession(id: string): TimelineResult | null;
 	stats(): MemoryStats;
-	maintainFolderContext(action: "clean" | "rebuild", dryRun: boolean): Promise<FolderContextMaintenanceResult>;
+	maintainFolderContext(
+		action: "clean" | "rebuild",
+		dryRun: boolean,
+	): Promise<FolderContextMaintenanceResult>;
 }

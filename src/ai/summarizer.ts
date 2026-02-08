@@ -2,7 +2,7 @@
 // open-mem — AI Session Summarizer
 // =============================================================================
 
-import { type LanguageModel, generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import type { Observation } from "../types";
 import { type ParsedSummary, parseSummaryResponse } from "./parser";
 import { buildSummarizationPrompt } from "./prompts";

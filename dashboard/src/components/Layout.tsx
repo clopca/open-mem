@@ -6,6 +6,7 @@ const navItems = [
 	{ to: "/sessions", label: "Sessions", icon: "\u{1F4CB}" },
 	{ to: "/search", label: "Search", icon: "\u{1F50D}" },
 	{ to: "/stats", label: "Stats", icon: "\u{1F4CA}" },
+	{ to: "/ops", label: "Ops", icon: "\u{2699}" },
 	{ to: "/settings", label: "Settings", icon: "\u2699\uFE0F" },
 ];
 

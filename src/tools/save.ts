@@ -5,8 +5,8 @@
 import { z } from "zod";
 import { estimateTokens } from "../ai/parser";
 import type { ObservationRepository } from "../db/observations";
-import type { UserObservationRepository } from "../db/user-memory";
 import type { SessionRepository } from "../db/sessions";
+import type { UserObservationRepository } from "../db/user-memory";
 import type { ToolDefinition } from "../types";
 
 const saveArgsSchema = z.object({
@@ -28,7 +28,9 @@ const saveArgsSchema = z.object({
 		.enum(["project", "user"])
 		.optional()
 		.default("project")
-		.describe("Memory scope: 'project' (default) saves to project DB, 'user' saves to cross-project user DB"),
+		.describe(
+			"Memory scope: 'project' (default) saves to project DB, 'user' saves to cross-project user DB",
+		),
 });
 
 type SaveArgs = z.infer<typeof saveArgsSchema>;
@@ -53,7 +55,7 @@ Set scope to "user" to save cross-project memories accessible from any project.`
 				// Save to user-level DB when scope is "user"
 				if (args.scope === "user") {
 					if (!userObservationRepo) {
-						return 'Save error: User-level memory is not enabled. Set OPEN_MEM_USER_MEMORY=true to enable.';
+						return "Save error: User-level memory is not enabled. Set OPEN_MEM_USER_MEMORY=true to enable.";
 					}
 					const userObs = userObservationRepo.create({
 						type: args.type,

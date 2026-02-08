@@ -1,0 +1,22 @@
+{
+  "name": "unknown method mapping",
+  "messages": [
+    { "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} },
+    { "jsonrpc": "2.0", "id": 2, "method": "unknown/method", "params": {} }
+  ],
+  "expectedContains": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2024-11-05",
+        "serverInfo": { "name": "open-mem", "version": "0.7.0-test" }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "error": { "code": -32601, "message": "Method not found: unknown/method" }
+    }
+  ]
+}

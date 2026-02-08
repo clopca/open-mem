@@ -63,7 +63,7 @@ interface SearchResultCardProps {
 
 export function SearchResultCard({ result }: SearchResultCardProps) {
 	const [expanded, setExpanded] = useState(false);
-	const { observation, rank, snippet } = result;
+	const { observation, rank, snippet, explain } = result;
 	const config = typeConfig[observation.type];
 
 	const allFiles = [...new Set([...observation.filesRead, ...observation.filesModified])];
@@ -96,6 +96,11 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
 									{formatDate(observation.createdAt)}
 								</span>
 								<RelevanceBar rank={rank} />
+								{explain?.strategy && (
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+										{explain.strategy}
+									</span>
+								)}
 							</div>
 						</div>
 					</div>
@@ -118,6 +123,44 @@ export function SearchResultCard({ result }: SearchResultCardProps) {
 
 			{expanded && (
 				<div className="border-t border-stone-100 px-5 py-4 space-y-4">
+					{explain && (
+						<div>
+							<h4 className="mb-1.5 text-[10px] font-semibold tracking-wider text-stone-400 uppercase">
+								Why this result
+							</h4>
+							<div className="flex flex-wrap items-center gap-1.5">
+								{explain.matchedBy.map((signal) => (
+									<span
+										key={`${observation.id}-${signal}`}
+										className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700 ring-1 ring-sky-200"
+									>
+										{signal}
+									</span>
+								))}
+								{typeof explain.rrfScore === "number" && (
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+										RRF {explain.rrfScore.toFixed(4)}
+									</span>
+								)}
+								{typeof explain.ftsRank === "number" && (
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+										FTS {explain.ftsRank.toFixed(3)}
+									</span>
+								)}
+								{typeof explain.vectorSimilarity === "number" && (
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+										Vec sim {explain.vectorSimilarity.toFixed(3)}
+									</span>
+								)}
+								{typeof explain.vectorDistance === "number" && (
+									<span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+										Vec dist {explain.vectorDistance.toFixed(3)}
+									</span>
+								)}
+							</div>
+						</div>
+					)}
+
 					{observation.narrative && (
 						<div>
 							<h4 className="mb-1.5 text-[10px] font-semibold tracking-wider text-stone-400 uppercase">

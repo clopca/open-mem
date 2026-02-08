@@ -8,7 +8,7 @@ const START_TAG = "<!-- open-mem-context -->";
 const END_TAG = "<!-- /open-mem-context -->";
 
 async function walk(dir: string, out: string[]): Promise<void> {
-	let entries;
+	let entries: Array<import("node:fs").Dirent>;
 	try {
 		entries = await readdir(dir, { withFileTypes: true, encoding: "utf8" });
 	} catch {
@@ -48,7 +48,10 @@ export function removeManagedSection(content: string): string {
 	return `${before}\n\n${after}\n`;
 }
 
-export async function cleanFolderContext(projectPath: string, dryRun = false): Promise<{ files: string[]; changed: number }> {
+export async function cleanFolderContext(
+	projectPath: string,
+	dryRun = false,
+): Promise<{ files: string[]; changed: number }> {
 	const files = await findAgentsMdFiles(projectPath);
 	let changed = 0;
 	for (const file of files) {

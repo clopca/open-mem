@@ -180,9 +180,7 @@ export class UserObservationRepository {
 	constructor(private db: Database) {}
 
 	/** Create a new user-level observation. */
-	create(
-		data: Omit<UserObservation, "id" | "createdAt">,
-	): UserObservation {
+	create(data: Omit<UserObservation, "id" | "createdAt">): UserObservation {
 		const id = randomUUID();
 		const now = new Date().toISOString();
 		this.db.run(
@@ -234,22 +232,17 @@ export class UserObservationRepository {
 			sql += " ORDER BY rank LIMIT ?";
 			params.push(query.limit ?? 10);
 
-			return this.db
-				.all<UserObservationSearchRow>(sql, params)
-				.map((row) => ({
-					observation: this.mapRow(row),
-					rank: row.rank,
-				}));
+			return this.db.all<UserObservationSearchRow>(sql, params).map((row) => ({
+				observation: this.mapRow(row),
+				rank: row.rank,
+			}));
 		} catch {
 			return [];
 		}
 	}
 
 	/** Get a lightweight index of user observations for context injection. */
-	getIndex(
-		limit?: number,
-		sourceProject?: string,
-	): ObservationIndex[] {
+	getIndex(limit?: number, sourceProject?: string): ObservationIndex[] {
 		let sql = `SELECT id, type, title, token_count, created_at, importance, source_project
 			 FROM user_observations`;
 		const params: (string | number)[] = [];
@@ -262,26 +255,23 @@ export class UserObservationRepository {
 		sql += " ORDER BY created_at DESC LIMIT ?";
 		params.push(limit ?? 20);
 
-		return this.db
-			.all<UserObservationIndexRow>(sql, params)
-			.map((r) => ({
-				id: r.id,
-				sessionId: "",
-				type: r.type as ObservationType,
-				title: r.title,
-				tokenCount: r.token_count,
-				discoveryTokens: 0,
-				createdAt: r.created_at,
-				importance: r.importance ?? 3,
-			}));
+		return this.db.all<UserObservationIndexRow>(sql, params).map((r) => ({
+			id: r.id,
+			sessionId: "",
+			type: r.type as ObservationType,
+			title: r.title,
+			tokenCount: r.token_count,
+			discoveryTokens: 0,
+			createdAt: r.created_at,
+			importance: r.importance ?? 3,
+		}));
 	}
 
 	/** Get a user observation by its unique ID. */
 	getById(id: string): UserObservation | null {
-		const row = this.db.get<UserObservationRow>(
-			"SELECT * FROM user_observations WHERE id = ?",
-			[id],
-		);
+		const row = this.db.get<UserObservationRow>("SELECT * FROM user_observations WHERE id = ?", [
+			id,
+		]);
 		return row ? this.mapRow(row) : null;
 	}
 
@@ -322,9 +312,7 @@ function resolveUserDbPath(dbPath: string): string {
 	if (dbPath.startsWith("~/")) {
 		const home = process.env.HOME || process.env.USERPROFILE || "";
 		if (!home) {
-			throw new Error(
-				"Cannot resolve user DB path: HOME environment variable is not set",
-			);
+			throw new Error("Cannot resolve user DB path: HOME environment variable is not set");
 		}
 		const resolved = `${home}${dbPath.slice(1)}`;
 		const dir = resolved.substring(0, resolved.lastIndexOf("/"));
