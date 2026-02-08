@@ -14,11 +14,12 @@ import { EntityExtractor } from "./ai/entity-extractor";
 import { createEmbeddingModel, createModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { ensureDbDirectory, resolveConfig, validateConfig } from "./config";
+import type { RuntimeStatusSnapshot } from "./core/contracts";
 import { DefaultMemoryEngine } from "./core/memory-engine";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
-import { createDatabase, Database } from "./db/database";
 import { ConfigAuditRepository } from "./db/config-audit";
+import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { MaintenanceHistoryRepository } from "./db/maintenance-history";
 import { ObservationRepository } from "./db/observations";
@@ -44,7 +45,6 @@ import {
 	createSummaryStore,
 	createUserObservationStore,
 } from "./store/sqlite/adapters";
-import type { RuntimeStatusSnapshot } from "./core/contracts";
 import type { Hooks, PluginInput } from "./types";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
@@ -384,19 +384,7 @@ export type {
 	PlatformAdapter,
 	PlatformAdapterDescriptor,
 } from "./adapters/platform";
-export {
-	createClaudeCodeAdapter,
-	createCommandEnvelope,
-	createCursorAdapter,
-	createEventEnvelope,
-	createOpenCodePlatformAdapter,
-	getBridgeHealth,
-	isBridgeSuccess,
-	PlatformIngestionRuntime,
-	sendBridgeHttpEvent,
-} from "./adapters/platform";
-/** Re-exported configuration helpers. */
-export { getDefaultConfig, resolveConfig } from "./config";
+
 /** Re-exported core types for library consumers. */
 export type {
 	Observation,

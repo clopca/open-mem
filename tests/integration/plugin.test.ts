@@ -82,9 +82,13 @@ describe("Plugin entry point", () => {
 		expect(hooks).toBeDefined();
 	});
 
-	test("re-exports types and config functions", async () => {
+	test("does not re-export runtime values (only default + types)", async () => {
 		const mod = await import("../../src/index");
-		expect(typeof mod.resolveConfig).toBe("function");
-		expect(typeof mod.getDefaultConfig).toBe("function");
+		// Named runtime exports were removed to prevent opencode plugin loader crashes
+		expect((mod as Record<string, unknown>).resolveConfig).toBeUndefined();
+		expect((mod as Record<string, unknown>).getDefaultConfig).toBeUndefined();
+		expect((mod as Record<string, unknown>).PlatformIngestionRuntime).toBeUndefined();
+		// Default export must still exist
+		expect(typeof mod.default).toBe("function");
 	});
 });

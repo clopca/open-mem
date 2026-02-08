@@ -1,0 +1,8 @@
+GET /v1/health 200 {"ok":true,"code":"OK","status":{"platform":"claude-code","projectPath":"/var/folders/xt/5ds__44j1qz74cnt35wfqh9r0000gn/T/open-mem-worker-smoke-pUw8y1","queue":{"mode":"in-process","running":true,"processing":false,"pending":0}}}
+POST /v1/events 200 {"ok":true,"code":"OK","ingested":true}
+POST /v1/events 200 {"ok":true,"code":"OK","ingested":true}
+POST /v1/events 200 {"ok":true,"code":"OK","ingested":true}
+POST /v1/events 200 {"ok":true,"code":"OK","ingested":true}
+POST /v1/events 200 {"ok":true,"code":"OK","ingested":true}
+POST /v1/events 200 {"id":"hf1","ok":true,"code":"OK","processed":0}
+POST /v1/events 200 {"id":"hs1","ok":true,"code":"OK","message":"shutting down"}
