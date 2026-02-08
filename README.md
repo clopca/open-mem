@@ -64,7 +64,14 @@ export OPENAI_API_KEY=sk-...
 export OPEN_MEM_MODEL=gpt-4o
 ```
 
-**Auto-detection:** open-mem detects your provider from environment variables: `GOOGLE_GENERATIVE_AI_API_KEY` → Google, `ANTHROPIC_API_KEY` → Anthropic, AWS credentials → Bedrock.
+**OpenRouter (100+ models):**
+```bash
+export OPEN_MEM_PROVIDER=openrouter
+export OPENROUTER_API_KEY=sk-or-...
+export OPEN_MEM_MODEL=google/gemini-2.5-flash-lite
+```
+
+**Auto-detection:** open-mem detects your provider from environment variables: `GOOGLE_GENERATIVE_AI_API_KEY` → Google, `ANTHROPIC_API_KEY` → Anthropic, AWS credentials → Bedrock, `OPENROUTER_API_KEY` → OpenRouter.
 
 Without any provider configured, open-mem still works — it falls back to a basic metadata extractor that captures tool names, file paths, and output snippets.
 
@@ -216,12 +223,15 @@ Manually save an important observation to memory.
 
 ### memory.history
 
-View a timeline of past coding sessions for the current project.
+View a timeline of past coding sessions, or center the view around a specific observation for cross-session navigation.
 
 | Argument | Type | Required | Description |
 |----------|------|----------|-------------|
 | `limit` | number | no | Number of recent sessions (1–20, default: 5) |
 | `sessionId` | string | no | Show details for a specific session |
+| `anchor` | string | no | Observation ID to center the timeline around (cross-session view) |
+| `depthBefore` | number | no | Observations to show before anchor (0–20, default: 5) |
+| `depthAfter` | number | no | Observations to show after anchor (0–20, default: 5) |
 
 ### memory.get
 
@@ -384,10 +394,12 @@ open-mem works out of the box with zero configuration. All settings can be custo
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPEN_MEM_PROVIDER` | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai` |
+| `OPEN_MEM_PROVIDER` | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai`, `openrouter` |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | — | API key for Google Gemini provider ([free](https://aistudio.google.com/apikey)) |
 | `ANTHROPIC_API_KEY` | — | API key for Anthropic provider |
 | `OPENAI_API_KEY` | — | API key for OpenAI provider |
+| `OPENROUTER_API_KEY` | — | API key for OpenRouter provider |
+| `OPEN_MEM_FALLBACK_PROVIDERS` | — | Comma-separated fallback providers (e.g., `google,anthropic,openai`) |
 | `OPEN_MEM_DB_PATH` | `.open-mem/memory.db` | Path to SQLite database |
 | `OPEN_MEM_MODEL` | `gemini-2.5-flash-lite` | Model for AI compression |
 | `OPEN_MEM_MAX_CONTEXT_TOKENS` | `4000` | Token budget for injected context |
@@ -420,7 +432,7 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `dbPath` | string | `.open-mem/memory.db` | SQLite database file path |
-| `provider` | string | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai` |
+| `provider` | string | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai`, `openrouter` |
 | `apiKey` | string | `undefined` | Provider API key |
 | `model` | string | `gemini-2.5-flash-lite` | Model for compression |
 | `maxTokensPerCompression` | number | `1024` | Max tokens per compression response |
@@ -440,6 +452,7 @@ If you need to configure open-mem programmatically (e.g. for testing or custom i
 | `folderContextMaxDepth` | number | `5` | Max folder depth from project root |
 | `folderContextMode` | string | `dispersed` | Context file mode: `dispersed` (per-folder) or `single` (one root file) |
 | `folderContextFilename` | string | `AGENTS.md` | Filename for context files (e.g. `CLAUDE.md` for Claude Code) |
+| `fallbackProviders` | string[] | `undefined` | Comma-separated provider names for automatic failover (e.g., `["google","anthropic"]`) |
 
 </details>
 
