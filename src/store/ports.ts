@@ -33,6 +33,12 @@ export interface ObservationStore {
 			sessionId?: string;
 		},
 	): Observation[];
+	getAroundTimestamp(
+		timestamp: string,
+		before: number,
+		after: number,
+		projectPath: string,
+	): Observation[];
 	update(
 		id: string,
 		data: Partial<

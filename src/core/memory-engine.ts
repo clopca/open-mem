@@ -188,7 +188,52 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		});
 	}
 
-	async timeline(args: { limit?: number; sessionId?: string } = {}): Promise<TimelineResult[]> {
+	async timeline(
+		args: {
+			limit?: number;
+			sessionId?: string;
+			anchor?: string;
+			depthBefore?: number;
+			depthAfter?: number;
+		} = {},
+	): Promise<TimelineResult[]> {
+		if (args.anchor) {
+			const anchorObs = this.observations.getById(args.anchor);
+			if (!anchorObs) return [];
+
+			const depthBefore = args.depthBefore ?? 5;
+			const depthAfter = args.depthAfter ?? 5;
+			const surrounding = this.observations.getAroundTimestamp(
+				anchorObs.createdAt,
+				depthBefore,
+				depthAfter,
+				this.projectPath,
+			);
+
+			const allObs = [
+				...surrounding.filter((o) => o.createdAt < anchorObs.createdAt),
+				anchorObs,
+				...surrounding.filter((o) => o.createdAt > anchorObs.createdAt),
+			];
+
+			const anchorSession = this.sessions.getById(anchorObs.sessionId);
+			return [
+				{
+					session: anchorSession ?? {
+						id: anchorObs.sessionId,
+						projectPath: this.projectPath,
+						startedAt: anchorObs.createdAt,
+						endedAt: null,
+						status: "completed" as const,
+						observationCount: 0,
+						summaryId: null,
+					},
+					summary: null,
+					observations: allObs,
+				},
+			];
+		}
+
 		if (args.sessionId) {
 			const session = this.sessions.getById(args.sessionId);
 			if (!session) return [];

@@ -231,6 +231,48 @@ export class ObservationRepository {
 			}));
 	}
 
+	/** Get observations around a timestamp, cross-session, for anchor navigation. */
+	getAroundTimestamp(
+		timestamp: string,
+		before: number,
+		after: number,
+		projectPath: string,
+	): Observation[] {
+		// Get observations BEFORE the anchor timestamp (descending, then reverse)
+		const beforeRows =
+			before > 0
+				? this.db
+						.all<ObservationRow>(
+							`SELECT o.*
+						 FROM observations o
+						 JOIN sessions s ON o.session_id = s.id
+						 WHERE s.project_path = ? AND o.created_at < ?
+						   AND o.superseded_by IS NULL AND o.deleted_at IS NULL
+						 ORDER BY o.created_at DESC
+						 LIMIT ?`,
+							[projectPath, timestamp, before],
+						)
+						.reverse()
+				: [];
+
+		// Get observations AFTER the anchor timestamp (ascending)
+		const afterRows =
+			after > 0
+				? this.db.all<ObservationRow>(
+						`SELECT o.*
+					 FROM observations o
+					 JOIN sessions s ON o.session_id = s.id
+					 WHERE s.project_path = ? AND o.created_at > ?
+					   AND o.superseded_by IS NULL AND o.deleted_at IS NULL
+					 ORDER BY o.created_at ASC
+					 LIMIT ?`,
+						[projectPath, timestamp, after],
+					)
+				: [];
+
+		return [...beforeRows, ...afterRows].map((row) => this.mapRow(row));
+	}
+
 	/** List observations for a project with optional state/type/session filters. */
 	listByProject(
 		projectPath: string,

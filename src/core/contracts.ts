@@ -139,7 +139,13 @@ export interface MemoryEngine {
 	}): Promise<void>;
 	processPending(sessionId?: string): Promise<number>;
 	search(query: string, filters?: MemorySearchFilters): Promise<SearchResult[]>;
-	timeline(args?: { limit?: number; sessionId?: string }): Promise<TimelineResult[]>;
+	timeline(args?: {
+		limit?: number;
+		sessionId?: string;
+		anchor?: string;
+		depthBefore?: number;
+		depthAfter?: number;
+	}): Promise<TimelineResult[]>;
 	recall(ids: string[], limit?: number): Promise<Observation[]>;
 	save(input: MemorySaveInput): Promise<Observation | null>;
 	update(patch: MemoryUpdatePatch): Promise<Observation | null>;

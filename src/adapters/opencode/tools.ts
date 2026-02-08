@@ -53,7 +53,13 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			execute: async (rawArgs) => {
 				try {
 					const args = toolSchemas.history.parse(rawArgs);
-					const rows = await engine.timeline({ limit: args.limit, sessionId: args.sessionId });
+					const rows = await engine.timeline({
+						limit: args.limit,
+						sessionId: args.sessionId,
+						anchor: args.anchor,
+						depthBefore: args.depthBefore,
+						depthAfter: args.depthAfter,
+					});
 					return toJson(ok({ items: rows, nextCursor: null }));
 				} catch (error) {
 					return toJson(fail("VALIDATION_ERROR", "Invalid history arguments", String(error)));

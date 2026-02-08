@@ -328,6 +328,9 @@ export class McpServer {
 							items: await this.memoryEngine.timeline({
 								limit: parsed.limit,
 								sessionId: parsed.sessionId,
+								anchor: parsed.anchor,
+								depthBefore: parsed.depthBefore,
+								depthAfter: parsed.depthAfter,
 							}),
 						}),
 						null,

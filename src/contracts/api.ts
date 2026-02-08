@@ -53,6 +53,23 @@ export const toolSchemas = {
 		limit: z.number().int().min(1).max(20).optional().default(5),
 		cursor: z.string().optional(),
 		sessionId: z.string().optional(),
+		anchor: z.string().optional().describe("Observation ID to center the timeline around"),
+		depthBefore: z
+			.number()
+			.int()
+			.min(0)
+			.max(20)
+			.optional()
+			.default(5)
+			.describe("Number of observations to show before the anchor"),
+		depthAfter: z
+			.number()
+			.int()
+			.min(0)
+			.max(20)
+			.optional()
+			.default(5)
+			.describe("Number of observations to show after the anchor"),
 	}),
 	get: z.object({
 		ids: z.array(z.string()).min(1),
