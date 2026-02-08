@@ -132,6 +132,16 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json(fail("VALIDATION_ERROR", "Query parameter 'against' is required"), 400);
 		const diff = memoryEngine.getRevisionDiff(id, againstId);
 		if (!diff) return c.json(fail("NOT_FOUND", "One or both observations not found"), 404);
+		const version = c.req.query("version");
+		if (version === "1") {
+			return c.json(
+				ok({
+					baseId: diff.toId,
+					againstId: diff.fromId,
+					changes: diff.changedFields,
+				}),
+			);
+		}
 		return c.json(ok(diff));
 	});
 

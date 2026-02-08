@@ -18,7 +18,9 @@ import { DefaultMemoryEngine } from "./core/memory-engine";
 import { DaemonManager } from "./daemon/manager";
 import { reapOrphanDaemons } from "./daemon/reaper";
 import { createDatabase, Database } from "./db/database";
+import { ConfigAuditRepository } from "./db/config-audit";
 import { EntityRepository } from "./db/entities";
+import { MaintenanceHistoryRepository } from "./db/maintenance-history";
 import { ObservationRepository } from "./db/observations";
 import { PendingMessageRepository } from "./db/pending";
 import { initializeSchema } from "./db/schema";
@@ -42,6 +44,7 @@ import {
 	createSummaryStore,
 	createUserObservationStore,
 } from "./store/sqlite/adapters";
+import type { RuntimeStatusSnapshot } from "./core/contracts";
 import type { Hooks, PluginInput } from "./types";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
@@ -114,6 +117,8 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	const observationRepo = new ObservationRepository(db);
 	const summaryRepo = new SummaryRepository(db);
 	const pendingRepo = new PendingMessageRepository(db);
+	const configAuditRepo = new ConfigAuditRepository(db);
+	const maintenanceHistoryRepo = new MaintenanceHistoryRepository(db);
 
 	// 3b. User-level memory (cross-project)
 	let userMemoryDb: UserMemoryDatabase | null = null;
@@ -180,6 +185,23 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	);
 	const queueRuntime = createQueueRuntime(queue);
 	queueRuntime.start();
+	const getRuntimeSnapshot = (): RuntimeStatusSnapshot => {
+		const queueStats = queue.getStats();
+		const snapshot = runtimeMetrics.snapshot({
+			mode: queue.getMode(),
+			running: queue.isRunning,
+			processing: queueStats.processing,
+			pending: queueStats.pending,
+		});
+		return {
+			status: snapshot.queue.lastError ? "degraded" : "ok",
+			timestamp: new Date().toISOString(),
+			uptimeMs: snapshot.uptimeMs,
+			queue: snapshot.queue,
+			batches: snapshot.batches,
+			enqueueCount: snapshot.enqueueCount,
+		};
+	};
 
 	// 5b. Search + memory engine
 	const reranker = createReranker(
@@ -204,6 +226,9 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		projectPath,
 		config,
 		userObservationRepo: createUserObservationStore(userObservationRepo),
+		runtimeSnapshotProvider: getRuntimeSnapshot,
+		configAuditStore: configAuditRepo,
+		maintenanceHistoryStore: maintenanceHistoryRepo,
 	});
 	const openCodeTools = createOpenCodeTools(memoryEngine);
 
@@ -255,23 +280,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			projectPath,
 			embeddingModel,
 			memoryEngine,
-			runtimeStatusProvider: () => {
-				const queueStats = queue.getStats();
-				const snapshot = runtimeMetrics.snapshot({
-					mode: queue.getMode(),
-					running: queue.isRunning,
-					processing: queueStats.processing,
-					pending: queueStats.pending,
-				});
-				return {
-					status: snapshot.queue.lastError ? "degraded" : "ok",
-					timestamp: new Date().toISOString(),
-					uptimeMs: snapshot.uptimeMs,
-					queue: snapshot.queue,
-					batches: snapshot.batches,
-					enqueueCount: snapshot.enqueueCount,
-				};
-			},
+			runtimeStatusProvider: getRuntimeSnapshot,
 			sseHandler: createSSERoute(sseBroadcaster),
 			dashboardDir: join(distDir, "dashboard"),
 		});

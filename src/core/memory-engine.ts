@@ -51,6 +51,8 @@ interface EngineDeps {
 	config: OpenMemConfig;
 	userObservationRepo?: UserObservationStore | null;
 	runtimeSnapshotProvider?: (() => RuntimeStatusSnapshot) | null;
+	configAuditStore?: ConfigAuditStore | null;
+	maintenanceHistoryStore?: MaintenanceHistoryStore | null;
 }
 
 interface ExportData {
@@ -89,6 +91,17 @@ interface ObservationStoreWithHistory {
 	) => Observation[];
 }
 
+interface ConfigAuditStore {
+	list(): ConfigAuditEvent[];
+	getById(id: string): ConfigAuditEvent | null;
+	append(event: ConfigAuditEvent): void;
+}
+
+interface MaintenanceHistoryStore {
+	list(): MaintenanceHistoryItem[];
+	append(item: MaintenanceHistoryItem): void;
+}
+
 export class DefaultMemoryEngine implements MemoryEngine {
 	private observations: ObservationStore;
 	private sessions: SessionStore;
@@ -98,10 +111,10 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	private config: OpenMemConfig;
 	private userObservationRepo: UserObservationStore | null;
 	private runtimeSnapshotProvider: (() => RuntimeStatusSnapshot) | null;
-	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
-	private configAuditLog: ConfigAuditEvent[] = [];
-	/** In-memory only — lost on process restart. Persistence is a known future enhancement. */
-	private maintenanceLog: MaintenanceHistoryItem[] = [];
+	private configAuditStore: ConfigAuditStore | null;
+	private maintenanceHistoryStore: MaintenanceHistoryStore | null;
+	private configAuditLogFallback: ConfigAuditEvent[] = [];
+	private maintenanceLogFallback: MaintenanceHistoryItem[] = [];
 
 	constructor(deps: EngineDeps) {
 		this.observations = deps.observations;
@@ -112,6 +125,8 @@ export class DefaultMemoryEngine implements MemoryEngine {
 		this.config = deps.config;
 		this.userObservationRepo = deps.userObservationRepo ?? null;
 		this.runtimeSnapshotProvider = deps.runtimeSnapshotProvider ?? null;
+		this.configAuditStore = deps.configAuditStore ?? null;
+		this.maintenanceHistoryStore = deps.maintenanceHistoryStore ?? null;
 	}
 
 	private getByIdIncludingArchived(id: string): Observation | null {
@@ -732,15 +747,22 @@ export class DefaultMemoryEngine implements MemoryEngine {
 	}
 
 	getConfigAuditTimeline(): ConfigAuditEvent[] {
-		return [...this.configAuditLog].reverse();
+		if (this.configAuditStore) return this.configAuditStore.list();
+		return [...this.configAuditLogFallback].reverse();
 	}
 
 	trackConfigAudit(event: ConfigAuditEvent): void {
-		this.configAuditLog.push(event);
+		if (this.configAuditStore) {
+			this.configAuditStore.append(event);
+			return;
+		}
+		this.configAuditLogFallback.push(event);
 	}
 
 	async rollbackConfig(eventId: string): Promise<ConfigAuditEvent | null> {
-		const event = this.configAuditLog.find((e) => e.id === eventId);
+		const event = this.configAuditStore
+			? this.configAuditStore.getById(eventId)
+			: this.configAuditLogFallback.find((e) => e.id === eventId) ?? null;
 		if (!event) return null;
 
 		if (!event.previousValues || typeof event.previousValues !== "object") {
@@ -760,7 +782,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 				previousValues: event.patch,
 				source: "rollback-failed",
 			};
-			this.configAuditLog.push(failureEvent);
+			this.trackConfigAudit(failureEvent);
 			throw error;
 		}
 
@@ -771,15 +793,20 @@ export class DefaultMemoryEngine implements MemoryEngine {
 			previousValues: event.patch,
 			source: "rollback",
 		};
-		this.configAuditLog.push(rollbackEvent);
+		this.trackConfigAudit(rollbackEvent);
 		return rollbackEvent;
 	}
 
 	getMaintenanceHistory(): MaintenanceHistoryItem[] {
-		return [...this.maintenanceLog].reverse();
+		if (this.maintenanceHistoryStore) return this.maintenanceHistoryStore.list();
+		return [...this.maintenanceLogFallback].reverse();
 	}
 
 	trackMaintenanceResult(item: MaintenanceHistoryItem): void {
-		this.maintenanceLog.push(item);
+		if (this.maintenanceHistoryStore) {
+			this.maintenanceHistoryStore.append(item);
+			return;
+		}
+		this.maintenanceLogFallback.push(item);
 	}
 }
