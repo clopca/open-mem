@@ -150,7 +150,6 @@ export function Ops() {
 											<Badge variant={adapter.enabled ? "success" : "muted"}>
 												{adapter.enabled ? "enabled" : "disabled"}
 											</Badge>
-											{adapter.connected && <Badge variant="success">connected</Badge>}
 										</div>
 										<div className="flex items-center gap-3 text-xs text-stone-500">
 											<span>{adapter.eventsIngested ?? 0} events</span>

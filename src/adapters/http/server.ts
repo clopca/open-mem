@@ -9,6 +9,7 @@ import {
 	getEffectiveConfig,
 	patchConfig,
 	previewConfig,
+	readProjectConfig,
 } from "../../config/store";
 import { fail, observationTypeSchema, ok } from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
@@ -361,12 +362,14 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json(fail("VALIDATION_ERROR", "Invalid JSON body"), 400);
 		}
 		try {
-			const beforeConfig = await getEffectiveConfig(projectPath);
+			const fileConfig = await readProjectConfig(projectPath);
 			const effective = await patchConfig(projectPath, body);
 
 			const previousValues: Record<string, unknown> = {};
 			for (const key of Object.keys(body)) {
-				previousValues[key] = (beforeConfig.config as unknown as Record<string, unknown>)[key];
+				if (Object.hasOwn(fileConfig, key)) {
+					previousValues[key] = (fileConfig as Record<string, unknown>)[key];
+				}
 			}
 			memoryEngine.trackConfigAudit({
 				id: randomUUID(),
@@ -440,12 +443,14 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		const preset = MODE_PRESETS[id];
 		if (!preset) return c.json(fail("NOT_FOUND", "Unknown mode"), 404);
 		try {
-			const beforeConfig = await getEffectiveConfig(projectPath);
+			const fileConfig = await readProjectConfig(projectPath);
 			const effective = await patchConfig(projectPath, preset);
 
 			const previousValues: Record<string, unknown> = {};
 			for (const key of Object.keys(preset)) {
-				previousValues[key] = (beforeConfig.config as unknown as Record<string, unknown>)[key];
+				if (Object.hasOwn(fileConfig, key)) {
+					previousValues[key] = (fileConfig as Record<string, unknown>)[key];
+				}
 			}
 			memoryEngine.trackConfigAudit({
 				id: randomUUID(),
