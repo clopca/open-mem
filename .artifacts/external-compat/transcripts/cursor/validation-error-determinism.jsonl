@@ -1,0 +1,4 @@
+{"direction":"request","payload":{"jsonrpc":"2.0","id":21,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}}
+{"direction":"request","payload":{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"memory.find","arguments":{"query":""}}}}
+{"direction":"response","payload":{"jsonrpc":"2.0","id":21,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"open-mem","version":"0.7.0"}}}}
+{"direction":"response","payload":{"jsonrpc":"2.0","id":22,"result":{"content":[{"type":"text","text":"{\n  \"data\": null,\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\",\n    \"message\": \"query: Too small: expected string to have >=1 characters\"\n  },\n  \"meta\": {}\n}"}],"isError":true}}}

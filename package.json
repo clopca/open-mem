@@ -1,0 +1,100 @@
+{
+	"name": "open-mem",
+	"version": "0.11.0",
+	"description": "Persistent memory plugin for OpenCode — captures, compresses, and recalls context across coding sessions",
+	"type": "module",
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"bin": {
+		"open-mem-mcp": "./dist/mcp.js",
+		"open-mem-daemon": "./dist/daemon.js",
+		"open-mem-maintenance": "./dist/maintenance.js",
+		"open-mem-claude-code": "./dist/claude-code.js",
+		"open-mem-cursor": "./dist/cursor.js"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md"
+	],
+	"scripts": {
+		"build": "bun run clean && bun run build:bundle && bun run build:mcp && bun run build:daemon && bun run build:maintenance && bun run build:claude-code && bun run build:cursor && bun run build:dashboard && bun run build:types",
+		"build:dashboard": "cd dashboard && bun install && bun run build && cp -r dist ../dist/dashboard",
+		"build:bundle": "bun build src/index.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:mcp": "bun build src/mcp.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:daemon": "bun build src/daemon.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:maintenance": "bun build src/maintenance.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:claude-code": "bun build src/claude-code.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:cursor": "bun build src/cursor.ts --outdir dist --target bun --format esm --minify --external bun:sqlite --external ai --external @ai-sdk/anthropic --external @ai-sdk/amazon-bedrock --external @ai-sdk/openai --external @ai-sdk/google --external @openrouter/ai-sdk-provider --external sqlite-vec --external zod",
+		"build:types": "bun x tsc --declaration --emitDeclarationOnly --outDir dist",
+		"dev": "bun run --watch src/index.ts",
+		"test": "bun test",
+		"test:repo": "cd tests && bun test",
+		"test:servers": "cd tests && bun test servers/http-server.test.ts servers/mcp-server.test.ts servers/mcp-transcripts.test.ts servers/sse.test.ts",
+		"test:mcp:transcripts": "bun test tests/servers/mcp-transcripts.test.ts",
+		"typecheck": "bun x tsc --noEmit",
+		"check:boundaries": "bun run scripts/check-import-boundaries.ts && bun run scripts/check-deprecated-paths.ts",
+		"quality:gate": "bun run scripts/quality-gate.ts",
+		"bench:search": "bun run scripts/benchmark-search.ts",
+		"bench:platform": "bun run scripts/benchmark-platform-normalization.ts",
+		"compat:verify": "bun run scripts/verify-external-clients.ts",
+		"compat:detect-versions": "bun run scripts/detect-client-versions.ts",
+		"compat:verify:auto": "bun run scripts/verify-external-clients-auto.ts",
+		"compat:matrix": "bun run scripts/render-compat-matrix.ts",
+		"compat:smoke": "bun run scripts/smoke-platform-workers.ts",
+		"compat:gate": "bun run scripts/check-external-compat-gate.ts",
+		"docs:dev": "cd docs && npx vitepress dev",
+		"docs:build": "cd docs && npx vitepress build",
+		"lint": "bun x biome check src/",
+		"clean": "rm -rf dist",
+		"prepare": "test -d src && bun run build || true",
+		"prepublishOnly": "bun run check:boundaries && bun run quality:gate && bun run build && bun run test:repo"
+	},
+	"keywords": [
+		"opencode",
+		"plugin",
+		"memory",
+		"ai",
+		"sqlite",
+		"fts5",
+		"context",
+		"persistent-memory",
+		"coding-assistant"
+	],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clopca/open-mem"
+	},
+	"bugs": {
+		"url": "https://github.com/clopca/open-mem/issues"
+	},
+	"homepage": "https://github.com/clopca/open-mem#readme",
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"dependencies": {
+		"@ai-sdk/amazon-bedrock": "^4.0.51",
+		"@ai-sdk/anthropic": "^3.0.38",
+		"@ai-sdk/google": "^3.0.22",
+		"@openrouter/ai-sdk-provider": "^2.1.1",
+		"ai": "^6.0.77",
+		"open-mem": "^0.9.0",
+		"sqlite-vec": "^0.1.7-alpha.2",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.14",
+		"@types/bun": "latest",
+		"hono": "^4.11.8",
+		"typescript": "^5.7.0"
+	}
+}

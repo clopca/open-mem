@@ -1,0 +1,9 @@
+{"ok":false,"code":"INVALID_JSON","message":"Invalid JSON payload"}
+{"id":"h1","ok":true,"code":"OK","status":{"platform":"claude-code","projectPath":"/var/folders/xt/5ds__44j1qz74cnt35wfqh9r0000gn/T/open-mem-worker-smoke-pUw8y1","queue":{"mode":"in-process","running":true,"processing":false,"pending":0}}}
+{"ok":true,"code":"OK","ingested":true}
+{"ok":true,"code":"OK","ingested":true}
+{"ok":true,"code":"OK","ingested":true}
+{"ok":true,"code":"OK","ingested":true}
+{"ok":true,"code":"OK","ingested":true}
+{"id":"f1","ok":true,"code":"OK","processed":0}
+{"id":"s1","ok":true,"code":"OK","message":"shutting down"}

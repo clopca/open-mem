@@ -1,0 +1,4 @@
+{"direction":"request","payload":{"jsonrpc":"2.0","id":31,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}}
+{"direction":"request","payload":{"jsonrpc":"2.0","id":32,"method":"unknown/method","params":{}}}
+{"direction":"response","payload":{"jsonrpc":"2.0","id":31,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"open-mem","version":"0.7.0"}}}}
+{"direction":"response","payload":{"jsonrpc":"2.0","id":32,"error":{"code":-32601,"message":"Method not found: unknown/method"}}}

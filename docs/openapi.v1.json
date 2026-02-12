@@ -1,0 +1,36 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "open-mem API",
+    "version": "0.7.0"
+  },
+  "paths": {
+    "/v1/config/schema": { "get": { "summary": "Config field schema" } },
+    "/v1/config/effective": { "get": { "summary": "Effective config with metadata" } },
+    "/v1/config/preview": { "post": { "summary": "Preview config patch" } },
+    "/v1/config": { "patch": { "summary": "Persist config patch" } },
+    "/v1/memory/observations": {
+      "get": { "summary": "List observations" },
+      "post": { "summary": "Create observation" }
+    },
+    "/v1/memory/observations/{id}": { "get": { "summary": "Get observation" } },
+    "/v1/memory/observations/{id}/revisions": { "post": { "summary": "Create revision" } },
+    "/v1/memory/observations/{id}/tombstone": { "post": { "summary": "Tombstone observation" } },
+    "/v1/memory/sessions": { "get": { "summary": "List sessions" } },
+    "/v1/memory/sessions/{id}": { "get": { "summary": "Get session details" } },
+    "/v1/memory/search": { "get": { "summary": "Search observations" } },
+    "/v1/memory/recall": { "post": { "summary": "Recall by ids" } },
+    "/v1/memory/export": { "post": { "summary": "Export memory" } },
+    "/v1/memory/import": { "post": { "summary": "Import memory" } },
+    "/v1/memory/stats": { "get": { "summary": "Memory stats" } },
+    "/v1/health": { "get": { "summary": "Runtime health summary" } },
+    "/v1/metrics": { "get": { "summary": "Runtime metrics and queue diagnostics" } },
+    "/v1/platforms": { "get": { "summary": "Platform adapter capabilities and enabled state" } },
+    "/v1/modes": { "get": { "summary": "List mode presets" } },
+    "/v1/modes/{id}/apply": { "post": { "summary": "Apply mode preset" } },
+    "/v1/maintenance/folder-context/dry-run": { "post": { "summary": "Dry-run folder context maintenance" } },
+    "/v1/maintenance/folder-context/clean": { "post": { "summary": "Clean folder context managed sections" } },
+    "/v1/maintenance/folder-context/rebuild": { "post": { "summary": "Rebuild folder context from memory" } },
+    "/v1/events": { "get": { "summary": "SSE events stream" } }
+  }
+}

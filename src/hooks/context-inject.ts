@@ -1,0 +1,90 @@
+// =============================================================================
+// open-mem — Context Injection Hook (experimental.chat.system.transform)
+// =============================================================================
+
+import {
+	buildContextString,
+	buildUserContextSection,
+	type ContextBuilderConfig,
+} from "../context/builder";
+import { buildProgressiveContext } from "../context/progressive";
+import type { ObservationRepository } from "../db/observations";
+import type { SessionRepository } from "../db/sessions";
+import type { SummaryRepository } from "../db/summaries";
+import type { UserObservationRepository } from "../db/user-memory";
+import type { Observation, OpenMemConfig } from "../types";
+
+/**
+ * Factory for the `experimental.chat.system.transform` hook.
+ *
+ * Appends relevant past-session context (summaries + observation index)
+ * to the system prompt within the configured token budget.
+ *
+ * The handler NEVER throws.
+ */
+export function createContextInjectionHook(
+	config: OpenMemConfig,
+	observations: ObservationRepository,
+	sessions: SessionRepository,
+	summaries: SummaryRepository,
+	projectPath: string,
+	userObservationRepo?: UserObservationRepository | null,
+) {
+	return async (
+		_input: { sessionID?: string; model: string },
+		output: { system: string[] },
+	): Promise<void> => {
+		try {
+			if (!config.contextInjectionEnabled) return;
+
+			const recentSessions = sessions.getRecent(projectPath, 5);
+			if (recentSessions.length === 0) return;
+
+			const recentSummaries = recentSessions
+				.map((s) => (s.summaryId ? summaries.getBySessionId(s.id) : null))
+				.filter((s): s is NonNullable<typeof s> => s !== null);
+
+			const observationIndex = observations.getIndex(projectPath, config.maxObservations);
+
+			if (recentSummaries.length === 0 && observationIndex.length === 0) {
+				return;
+			}
+
+			const recentObsIds = observationIndex
+				.slice(0, config.contextFullObservationCount)
+				.map((e) => e.id);
+			const fullObservations: Observation[] = recentObsIds
+				.map((id) => observations.getById(id))
+				.filter((o): o is NonNullable<typeof o> => o !== null);
+
+			const progressive = buildProgressiveContext(
+				recentSessions,
+				recentSummaries,
+				observationIndex,
+				config.maxContextTokens,
+				fullObservations,
+			);
+
+			const builderConfig: ContextBuilderConfig = {
+				showTokenCosts: config.contextShowTokenCosts,
+				observationTypes: config.contextObservationTypes,
+				fullObservationCount: config.contextFullObservationCount,
+				showLastSummary: config.contextShowLastSummary,
+			};
+
+			let contextStr = buildContextString(progressive, builderConfig);
+
+			if (config.userMemoryEnabled && userObservationRepo) {
+				const userIndex = userObservationRepo.getIndex(config.maxObservations);
+				const userSection = buildUserContextSection(userIndex, config.userMemoryMaxContextTokens);
+				if (userSection) {
+					contextStr += `\n\n${userSection}`;
+				}
+			}
+
+			output.system.push(contextStr);
+		} catch (error) {
+			console.error("[open-mem] Context injection error:", error);
+		}
+	};
+}

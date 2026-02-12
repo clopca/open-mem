@@ -1,0 +1,267 @@
+import type { EmbeddingModel } from "ai";
+import type { ObservationRepository } from "../db/observations";
+import type { ObservationType, SearchResult } from "../types";
+import { cosineSimilarity, generateEmbedding } from "./embeddings";
+import { passesFilters } from "./filters";
+
+const RRF_K = 60;
+
+interface HybridSearchOptions {
+	type?: ObservationType;
+	limit?: number;
+	projectPath: string;
+	hasVectorExtension?: boolean;
+	importanceMin?: number;
+	importanceMax?: number;
+	createdAfter?: string;
+	createdBefore?: string;
+	concepts?: string[];
+	files?: string[];
+}
+
+/**
+ * Perform hybrid search combining FTS5 text search with vector similarity,
+ * merging results via Reciprocal Rank Fusion (RRF).
+ */
+export async function hybridSearch(
+	query: string,
+	observations: ObservationRepository,
+	embeddingModel: EmbeddingModel | null,
+	options: HybridSearchOptions,
+): Promise<SearchResult[]> {
+	const limit = options.limit ?? 10;
+
+	const ftsResults = safelyRunFts(observations, query, options, limit);
+
+	if (!embeddingModel) {
+		return ftsResults;
+	}
+
+	const queryEmbedding = await generateEmbedding(embeddingModel, query);
+	if (!queryEmbedding) {
+		return ftsResults;
+	}
+
+	const ftsObservationIds = ftsResults.map((r) => r.observation.id);
+
+	const vectorResults = runVectorSearch(
+		observations,
+		queryEmbedding,
+		options.projectPath,
+		options,
+		limit,
+		options.hasVectorExtension ?? false,
+		ftsObservationIds,
+	);
+
+	if (vectorResults.length === 0) {
+		return ftsResults;
+	}
+
+	return mergeWithRRF(ftsResults, vectorResults, limit);
+}
+
+function safelyRunFts(
+	observations: ObservationRepository,
+	query: string,
+	options: HybridSearchOptions,
+	limit: number,
+): SearchResult[] {
+	try {
+		return observations.search({
+			query,
+			type: options.type,
+			limit,
+			projectPath: options.projectPath,
+			importanceMin: options.importanceMin,
+			importanceMax: options.importanceMax,
+			createdAfter: options.createdAfter,
+			createdBefore: options.createdBefore,
+			concepts: options.concepts,
+			files: options.files,
+		});
+	} catch {
+		return [];
+	}
+}
+
+function runVectorSearch(
+	observations: ObservationRepository,
+	queryEmbedding: number[],
+	projectPath: string,
+	options: HybridSearchOptions,
+	limit: number,
+	hasVectorExtension: boolean,
+	ftsObservationIds: string[],
+): SearchResult[] {
+	if (hasVectorExtension) {
+		return runNativeVectorSearch(observations, queryEmbedding, options, limit, ftsObservationIds);
+	}
+	return runJsFallbackVectorSearch(observations, queryEmbedding, projectPath, options, limit);
+}
+
+function runNativeVectorSearch(
+	observations: ObservationRepository,
+	queryEmbedding: number[],
+	options: HybridSearchOptions,
+	limit: number,
+	ftsObservationIds: string[],
+): SearchResult[] {
+	try {
+		let candidates: Array<{ observationId: string; distance: number }>;
+
+		if (ftsObservationIds.length > 0) {
+			candidates = observations.searchVecSubset(queryEmbedding, ftsObservationIds, limit * 3);
+			if (candidates.length === 0) {
+				candidates = observations.getVecEmbeddingMatches(queryEmbedding, limit * 3);
+			}
+		} else {
+			candidates = observations.getVecEmbeddingMatches(queryEmbedding, limit * 3);
+		}
+
+		if (candidates.length === 0) return [];
+
+		const results: SearchResult[] = [];
+		for (const { observationId, distance } of candidates) {
+			if (results.length >= limit) break;
+
+			const obs = observations.getById(observationId);
+			if (!obs) continue;
+			if (!passesFilters(obs, options)) continue;
+
+			results.push({
+				observation: obs,
+				rank: distance - 1,
+				snippet: obs.title,
+				rankingSource: "vector",
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["vector"],
+					vectorDistance: distance,
+				},
+			});
+		}
+
+		return results;
+	} catch {
+		return [];
+	}
+}
+
+function runJsFallbackVectorSearch(
+	observations: ObservationRepository,
+	queryEmbedding: number[],
+	projectPath: string,
+	options: HybridSearchOptions,
+	limit: number,
+): SearchResult[] {
+	const candidates = observations.getWithEmbeddings(projectPath, limit * 10);
+	if (candidates.length === 0) return [];
+
+	const scored = candidates
+		.map((c) => ({
+			id: c.id,
+			similarity: cosineSimilarity(queryEmbedding, c.embedding),
+		}))
+		.filter(({ similarity }) => similarity >= 0.3)
+		.sort((a, b) => b.similarity - a.similarity);
+
+	const results: SearchResult[] = [];
+	for (const { id, similarity } of scored) {
+		if (results.length >= limit) break;
+
+		const obs = observations.getById(id);
+		if (!obs) continue;
+		if (!passesFilters(obs, options)) continue;
+
+		results.push({
+			observation: obs,
+			rank: -similarity,
+			snippet: obs.title,
+			rankingSource: "vector",
+			explain: {
+				strategy: "hybrid",
+				matchedBy: ["vector"],
+				vectorSimilarity: similarity,
+			},
+		});
+	}
+
+	return results;
+}
+
+// Reciprocal Rank Fusion: score = Σ 1/(k + rank)
+function mergeWithRRF(
+	ftsResults: SearchResult[],
+	vectorResults: SearchResult[],
+	limit: number,
+): SearchResult[] {
+	const scores = new Map<string, { score: number; result: SearchResult }>();
+
+	for (let i = 0; i < ftsResults.length; i++) {
+		const r = ftsResults[i];
+		const rrfScore = 1 / (RRF_K + i + 1);
+		scores.set(r.observation.id, {
+			score: rrfScore,
+			result: {
+				...r,
+				rankingSource: "fts",
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["fts"],
+					ftsRank: r.rank,
+				},
+			},
+		});
+	}
+
+	for (let i = 0; i < vectorResults.length; i++) {
+		const r = vectorResults[i];
+		const rrfScore = 1 / (RRF_K + i + 1);
+		const existing = scores.get(r.observation.id);
+		if (existing) {
+			// Primary rankingSource remains "fts" (from the first list) when matched by both;
+			// see explain.matchedBy for full attribution of ranking signals.
+			existing.score += rrfScore;
+			existing.result = {
+				...existing.result,
+				explain: {
+					strategy: "hybrid",
+					matchedBy: ["fts", "vector"],
+					ftsRank: existing.result.explain?.ftsRank ?? existing.result.rank,
+					vectorDistance: r.explain?.vectorDistance,
+					vectorSimilarity: r.explain?.vectorSimilarity,
+				},
+			};
+		} else {
+			scores.set(r.observation.id, {
+				score: rrfScore,
+				result: {
+					...r,
+					explain: {
+						strategy: "hybrid",
+						matchedBy: ["vector"],
+						vectorDistance: r.explain?.vectorDistance,
+						vectorSimilarity: r.explain?.vectorSimilarity,
+					},
+				},
+			});
+		}
+	}
+
+	return [...scores.values()]
+		.sort((a, b) => b.score - a.score)
+		.slice(0, limit)
+		.map(({ score, result }) => ({
+			...result,
+			explain: {
+				...(result.explain ?? { strategy: "hybrid", matchedBy: [] }),
+				strategy: "hybrid",
+				matchedBy: result.explain?.matchedBy ?? [],
+				rrfScore: score,
+				ftsRank: result.explain?.ftsRank,
+				vectorDistance: result.explain?.vectorDistance,
+				vectorSimilarity: result.explain?.vectorSimilarity,
+			},
+		}));
+}

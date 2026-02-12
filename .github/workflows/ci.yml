@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install
+        run: bun install
+      - name: Boundaries
+        run: bun run check:boundaries
+      - name: Quality Gate
+        run: bun run quality:gate
+      - name: Tests
+        run: bun run test:repo
+      - name: Build
+        run: bun run build

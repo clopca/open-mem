@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-mem.dev/schemas/external-compat-report.schema.json",
+  "title": "Open Mem External Compatibility Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "gitSha",
+    "environment",
+    "policy",
+    "clients",
+    "summary",
+    "slo",
+    "failureTaxonomy"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "gitSha": { "type": "string", "minLength": 7 },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "arch", "bunVersion", "runner"],
+      "properties": {
+        "os": { "type": "string" },
+        "arch": { "type": "string" },
+        "bunVersion": { "type": "string" },
+        "runner": { "type": "string" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freshnessDays", "versionScope", "verificationScope"],
+      "properties": {
+        "freshnessDays": { "type": "integer", "minimum": 1 },
+        "versionScope": { "type": "string", "enum": ["latest-stable-only"] },
+        "verificationScope": { "type": "string" }
+      }
+    },
+    "clients": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "transport",
+          "protocolVersion",
+          "status",
+          "version",
+          "requiredScenarios",
+          "knownLimitations",
+          "artifacts"
+        ],
+        "properties": {
+          "name": { "type": "string", "enum": ["claude-code", "cursor"] },
+          "transport": { "type": "string", "const": "stdio" },
+          "protocolVersion": { "type": "string", "const": "2024-11-05" },
+          "status": {
+            "type": "string",
+            "enum": ["supported", "expected-supported", "failed"]
+          },
+          "version": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["detected", "source"],
+            "properties": {
+              "detected": { "type": "string", "minLength": 1 },
+              "source": { "type": "string", "enum": ["env", "manual", "unknown"] }
+            }
+          },
+          "requiredScenarios": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name", "passed", "durationMs"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "passed": { "type": "boolean" },
+                "durationMs": { "type": "number", "minimum": 0 },
+                "failureCode": { "type": "string" },
+                "details": { "type": "string" },
+                "metrics": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "p95Ms": { "type": "number", "minimum": 0 },
+                    "samples": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "knownLimitations": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "artifacts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["transcriptsDir", "logFile"],
+            "properties": {
+              "transcriptsDir": { "type": "string", "minLength": 1 },
+              "logFile": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenarioCount",
+        "failedScenarios",
+        "failureRate",
+        "allRequiredPassed",
+        "mcpToolCallP95Ms",
+        "workerEventIngestP95Ms"
+      ],
+      "properties": {
+        "scenarioCount": { "type": "integer", "minimum": 0 },
+        "failedScenarios": { "type": "integer", "minimum": 0 },
+        "failureRate": { "type": "number", "minimum": 0 },
+        "allRequiredPassed": { "type": "boolean" },
+        "mcpToolCallP95Ms": { "type": "number", "minimum": 0 },
+        "workerEventIngestP95Ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "slo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcpToolCallP95TargetMs",
+        "workerEventIngestP95TargetMs",
+        "externalFailureRateTarget",
+        "met"
+      ],
+      "properties": {
+        "mcpToolCallP95TargetMs": { "type": "number", "const": 250 },
+        "workerEventIngestP95TargetMs": { "type": "number", "const": 100 },
+        "externalFailureRateTarget": { "type": "number", "const": 0.01 },
+        "met": { "type": "boolean" }
+      }
+    },
+    "failureTaxonomy": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "description", "remediation"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "CLIENT_PROTOCOL_DRIFT",
+              "WORKER_BRIDGE_REGRESSION",
+              "ENVIRONMENT_DEPENDENCY",
+              "NON_DETERMINISTIC_OUTPUT"
+            ]
+          },
+          "description": { "type": "string" },
+          "remediation": { "type": "string" }
+        }
+      }
+    }
+  }
+}

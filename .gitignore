@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Database files
+*.db
+*.sqlite
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Bun
+bun.lockb
+bun.lock
+
+# VitePress
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Coverage
+coverage/
+
+# open-mem data
+.open-mem/
+
+# Orchestrator/Sisyphus/OpenCode state
+.sisyphus/
+.orchestrator/
+.opencode/
+
+# Auto-generated context files (open-mem plugin)
+**/AGENTS.md
+# /open-mem-parallel
