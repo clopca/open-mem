@@ -1,23 +1,11 @@
 #!/usr/bin/env bun
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
-function walk(dir: string, files: string[] = []): string[] {
-	for (const entry of readdirSync(dir)) {
-		const fullPath = join(dir, entry);
-		const stat = statSync(fullPath);
-		if (stat.isDirectory()) {
-			walk(fullPath, files);
-			continue;
-		}
-		if (fullPath.endsWith(".ts")) files.push(fullPath);
-	}
-	return files;
-}
+import { walkFiles } from "./utils/file-walk";
 
 function listTsFilesIfPresent(dir: string): string[] {
-	return existsSync(dir) ? walk(dir) : [];
+	return walkFiles(dir, { extensions: [".ts"] });
 }
 
 function hasAdapterImportLeak(content: string): boolean {
