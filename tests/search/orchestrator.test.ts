@@ -193,6 +193,22 @@ describe("SearchOrchestrator", () => {
 				expect(orchestratedResults[0].observation.id).toBe(directResults[0].observation.id);
 			}
 		});
+
+		test("hybrid strategy honors singular concept filter options", async () => {
+			seedProjectA();
+
+			const results = await orchestrator.search("project", {
+				strategy: "hybrid",
+				concept: "authentication",
+				projectPath: "/project/alpha",
+				limit: 10,
+			});
+
+			expect(results.length).toBeGreaterThanOrEqual(1);
+			for (const result of results) {
+				expect(result.observation.concepts).toContain("authentication");
+			}
+		});
 	});
 
 	// =========================================================================

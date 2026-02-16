@@ -198,23 +198,10 @@ export class McpServer {
 	}
 
 	private getToolDefinitions(): McpToolDefinition[] {
-		const schemaMap = {
-			find: toolSchemas.find,
-			history: toolSchemas.history,
-			get: toolSchemas.get,
-			create: toolSchemas.create,
-			revise: toolSchemas.revise,
-			remove: toolSchemas.remove,
-			transferExport: toolSchemas.transferExport,
-			transferImport: toolSchemas.transferImport,
-			maintenance: toolSchemas.maintenance,
-			help: toolSchemas.help,
-		} as const;
-
 		return TOOL_CONTRACTS.map((tool) => ({
 			name: tool.name,
 			description: tool.description,
-			inputSchema: toInputSchema(schemaMap[tool.schema]),
+			inputSchema: toInputSchema(toolSchemas[tool.schema]),
 		}));
 	}
 

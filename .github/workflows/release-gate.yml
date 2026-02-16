@@ -17,12 +17,14 @@ jobs:
         run: bun run typecheck
       - name: Lint
         run: bun run lint
-      - name: Architecture and Contract Checks
-        run: |
-          bun run check:boundaries
-          bun run check:contracts
-          bun run check:architecture
-          bun run check:migration
+      - name: Boundaries
+        run: bun run check:boundaries
+      - name: Contract Drift
+        run: bun run check:contracts
+      - name: Architecture Fitness
+        run: bun run check:architecture
+      - name: Migration Compatibility
+        run: bun run check:migration
       - name: Quality Gate
         run: bun run quality:gate
       - name: Test Suite

@@ -1,4 +1,10 @@
-import { fail, ok, TOOL_CONTRACTS, toolSchemas } from "../../contracts/api";
+import {
+	fail,
+	getToolContractByName,
+	ok,
+	type ToolContractName,
+	toolSchemas,
+} from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
 import type { SearchResult, ToolDefinition } from "../../types";
 
@@ -24,13 +30,17 @@ function mapSearchResults(results: SearchResult[], scope: "project" | "user" | "
 }
 
 export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDefinition> {
-	const descriptions = Object.fromEntries(
-		TOOL_CONTRACTS.map((tool) => [tool.name, tool.description]),
-	);
+	const descriptionOf = (toolName: ToolContractName): string => {
+		const contract = getToolContractByName(toolName);
+		if (!contract) {
+			throw new Error(`Missing tool contract metadata for ${toolName}`);
+		}
+		return contract.description;
+	};
 
 	return {
 		"mem-find": {
-			description: descriptions["mem-find"],
+			description: descriptionOf("mem-find"),
 			args: toolSchemas.find.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -50,7 +60,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-history": {
-			description: descriptions["mem-history"],
+			description: descriptionOf("mem-history"),
 			args: toolSchemas.history.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -69,7 +79,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-get": {
-			description: descriptions["mem-get"],
+			description: descriptionOf("mem-get"),
 			args: toolSchemas.get.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -82,7 +92,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-create": {
-			description: descriptions["mem-create"],
+			description: descriptionOf("mem-create"),
 			args: toolSchemas.create.shape,
 			execute: async (rawArgs, context) => {
 				try {
@@ -96,7 +106,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-revise": {
-			description: descriptions["mem-revise"],
+			description: descriptionOf("mem-revise"),
 			args: toolSchemas.revise.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -110,7 +120,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-remove": {
-			description: descriptions["mem-remove"],
+			description: descriptionOf("mem-remove"),
 			args: toolSchemas.remove.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -124,7 +134,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-export": {
-			description: descriptions["mem-export"],
+			description: descriptionOf("mem-export"),
 			args: toolSchemas.transferExport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -137,7 +147,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-import": {
-			description: descriptions["mem-import"],
+			description: descriptionOf("mem-import"),
 			args: toolSchemas.transferImport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -153,7 +163,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-maintenance": {
-			description: descriptions["mem-maintenance"],
+			description: descriptionOf("mem-maintenance"),
 			args: toolSchemas.maintenance.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -174,7 +184,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-help": {
-			description: descriptions["mem-help"],
+			description: descriptionOf("mem-help"),
 			args: toolSchemas.help.shape,
 			execute: async () => toJson(ok({ guide: engine.guide() })),
 		},

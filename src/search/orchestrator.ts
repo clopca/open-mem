@@ -101,15 +101,16 @@ export class SearchOrchestrator {
 	async search(query: string, options: OrchestratedSearchOptions): Promise<SearchResult[]> {
 		const strategy = options.strategy ?? "hybrid";
 		const limit = options.limit ?? 10;
+		const normalizedOptions = this.normalizeOptions(options);
 
 		const executor = this.strategyRegistry.get(strategy);
 		if (!executor) {
 			throw new Error(`Unknown search strategy: ${strategy}`);
 		}
 
-		let results = await executor(options, { query, limit });
+		let results = await executor(normalizedOptions, { query, limit });
 
-		for (const result of results) result.source = "project";
+		results = results.map((result) => ({ ...result, source: "project" as const }));
 
 		if (this.entityRepo && query.trim()) {
 			results = await graphAugmentedSearch(
@@ -131,6 +132,21 @@ export class SearchOrchestrator {
 		}
 
 		return results;
+	}
+
+	private normalizeOptions(options: OrchestratedSearchOptions): OrchestratedSearchOptions {
+		const concepts = options.concept
+			? Array.from(new Set([options.concept, ...(options.concepts ?? [])]))
+			: options.concepts;
+		const files = options.file
+			? Array.from(new Set([options.file, ...(options.files ?? [])]))
+			: options.files;
+
+		return {
+			...options,
+			concepts,
+			files,
+		};
 	}
 
 	private searchUserMemory(query: string, limit: number): SearchResult[] {

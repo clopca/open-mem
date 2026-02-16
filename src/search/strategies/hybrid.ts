@@ -7,6 +7,13 @@ export async function executeHybridStrategy(
 	options: StrategyOptions,
 	limit: number,
 ) {
+	const concepts = options.concept
+		? Array.from(new Set([options.concept, ...(options.concepts ?? [])]))
+		: options.concepts;
+	const files = options.file
+		? Array.from(new Set([options.file, ...(options.files ?? [])]))
+		: options.files;
+
 	return hybridSearch(query, deps.observations, deps.embeddingModel, {
 		type: options.type,
 		limit,
@@ -16,7 +23,7 @@ export async function executeHybridStrategy(
 		importanceMax: options.importanceMax,
 		createdAfter: options.createdAfter,
 		createdBefore: options.createdBefore,
-		concepts: options.concepts,
-		files: options.files,
+		concepts,
+		files,
 	});
 }

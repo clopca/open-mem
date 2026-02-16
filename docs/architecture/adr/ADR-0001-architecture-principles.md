@@ -22,3 +22,9 @@ Without strict architecture principles, feature additions can create cross-layer
 - Negative:
   - More upfront design and review overhead.
   - Slightly slower short-term feature delivery.
+
+## Alternatives Considered
+1. Keep architecture guidance informal in PR descriptions:
+   - Rejected because decisions become hard to audit and easy to bypass over time.
+2. Optimize only for short-term delivery with minimal governance:
+   - Rejected because it increases coupling and raises future refactor cost.

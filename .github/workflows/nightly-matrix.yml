@@ -6,22 +6,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  matrix:
+  structural-checks:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        provider: [google, anthropic, bedrock]
-        vector_mode: [enabled, disabled]
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Install
         run: bun install
-      - name: Run matrix checks
-        env:
-          OPEN_MEM_PROVIDER: ${{ matrix.provider }}
-          OPEN_MEM_ENTITY_EXTRACTION: ${{ matrix.vector_mode == 'enabled' && 'true' || 'false' }}
+      - name: Run nightly checks
         run: |
           bun run typecheck
           bun run check:boundaries

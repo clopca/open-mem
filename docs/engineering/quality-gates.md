@@ -5,10 +5,10 @@ All PRs must pass:
 1. `bun run typecheck`
 2. `bun run lint`
 3. `bun run check:boundaries`
-4. `bun run quality:gate`
-5. Contract checks (`check-contract-drift`)
-6. Architecture fitness checks (`check-architecture-fitness`)
-7. Migration compatibility checks (`check-migration-compat`) for storage/contract changes
+4. `bun run check:contracts`
+5. `bun run check:architecture`
+6. `bun run check:migration` (for storage/contract changes)
+7. `bun run quality:gate`
 
 ## Change-specific requirements
 

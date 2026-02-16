@@ -130,32 +130,6 @@ export interface RuntimeStatusSnapshot {
 	enqueueCount: number;
 }
 
-export interface ReadinessStatus {
-	ready: boolean;
-	status: "ready" | "initializing" | "degraded";
-	reasons: string[];
-}
-
-export interface ReadinessService {
-	getStatus(): ReadinessStatus;
-}
-
-export interface SetupDiagnosticCheck {
-	id: string;
-	status: "pass" | "warn" | "fail";
-	message: string;
-	details?: Record<string, unknown>;
-}
-
-export interface SetupDiagnosticsReport {
-	ok: boolean;
-	checks: SetupDiagnosticCheck[];
-}
-
-export interface SetupDiagnosticsService {
-	run(): SetupDiagnosticsReport;
-}
-
 export interface MemoryEngine {
 	ingest(input: {
 		sessionId: string;

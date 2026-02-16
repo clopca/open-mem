@@ -9,11 +9,12 @@ const required = [
 	join(process.cwd(), "tests/db/helpers.ts"),
 ];
 
-for (const file of required) {
-	if (!existsSync(file)) {
+const missing = required.filter((file) => !existsSync(file));
+if (missing.length > 0) {
+	for (const file of missing) {
 		console.error(`[migration-compat] required file missing: ${file}`);
-		process.exit(1);
 	}
+	process.exit(1);
 }
 
 console.log("[migration-compat] basic migration compatibility checks passed");

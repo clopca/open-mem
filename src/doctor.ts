@@ -11,7 +11,7 @@ const { values } = parseArgs({
 		project: { type: "string", short: "p" },
 		json: { type: "boolean", default: false },
 	},
-	strict: false,
+	allowPositionals: false,
 });
 
 const projectDir = typeof values.project === "string" ? values.project : process.cwd();

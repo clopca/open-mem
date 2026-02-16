@@ -83,9 +83,20 @@ export const toolSchemas = {
 };
 
 export type ToolSchemaName = keyof typeof toolSchemas;
+export type ToolContractName =
+	| "mem-find"
+	| "mem-history"
+	| "mem-get"
+	| "mem-create"
+	| "mem-revise"
+	| "mem-remove"
+	| "mem-export"
+	| "mem-import"
+	| "mem-maintenance"
+	| "mem-help";
 
 export interface ToolContractMetadata {
-	name: string;
+	name: ToolContractName;
 	schema: ToolSchemaName;
 	description: string;
 	deprecated?: boolean;

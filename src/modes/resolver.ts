@@ -37,6 +37,17 @@ const DEFAULT_MODE: ModeConfig = {
 	],
 };
 
+function cloneMode(mode: ModeConfig): ModeConfig {
+	return {
+		...mode,
+		observationTypes: [...mode.observationTypes],
+		conceptVocabulary: [...mode.conceptVocabulary],
+		entityTypes: [...mode.entityTypes],
+		relationshipTypes: [...mode.relationshipTypes],
+		promptOverrides: mode.promptOverrides ? { ...mode.promptOverrides } : undefined,
+	};
+}
+
 function isValidMode(value: unknown): value is ModeConfig {
 	if (!value || typeof value !== "object") return false;
 	const v = value as Record<string, unknown>;
@@ -96,21 +107,21 @@ export class ModeResolverV2 {
 		const resolveInner = (modeId: string): ModeConfig => {
 			if (seen.has(modeId)) {
 				cycleDetected = true;
-				return DEFAULT_MODE;
+				return cloneMode(DEFAULT_MODE);
 			}
 			seen.add(modeId);
 			const mode = rawModes.get(modeId);
-			if (!mode) return DEFAULT_MODE;
-			if (!mode.extends) return mode;
+			if (!mode) return cloneMode(DEFAULT_MODE);
+			if (!mode.extends) return cloneMode(mode);
 			const parent = resolveInner(mode.extends);
-			if (cycleDetected) return DEFAULT_MODE;
+			if (cycleDetected) return cloneMode(DEFAULT_MODE);
 			return mergeMode(parent, mode);
 		};
 		const resolved = resolveInner(id);
-		return cycleDetected ? DEFAULT_MODE : resolved;
+		return cycleDetected ? cloneMode(DEFAULT_MODE) : cloneMode(resolved);
 	}
 }
 
 export function getDefaultModeConfig(): ModeConfig {
-	return DEFAULT_MODE;
+	return cloneMode(DEFAULT_MODE);
 }

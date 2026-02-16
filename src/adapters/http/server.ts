@@ -68,18 +68,36 @@ function redactConfig(config: OpenMemConfig): Record<string, unknown> {
 	return result;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function normalizeHostToken(value: string): string {
+	const token = value.trim().toLowerCase();
+	if (token.startsWith("[")) {
+		const end = token.indexOf("]");
+		return end > 0 ? token.slice(1, end) : token;
+	}
+	const colonCount = (token.match(/:/g) ?? []).length;
+	return colonCount <= 1 ? (token.split(":")[0] ?? token) : token;
+}
+
+function isLoopbackHost(value: string): boolean {
+	return LOOPBACK_HOSTS.has(normalizeHostToken(value));
+}
+
 function isLocalRequest(c: Context): boolean {
-	const host = c.req.header("host")?.toLowerCase() ?? "";
-	const forwardedFor = c.req.header("x-forwarded-for");
-	if (forwardedFor && !forwardedFor.includes("127.0.0.1") && !forwardedFor.includes("::1")) {
+	const hostHeader = c.req.header("host");
+	if (!hostHeader) return false;
+	const [firstHost = ""] = hostHeader.split(",");
+	if (!isLoopbackHost(firstHost)) {
 		return false;
 	}
-	return (
-		host.startsWith("localhost") ||
-		host.startsWith("127.0.0.1") ||
-		host.startsWith("[::1]") ||
-		host === ""
-	);
+	const forwardedFor = c.req.header("x-forwarded-for");
+	if (!forwardedFor) return true;
+	const forwardedChain = forwardedFor
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter((entry) => entry.length > 0);
+	return forwardedChain.every(isLoopbackHost);
 }
 
 export function createDashboardApp(deps: DashboardDeps): Hono {

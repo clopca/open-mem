@@ -88,7 +88,7 @@ The reranker respects the rate limiter and fallback chain like all other AI oper
 
 Best for finding specific terms, function names, or file paths:
 
-```
+```ts
 mem-find({ query: "calculateDiscount" })
 mem-find({ query: "src/pricing.ts" })
 ```
@@ -97,7 +97,7 @@ mem-find({ query: "src/pricing.ts" })
 
 Best for finding observations about a topic:
 
-```
+```ts
 mem-find({ query: "authentication flow" })
 mem-find({ query: "database migration strategy" })
 ```
@@ -106,7 +106,7 @@ mem-find({ query: "database migration strategy" })
 
 Narrow results to specific observation types:
 
-```
+```ts
 mem-find({ query: "pricing", type: "decision" })
 mem-find({ query: "login", type: "bugfix" })
 ```

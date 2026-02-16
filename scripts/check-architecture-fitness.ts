@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 function walk(dir: string, files: string[] = []): string[] {
@@ -16,9 +16,22 @@ function walk(dir: string, files: string[] = []): string[] {
 	return files;
 }
 
-const coreFiles = walk(join(process.cwd(), "src/core"));
-const searchFiles = walk(join(process.cwd(), "src/search"));
-const modeFiles = walk(join(process.cwd(), "src/modes"));
+function listTsFilesIfPresent(dir: string): string[] {
+	return existsSync(dir) ? walk(dir) : [];
+}
+
+function hasAdapterImportLeak(content: string): boolean {
+	const patterns = [
+		/\bfrom\s+["'][^"']*\/adapters\/[^"']*["']/,
+		/\bimport\(\s*["'][^"']*\/adapters\/[^"']*["']\s*\)/,
+		/\brequire\(\s*["'][^"']*\/adapters\/[^"']*["']\s*\)/,
+	];
+	return patterns.some((pattern) => pattern.test(content));
+}
+
+const coreFiles = listTsFilesIfPresent(join(process.cwd(), "src/core"));
+const searchFiles = listTsFilesIfPresent(join(process.cwd(), "src/search"));
+const modeFiles = listTsFilesIfPresent(join(process.cwd(), "src/modes"));
 const criticalFiles = [...coreFiles, ...searchFiles, ...modeFiles];
 
 const forbidden = [/TODO(?!\s*\(.*issue)/, /FIXME(?!\s*\(.*issue)/];
@@ -31,7 +44,7 @@ for (const file of criticalFiles) {
 		}
 	}
 
-	if (content.includes("../adapters/") || content.includes("/adapters/")) {
+	if (hasAdapterImportLeak(content)) {
 		console.error(`[architecture-fitness] adapter import leaked into core/search/modes: ${file}`);
 		process.exit(1);
 	}

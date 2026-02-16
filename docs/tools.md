@@ -23,8 +23,8 @@ open-mem exposes 10 memory tools across OpenCode, MCP, and platform adapters.
 mem-find -> mem-history -> mem-get
 ```
 
-1. Use `mem-find` to locate candidate observations.
-2. Use `mem-history` to understand timeline context.
+1. Run `mem-find` to locate candidate observations.
+2. Inspect `mem-history` to understand timeline context.
 3. Use `mem-get` to pull complete details when needed.
 
 ## mem-find

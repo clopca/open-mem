@@ -44,7 +44,7 @@ export async function executeSemanticStrategy(
 			}
 			return results;
 		} catch {
-			return [];
+			return executeFilterOnlyStrategy(deps, query, options, limit);
 		}
 	}
 

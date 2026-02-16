@@ -1,5 +1,7 @@
+export type { ToolContractName } from "./schemas";
 export {
 	CONTRACT_VERSION,
+	getToolContractByName,
 	observationTypeSchema,
 	TOOL_CONTRACTS,
 	toolSchemas,
