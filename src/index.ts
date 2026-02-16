@@ -5,6 +5,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertLoopbackHostname } from "./adapters/http/loopback";
 import { createDashboardApp } from "./adapters/http/server";
 import { createSSERoute, SSEBroadcaster } from "./adapters/http/sse";
 import { createOpenCodeTools } from "./adapters/opencode/tools";
@@ -289,6 +290,8 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		});
 
 		const basePort = config.dashboardPort;
+		const dashboardHostname = "127.0.0.1";
+		assertLoopbackHostname(dashboardHostname, "Dashboard server");
 		let port = basePort;
 		let started = false;
 
@@ -297,7 +300,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			try {
 				dashboardServer = Bun.serve({
 					port,
-					hostname: "127.0.0.1",
+					hostname: dashboardHostname,
 					// Keep long-running dashboard requests/SSE streams from timing out at Bun's default 10s.
 					idleTimeout: 0,
 					fetch: app.fetch,
@@ -308,7 +311,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		}
 
 		if (started) {
-			console.log(`[open-mem] Dashboard available at http://127.0.0.1:${port}`);
+			console.log(`[open-mem] Dashboard available at http://${dashboardHostname}:${port}`);
 		} else {
 			console.warn(
 				`[open-mem] Could not start dashboard — ports ${basePort}-${basePort + 9} all busy`,

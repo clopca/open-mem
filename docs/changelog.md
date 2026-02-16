@@ -2,6 +2,13 @@
 
 All notable changes to open-mem are documented here. For the full changelog including CI, scripts, and internal details, see [CHANGELOG.md on GitHub](https://github.com/clopca/open-mem/blob/main/CHANGELOG.md).
 
+## [Unreleased]
+
+### Changed
+- Security hardening for operator queue routes now relies on loopback listener binding rather than request headers.
+- Architecture scripts now share a single file-walk utility (`scripts/utils/file-walk.ts`) with deterministic filtering behavior.
+- Internal mode resolver API surface was reduced by removing dead exports.
+
 ## [0.11.0] - 2026-02-08
 
 ### Added

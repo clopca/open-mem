@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModeConfig } from "../types";
 
-export interface ModeConfigSource {
+interface ModeConfigSource {
 	id: string;
 	extends?: string;
 	locale?: string;
@@ -163,8 +163,4 @@ export class ModeResolverV2 {
 		const resolved = resolveInner(id);
 		return cycleDetected ? cloneMode(DEFAULT_MODE) : cloneMode(resolved);
 	}
-}
-
-export function getDefaultModeConfig(): ModeConfig {
-	return cloneMode(DEFAULT_MODE);
 }

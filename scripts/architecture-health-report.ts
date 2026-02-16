@@ -1,19 +1,10 @@
 #!/usr/bin/env bun
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { walkFiles } from "./utils/file-walk";
 
-function walk(dir: string, files: string[] = []): string[] {
-	for (const entry of readdirSync(dir)) {
-		const full = join(dir, entry);
-		const stat = statSync(full);
-		if (stat.isDirectory()) walk(full, files);
-		else if (full.endsWith(".ts") || full.endsWith(".md")) files.push(full);
-	}
-	return files;
-}
-
-const files = walk(join(process.cwd(), "src"));
+const files = walkFiles(join(process.cwd(), "src"), { extensions: [".ts", ".md"] });
 let todoCount = 0;
 let fixmeCount = 0;
 
