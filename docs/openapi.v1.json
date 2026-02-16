@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "open-mem API",
-    "version": "0.7.0"
+    "version": "1.0.0"
   },
   "paths": {
     "/v1/config/schema": { "get": { "summary": "Config field schema" } },
@@ -24,6 +24,11 @@
     "/v1/memory/import": { "post": { "summary": "Import memory" } },
     "/v1/memory/stats": { "get": { "summary": "Memory stats" } },
     "/v1/health": { "get": { "summary": "Runtime health summary" } },
+    "/v1/readiness": { "get": { "summary": "Runtime readiness status" } },
+    "/v1/diagnostics": { "get": { "summary": "Setup and configuration diagnostics" } },
+    "/v1/tools/guide": { "get": { "summary": "Canonical tool workflow and contract metadata" } },
+    "/v1/queue": { "get": { "summary": "Queue operator status (localhost only)" } },
+    "/v1/queue/process": { "post": { "summary": "Trigger queue processing batch (localhost only)" } },
     "/v1/metrics": { "get": { "summary": "Runtime metrics and queue diagnostics" } },
     "/v1/platforms": { "get": { "summary": "Platform adapter capabilities and enabled state" } },
     "/v1/modes": { "get": { "summary": "List mode presets" } },

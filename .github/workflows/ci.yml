@@ -13,8 +13,18 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install
         run: bun install
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Lint
+        run: bun run lint
       - name: Boundaries
         run: bun run check:boundaries
+      - name: Contract Drift
+        run: bun run check:contracts
+      - name: Architecture Fitness
+        run: bun run check:architecture
+      - name: Migration Compatibility
+        run: bun run check:migration
       - name: Quality Gate
         run: bun run quality:gate
       - name: Tests

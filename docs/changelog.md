@@ -48,13 +48,12 @@ All notable changes to open-mem are documented here. For the full changelog incl
 - Import-boundary validation script (`bun run check:boundaries`)
 
 ### Changed
-- Tool names renamed from `mem-*` prefix to `memory.*` namespace (e.g., `mem-search` → `memory.find`, `mem-save` → `memory.create`)
-- `memory.revise` now uses immutable revision semantics
-- `memory.remove` now uses tombstone semantics (soft-delete)
+- Tooling and docs now use the canonical `mem-*` contract names (`mem-find`, `mem-create`, etc.) across transports.
+- `mem-revise` now uses immutable revision semantics
+- `mem-remove` now uses tombstone semantics (soft-delete)
 - Schema baseline extended to v10 (`scope`, `revision_of`, `deleted_at` + indexes)
 
 ### Removed
-- Internal backward-compatibility guarantees with pre-`0.7.0` schema internals
 - Package self-dependency
 - Legacy server files — replaced by adapter architecture
 

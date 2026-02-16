@@ -32,7 +32,7 @@ Groups observations by coding session. Shows session duration, message count, an
 
 ### Search
 
-Full-text and semantic search across all observations. Supports filtering by type, date range, and importance. Results are ranked using the same hybrid search (FTS5 + vector + RRF) as the `memory.find` tool.
+Full-text and semantic search across all observations. Supports filtering by type, date range, and importance. Results are ranked using the same hybrid search (FTS5 + vector + RRF) as the `mem-find` tool.
 
 ### Stats
 

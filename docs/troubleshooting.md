@@ -31,7 +31,7 @@ rm -rf .open-mem/
 ::: tip
 This deletes all stored observations. If you want to preserve data first, export it:
 ```
-memory.transfer.export({ format: "json" })
+mem-export({ format: "json" })
 ```
 :::
 
@@ -39,7 +39,7 @@ memory.transfer.export({ format: "json" })
 
 1. **Check plugin is loaded** — look for `[open-mem]` messages in OpenCode logs
 2. **Check context injection is enabled** — ensure `OPEN_MEM_CONTEXT_INJECTION` is not set to `false`
-3. **Check observations exist** — use the `memory.history` tool
+3. **Check observations exist** — use the `mem-history` tool
 4. **First session has no context** — observations must be captured before they can be injected
 
 ## High Memory Usage

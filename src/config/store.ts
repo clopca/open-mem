@@ -239,15 +239,6 @@ const FIELD_SCHEMA: ConfigFieldSchema[] = [
 		restartRequired: true,
 	},
 	{
-		key: "mcpCompatibilityMode",
-		label: "MCP Compatibility Mode",
-		type: "string",
-		group: "Advanced",
-		liveApply: false,
-		restartRequired: true,
-		enum: ["strict", "legacy"],
-	},
-	{
 		key: "mcpProtocolVersion",
 		label: "MCP Protocol Version",
 		type: "string",
@@ -317,7 +308,6 @@ const ENV_BY_KEY: Partial<Record<keyof OpenMemConfig, string[]>> = {
 	platformOpenCodeEnabled: ["OPEN_MEM_PLATFORM_OPENCODE"],
 	platformClaudeCodeEnabled: ["OPEN_MEM_PLATFORM_CLAUDE_CODE"],
 	platformCursorEnabled: ["OPEN_MEM_PLATFORM_CURSOR"],
-	mcpCompatibilityMode: ["OPEN_MEM_MCP_COMPAT_MODE"],
 	mcpProtocolVersion: ["OPEN_MEM_MCP_PROTOCOL_VERSION"],
 	mcpSupportedProtocolVersions: ["OPEN_MEM_MCP_SUPPORTED_PROTOCOLS"],
 	rerankingEnabled: ["OPEN_MEM_RERANKING"],

@@ -111,7 +111,6 @@ const server = new McpServer({
 		maintenanceHistoryStore: maintenanceHistoryRepo,
 	}),
 	version: pkgJson.version,
-	compatibilityMode: config.mcpCompatibilityMode,
 	protocolVersion: config.mcpProtocolVersion,
 	supportedProtocolVersions: config.mcpSupportedProtocolVersions,
 });

@@ -1,5 +1,5 @@
 // =============================================================================
-// open-mem — Search Orchestrator (Multi-Strategy Search)
+// open-mem — Search Orchestrator
 // =============================================================================
 
 import type { EmbeddingModel } from "ai";
@@ -13,20 +13,15 @@ import type {
 	SearchLineageRef,
 	SearchResult,
 } from "../types";
-import { cosineSimilarity, generateEmbedding } from "./embeddings";
-import { passesFilters } from "./filters";
 import { graphAugmentedSearch } from "./graph";
-import { hybridSearch } from "./hybrid";
+import { InMemorySearchStrategyRegistry, type SearchStrategyRegistry } from "./registry";
 import type { Reranker } from "./reranker";
+import { executeFilterOnlyStrategy } from "./strategies/filter-only";
+import { executeHybridStrategy } from "./strategies/hybrid";
+import { executeSemanticStrategy } from "./strategies/semantic";
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/** Available search strategies for the orchestrator. */
 export type SearchStrategy = "filter-only" | "semantic" | "hybrid";
 
-/** Options for orchestrated search across project and user memory. */
 export interface OrchestratedSearchOptions {
 	strategy?: SearchStrategy;
 	type?: ObservationType;
@@ -42,15 +37,9 @@ export interface OrchestratedSearchOptions {
 	files?: string[];
 }
 
-// -----------------------------------------------------------------------------
-// SearchOrchestrator
-// -----------------------------------------------------------------------------
-
-/**
- * Coordinates multi-strategy search across FTS5, vector, graph, and user memory.
- * Supports filter-only, semantic, and hybrid search with optional LLM reranking.
- */
 export class SearchOrchestrator {
+	private strategyRegistry: SearchStrategyRegistry<OrchestratedSearchOptions>;
+
 	constructor(
 		private observations: ObservationRepository,
 		private embeddingModel: EmbeddingModel | null,
@@ -58,32 +47,70 @@ export class SearchOrchestrator {
 		private reranker: Reranker | null = null,
 		private userObservationRepo: UserObservationRepository | null = null,
 		private entityRepo: EntityRepository | null = null,
-	) {}
+		strategyRegistry: SearchStrategyRegistry<OrchestratedSearchOptions> | null = null,
+	) {
+		this.strategyRegistry =
+			strategyRegistry ?? new InMemorySearchStrategyRegistry<OrchestratedSearchOptions>();
 
-	/** Execute a search using the configured strategy, with graph augmentation and reranking. */
+		if (!this.strategyRegistry.get("filter-only")) {
+			this.strategyRegistry.register("filter-only", (options, context) =>
+				executeFilterOnlyStrategy(
+					{
+						observations: this.observations,
+						embeddingModel: this.embeddingModel,
+						hasVectorExtension: this.hasVectorExtension,
+					},
+					context.query,
+					options,
+					context.limit,
+				),
+			);
+		}
+
+		if (!this.strategyRegistry.get("semantic")) {
+			this.strategyRegistry.register("semantic", (options, context) =>
+				executeSemanticStrategy(
+					{
+						observations: this.observations,
+						embeddingModel: this.embeddingModel,
+						hasVectorExtension: this.hasVectorExtension,
+					},
+					context.query,
+					options,
+					context.limit,
+				),
+			);
+		}
+
+		if (!this.strategyRegistry.get("hybrid")) {
+			this.strategyRegistry.register("hybrid", (options, context) =>
+				executeHybridStrategy(
+					{
+						observations: this.observations,
+						embeddingModel: this.embeddingModel,
+						hasVectorExtension: this.hasVectorExtension,
+					},
+					context.query,
+					options,
+					context.limit,
+				),
+			);
+		}
+	}
+
 	async search(query: string, options: OrchestratedSearchOptions): Promise<SearchResult[]> {
 		const strategy = options.strategy ?? "hybrid";
 		const limit = options.limit ?? 10;
 
-		let results: SearchResult[];
-		switch (strategy) {
-			case "filter-only":
-				results = this.filterOnlySearch(query, options, limit);
-				break;
-			case "semantic":
-				results = await this.semanticSearch(query, options, limit);
-				break;
-			case "hybrid":
-				results = await this.hybridSearchStrategy(query, options, limit);
-				break;
+		const executor = this.strategyRegistry.get(strategy);
+		if (!executor) {
+			throw new Error(`Unknown search strategy: ${strategy}`);
 		}
 
-		// Label project results
-		for (const r of results) {
-			r.source = "project";
-		}
+		let results = await executor(options, { query, limit });
 
-		// Augment with graph-based entity traversal
+		for (const result of results) result.source = "project";
+
 		if (this.entityRepo && query.trim()) {
 			results = await graphAugmentedSearch(
 				query,
@@ -94,9 +121,8 @@ export class SearchOrchestrator {
 			);
 		}
 
-		// Merge user-level results when available
 		if (this.userObservationRepo) {
-			const userResults = this.searchUserMemory(query, options, limit);
+			const userResults = this.searchUserMemory(query, limit);
 			results = this.mergeResults(results, userResults, limit);
 		}
 
@@ -107,196 +133,8 @@ export class SearchOrchestrator {
 		return results;
 	}
 
-	// ---------------------------------------------------------------------------
-	// Strategies
-	// ---------------------------------------------------------------------------
-
-	private filterOnlySearch(
-		query: string,
-		options: OrchestratedSearchOptions,
-		limit: number,
-	): SearchResult[] {
-		// Concept-specific search
-		if (options.concept) {
-			const observations = this.observations.searchByConcept(
-				options.concept,
-				limit,
-				options.projectPath,
-			);
-			return observations.map((obs) => ({
-				observation: obs,
-				rank: 0,
-				snippet: obs.title,
-				rankingSource: "graph" as const,
-				explain: {
-					strategy: "filter-only",
-					matchedBy: ["concept-filter"],
-				},
-			}));
-		}
-
-		// File-specific search
-		if (options.file) {
-			const observations = this.observations.searchByFile(options.file, limit, options.projectPath);
-			return observations.map((obs) => ({
-				observation: obs,
-				rank: 0,
-				snippet: obs.title,
-				rankingSource: "graph" as const,
-				explain: {
-					strategy: "filter-only",
-					matchedBy: ["file-filter"],
-				},
-			}));
-		}
-
-		// General FTS5 search with project isolation
-		return this.observations.search({
-			query,
-			type: options.type,
-			limit,
-			projectPath: options.projectPath,
-			importanceMin: options.importanceMin,
-			importanceMax: options.importanceMax,
-			createdAfter: options.createdAfter,
-			createdBefore: options.createdBefore,
-			concepts: options.concepts,
-			files: options.files,
-		});
-	}
-
-	private async semanticSearch(
-		query: string,
-		options: OrchestratedSearchOptions,
-		limit: number,
-	): Promise<SearchResult[]> {
-		if (!this.embeddingModel) {
-			// Fall back to FTS5 when no embedding model available
-			return this.filterOnlySearch(query, options, limit);
-		}
-
-		const queryEmbedding = await generateEmbedding(this.embeddingModel, query);
-		if (!queryEmbedding) {
-			return this.filterOnlySearch(query, options, limit);
-		}
-
-		if (this.hasVectorExtension) {
-			return this.nativeVectorSearch(queryEmbedding, options, limit);
-		}
-
-		return this.jsFallbackVectorSearch(queryEmbedding, options, limit);
-	}
-
-	private async hybridSearchStrategy(
-		query: string,
-		options: OrchestratedSearchOptions,
-		limit: number,
-	): Promise<SearchResult[]> {
-		return hybridSearch(query, this.observations, this.embeddingModel, {
-			type: options.type,
-			limit,
-			projectPath: options.projectPath,
-			hasVectorExtension: this.hasVectorExtension,
-			importanceMin: options.importanceMin,
-			importanceMax: options.importanceMax,
-			createdAfter: options.createdAfter,
-			createdBefore: options.createdBefore,
-			concepts: options.concepts,
-			files: options.files,
-		});
-	}
-
-	// ---------------------------------------------------------------------------
-	// Vector Search Helpers
-	// ---------------------------------------------------------------------------
-
-	private nativeVectorSearch(
-		queryEmbedding: number[],
-		options: OrchestratedSearchOptions,
-		limit: number,
-	): SearchResult[] {
-		try {
-			const candidates = this.observations.getVecEmbeddingMatches(queryEmbedding, limit * 3);
-			if (candidates.length === 0) return [];
-
-			const results: SearchResult[] = [];
-			for (const { observationId, distance } of candidates) {
-				if (results.length >= limit) break;
-
-				const obs = this.observations.getById(observationId);
-				if (!obs) continue;
-				if (!passesFilters(obs, options)) continue;
-
-				results.push({
-					observation: obs,
-					rank: distance - 1,
-					snippet: obs.title,
-					rankingSource: "vector",
-					explain: {
-						strategy: "semantic",
-						matchedBy: ["vector"],
-						vectorDistance: distance,
-					},
-				});
-			}
-
-			return results;
-		} catch {
-			return [];
-		}
-	}
-
-	private jsFallbackVectorSearch(
-		queryEmbedding: number[],
-		options: OrchestratedSearchOptions,
-		limit: number,
-	): SearchResult[] {
-		const candidates = this.observations.getWithEmbeddings(options.projectPath, limit * 10);
-		if (candidates.length === 0) return [];
-
-		const scored = candidates
-			.map((c) => ({
-				id: c.id,
-				similarity: cosineSimilarity(queryEmbedding, c.embedding),
-			}))
-			.filter(({ similarity }) => similarity >= 0.3)
-			.sort((a, b) => b.similarity - a.similarity);
-
-		const results: SearchResult[] = [];
-		for (const { id, similarity } of scored) {
-			if (results.length >= limit) break;
-
-			const obs = this.observations.getById(id);
-			if (!obs) continue;
-			if (!passesFilters(obs, options)) continue;
-
-			results.push({
-				observation: obs,
-				rank: -similarity,
-				snippet: obs.title,
-				rankingSource: "vector",
-				explain: {
-					strategy: "semantic",
-					matchedBy: ["vector"],
-					vectorSimilarity: similarity,
-				},
-			});
-		}
-
-		return results;
-	}
-
-	// ---------------------------------------------------------------------------
-	// User Memory Search
-	// ---------------------------------------------------------------------------
-
-	private searchUserMemory(
-		query: string,
-		_options: OrchestratedSearchOptions,
-		limit: number,
-	): SearchResult[] {
+	private searchUserMemory(query: string, limit: number): SearchResult[] {
 		if (!this.userObservationRepo) return [];
-
 		try {
 			const userResults = this.userObservationRepo.search({ query, limit });
 			return userResults.map(({ observation: userObs, rank }) => ({
@@ -320,13 +158,15 @@ export class SearchOrchestrator {
 		userResults: SearchResult[],
 		limit: number,
 	): SearchResult[] {
-		const seenIds = new Set(projectResults.map((r) => r.observation.id));
+		const seenIds = new Set(projectResults.map((result) => result.observation.id));
 		const seenContent = new Set(
-			projectResults.map((r) => `${r.observation.title}::${r.observation.narrative}`),
+			projectResults.map(
+				(result) => `${result.observation.title}::${result.observation.narrative}`,
+			),
 		);
-		const dedupedUserResults = userResults.filter((r) => {
-			if (seenIds.has(r.observation.id)) return false;
-			const contentKey = `${r.observation.title}::${r.observation.narrative}`;
+		const dedupedUserResults = userResults.filter((result) => {
+			if (seenIds.has(result.observation.id)) return false;
+			const contentKey = `${result.observation.title}::${result.observation.narrative}`;
 			if (seenContent.has(contentKey)) return false;
 			seenContent.add(contentKey);
 			return true;
@@ -357,19 +197,19 @@ function userObservationToObservation(userObs: UserObservation): Observation {
 }
 
 export function attachExplainability(results: SearchResult[]): SearchResult[] {
-	return results.map((r) => {
+	return results.map((result) => {
 		const signals: SearchExplainSignal[] = [];
-		if (r.explain?.matchedBy) {
-			for (const source of r.explain.matchedBy) {
+		if (result.explain?.matchedBy) {
+			for (const source of result.explain.matchedBy) {
 				if (source === "fts") {
-					const rawRank = r.explain.ftsRank;
+					const rawRank = result.explain.ftsRank;
 					const normalizedScore =
 						rawRank !== undefined && rawRank < 0 ? 1 / (1 + Math.abs(rawRank)) : rawRank;
 					signals.push({ source: "fts", score: normalizedScore, label: "Full-text search" });
 				} else if (source === "vector") {
 					signals.push({
 						source: "vector",
-						score: r.explain.vectorSimilarity ?? r.explain.vectorDistance,
+						score: result.explain.vectorSimilarity ?? result.explain.vectorDistance,
 						label: "Vector similarity",
 					});
 				} else if (source === "graph") {
@@ -380,14 +220,14 @@ export function attachExplainability(results: SearchResult[]): SearchResult[] {
 			}
 		}
 
-		const lineage = findLineageRef(r.observation);
+		const lineage = findLineageRef(result.observation);
 
 		return {
-			...r,
+			...result,
 			explain: {
-				...r.explain,
-				strategy: r.explain?.strategy ?? "hybrid",
-				matchedBy: r.explain?.matchedBy ?? [],
+				...result.explain,
+				strategy: result.explain?.strategy ?? "hybrid",
+				matchedBy: result.explain?.matchedBy ?? [],
 				signals,
 				lineage,
 			},
@@ -401,10 +241,6 @@ function findLineageRef(obs: Observation): SearchLineageRef | undefined {
 	return { rootId: info.rootId, depth: info.depth };
 }
 
-/**
- * Resolve immediate parent for lineage info (single hop).
- * Full chain resolution is handled by getLineage() in the memory engine.
- */
 function computeLineageInfo(obs: Observation): { rootId: string; depth: number } {
 	if (obs.revisionOf && obs.revisionOf !== obs.id) {
 		return { rootId: obs.revisionOf, depth: 1 };

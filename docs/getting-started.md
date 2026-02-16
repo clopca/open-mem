@@ -103,7 +103,7 @@ From your second session, you'll see a memory block injected into the system pro
 🐛 [bugfix] Fix off-by-one in pagination (~95 tokens) — src/api/list.ts
 ```
 
-The agent can then use `memory.find` and `memory.get` to fetch full details about any observation.
+The agent can then use `mem-find` and `mem-get` to fetch full details about any observation.
 
 ## Using the Tools
 
@@ -113,7 +113,7 @@ Ask your agent to search memory naturally:
 
 > "What do we know about the pricing module?"
 
-The agent will use `memory.find` to find relevant observations.
+The agent will use `mem-find` to find relevant observations.
 
 ### Save Important Context
 
@@ -121,24 +121,24 @@ Ask the agent to remember something:
 
 > "Remember that we decided to use SQLite instead of PostgreSQL for the local cache."
 
-The agent will use `memory.create` to create a manual observation.
+The agent will use `mem-create` to create a manual observation.
 
 ### View Session History
 
 > "Show me what we worked on in recent sessions."
 
-The agent will use `memory.history` to display session history.
+The agent will use `mem-history` to display session history.
 
 ### Recall Full Details
 
 > "Get the full details on observation #abc123."
 
-The agent will use `memory.get` to fetch the complete observation.
+The agent will use `mem-get` to fetch the complete observation.
 
 ## Verify It Works
 
 1. **Check plugin is loaded** — look for `[open-mem]` messages in OpenCode logs
-2. **Check observations exist** — use the `memory.history` tool after your first session
+2. **Check observations exist** — use the `mem-history` tool after your first session
 3. **Check context injection** — look for the memory block at the start of your second session
 
 ## External Platform Workers
@@ -159,6 +159,6 @@ Workers consume newline-delimited JSON events on stdin and write into the same p
 ## Next Steps
 
 - [Architecture](/architecture) — understand how open-mem works internally
-- [Memory Tools](/tools) — reference for all 9 MCP tools
+- [Memory Tools](/tools) — reference for all memory tools
 - [Configuration](/configuration) — all environment variables and options
 - [Privacy & Security](/privacy) — how your data is protected

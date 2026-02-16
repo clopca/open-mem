@@ -3,7 +3,8 @@
 // =============================================================================
 
 import type { LanguageModelV2, LanguageModelV3 } from "@ai-sdk/provider";
-import { isConfigError, isRetryable } from "./errors";
+import { isConfigError } from "./errors";
+import { DefaultProviderFallbackPolicy, type ProviderFallbackPolicy } from "./fallback-policy";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -35,8 +36,12 @@ export class FallbackLanguageModel {
 	readonly supportedUrls: ConcreteLanguageModel["supportedUrls"];
 
 	private providers: FallbackProvider[];
+	private policy: ProviderFallbackPolicy;
 
-	constructor(providers: FallbackProvider[]) {
+	constructor(
+		providers: FallbackProvider[],
+		policy: ProviderFallbackPolicy = new DefaultProviderFallbackPolicy(),
+	) {
 		if (providers.length === 0) {
 			throw new Error("At least one provider required");
 		}
@@ -47,6 +52,7 @@ export class FallbackLanguageModel {
 		this.modelId = primary.modelId;
 		this.supportedUrls = primary.supportedUrls;
 		this.providers = providers;
+		this.policy = policy;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -59,6 +65,13 @@ export class FallbackLanguageModel {
 		for (let i = 0; i < this.providers.length; i++) {
 			const provider = this.providers[i];
 			try {
+				this.policy.onAttempt?.({
+					error: null,
+					provider: provider.name,
+					nextProvider: this.providers[i + 1]?.name,
+					attemptIndex: i,
+					totalProviders: this.providers.length,
+				});
 				return await (provider.model.doGenerate as (opts: unknown) => Promise<unknown>)(options);
 			} catch (error: unknown) {
 				lastError = error;
@@ -67,15 +80,20 @@ export class FallbackLanguageModel {
 					throw error;
 				}
 
-				if (isRetryable(error) && i < this.providers.length - 1) {
-					const nextProvider = this.providers[i + 1];
-					const status = (error as Record<string, unknown>).status ?? "unknown";
-					console.error(
-						`[open-mem] Provider ${provider.name} failed (${status}), falling over to ${nextProvider.name}`,
-					);
+				const nextProvider = this.providers[i + 1]?.name;
+				const decision = {
+					error,
+					provider: provider.name,
+					nextProvider,
+					attemptIndex: i,
+					totalProviders: this.providers.length,
+				};
+				if (this.policy.shouldFailover(decision)) {
+					this.policy.onFailover(decision);
 					continue;
 				}
 
+				this.policy.onFinalFailure?.(decision);
 				throw error;
 			}
 		}
@@ -93,6 +111,13 @@ export class FallbackLanguageModel {
 		for (let i = 0; i < this.providers.length; i++) {
 			const provider = this.providers[i];
 			try {
+				this.policy.onAttempt?.({
+					error: null,
+					provider: provider.name,
+					nextProvider: this.providers[i + 1]?.name,
+					attemptIndex: i,
+					totalProviders: this.providers.length,
+				});
 				return await (provider.model.doStream as (opts: unknown) => Promise<unknown>)(options);
 			} catch (error: unknown) {
 				lastError = error;
@@ -101,15 +126,20 @@ export class FallbackLanguageModel {
 					throw error;
 				}
 
-				if (isRetryable(error) && i < this.providers.length - 1) {
-					const nextProvider = this.providers[i + 1];
-					const status = (error as Record<string, unknown>).status ?? "unknown";
-					console.error(
-						`[open-mem] Provider ${provider.name} failed (${status}), falling over to ${nextProvider.name}`,
-					);
+				const nextProvider = this.providers[i + 1]?.name;
+				const decision = {
+					error,
+					provider: provider.name,
+					nextProvider,
+					attemptIndex: i,
+					totalProviders: this.providers.length,
+				};
+				if (this.policy.shouldFailover(decision)) {
+					this.policy.onFailover(decision);
 					continue;
 				}
 
+				this.policy.onFinalFailure?.(decision);
 				throw error;
 			}
 		}

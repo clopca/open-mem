@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
 import { z } from "zod";
-import { fail, ok, toolSchemas } from "../../contracts/api";
+import { fail, ok, TOOL_CONTRACTS, toolSchemas } from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
 
 interface JsonRpcRequest {
@@ -36,7 +36,6 @@ interface McpToolResult {
 export interface McpServerDeps {
 	memoryEngine: MemoryEngine;
 	version: string;
-	compatibilityMode?: "strict" | "legacy";
 	protocolVersion?: string;
 	supportedProtocolVersions?: string[];
 }
@@ -76,7 +75,6 @@ function asValidationError(error: z.ZodError): string {
 export class McpServer {
 	private readonly memoryEngine: MemoryEngine;
 	private readonly version: string;
-	private readonly compatibilityMode: "strict" | "legacy";
 	private readonly protocolVersion: string;
 	private readonly supportedProtocolVersions: string[];
 	private initialized = false;
@@ -85,7 +83,6 @@ export class McpServer {
 	constructor(deps: McpServerDeps) {
 		this.memoryEngine = deps.memoryEngine;
 		this.version = deps.version;
-		this.compatibilityMode = deps.compatibilityMode ?? "strict";
 		this.protocolVersion = deps.protocolVersion ?? DEFAULT_PROTOCOL_VERSION;
 		this.supportedProtocolVersions =
 			deps.supportedProtocolVersions && deps.supportedProtocolVersions.length > 0
@@ -132,7 +129,7 @@ export class McpServer {
 			return;
 		}
 
-		if (!this.initialized && this.compatibilityMode === "strict") {
+		if (!this.initialized) {
 			this.send({
 				jsonrpc: "2.0",
 				id: msg.id,
@@ -201,67 +198,24 @@ export class McpServer {
 	}
 
 	private getToolDefinitions(): McpToolDefinition[] {
-		return [
-			{
-				name: "mem-find",
-				description:
-					"Search past memories — decisions, discoveries, gotchas, and session history. Use to recall context from previous sessions before starting work.",
-				inputSchema: toInputSchema(toolSchemas.find),
-			},
-			{
-				name: "mem-history",
-				description:
-					"Browse session timeline and summaries. Use to understand what happened in recent sessions or drill into a specific session.",
-				inputSchema: toInputSchema(toolSchemas.history),
-			},
-			{
-				name: "mem-get",
-				description:
-					"Fetch full memory details by ID. Use after mem-find or mem-history to get complete narratives, facts, and file lists.",
-				inputSchema: toInputSchema(toolSchemas.get),
-			},
-			{
-				name: "mem-create",
-				description:
-					"Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.",
-				inputSchema: toInputSchema(toolSchemas.create),
-			},
-			{
-				name: "mem-revise",
-				description:
-					"Update an existing memory with a new revision. Use when a previous decision changed, a gotcha was resolved, or information became outdated.",
-				inputSchema: toInputSchema(toolSchemas.revise),
-			},
-			{
-				name: "mem-remove",
-				description:
-					"Tombstone an obsolete or incorrect memory. Use to clean up memories that are no longer accurate or relevant.",
-				inputSchema: toInputSchema(toolSchemas.remove),
-			},
-			{
-				name: "mem-export",
-				description:
-					"Export project memories as portable JSON for backup or transfer between machines.",
-				inputSchema: toInputSchema(toolSchemas.transferExport),
-			},
-			{
-				name: "mem-import",
-				description: "Import memories from a JSON export. Skips duplicates by default.",
-				inputSchema: toInputSchema(toolSchemas.transferImport),
-			},
-			{
-				name: "mem-maintenance",
-				description:
-					"Run folder context maintenance — clean, rebuild, purge, or dry-run AGENTS.md files.",
-				inputSchema: toInputSchema(toolSchemas.maintenance),
-			},
-			{
-				name: "mem-help",
-				description:
-					"Show detailed memory workflow guidance including when to save, what to save, and memory type reference.",
-				inputSchema: toInputSchema(toolSchemas.help),
-			},
-		];
+		const schemaMap = {
+			find: toolSchemas.find,
+			history: toolSchemas.history,
+			get: toolSchemas.get,
+			create: toolSchemas.create,
+			revise: toolSchemas.revise,
+			remove: toolSchemas.remove,
+			transferExport: toolSchemas.transferExport,
+			transferImport: toolSchemas.transferImport,
+			maintenance: toolSchemas.maintenance,
+			help: toolSchemas.help,
+		} as const;
+
+		return TOOL_CONTRACTS.map((tool) => ({
+			name: tool.name,
+			description: tool.description,
+			inputSchema: toInputSchema(schemaMap[tool.schema]),
+		}));
 	}
 
 	private async handleToolCall(

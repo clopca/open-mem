@@ -11,9 +11,17 @@ import {
 	previewConfig,
 	readProjectConfig,
 } from "../../config/store";
-import { fail, observationTypeSchema, ok } from "../../contracts/api";
+import {
+	CONTRACT_VERSION,
+	fail,
+	observationTypeSchema,
+	ok,
+	TOOL_CONTRACTS,
+} from "../../contracts/api";
 import type { MemoryEngine, RuntimeStatusSnapshot } from "../../core/contracts";
 import { getAvailableModes, loadMode } from "../../modes/loader";
+import { DefaultReadinessService } from "../../services/readiness";
+import { DefaultSetupDiagnosticsService } from "../../services/setup-diagnostics";
 import type { ObservationType, OpenMemConfig } from "../../types";
 
 export interface DashboardDeps {
@@ -58,6 +66,20 @@ function redactConfig(config: OpenMemConfig): Record<string, unknown> {
 				: value;
 	}
 	return result;
+}
+
+function isLocalRequest(c: Context): boolean {
+	const host = c.req.header("host")?.toLowerCase() ?? "";
+	const forwardedFor = c.req.header("x-forwarded-for");
+	if (forwardedFor && !forwardedFor.includes("127.0.0.1") && !forwardedFor.includes("::1")) {
+		return false;
+	}
+	return (
+		host.startsWith("localhost") ||
+		host.startsWith("127.0.0.1") ||
+		host.startsWith("[::1]") ||
+		host === ""
+	);
 }
 
 export function createDashboardApp(deps: DashboardDeps): Hono {
@@ -133,16 +155,6 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json(fail("VALIDATION_ERROR", "Query parameter 'against' is required"), 400);
 		const diff = memoryEngine.getRevisionDiff(id, againstId);
 		if (!diff) return c.json(fail("NOT_FOUND", "One or both observations not found"), 404);
-		const version = c.req.query("version");
-		if (version === "1") {
-			return c.json(
-				ok({
-					baseId: diff.toId,
-					againstId: diff.fromId,
-					changes: diff.changedFields,
-				}),
-			);
-		}
 		return c.json(ok(diff));
 	});
 
@@ -272,6 +284,96 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 				},
 			}),
 		);
+	});
+
+	app.get("/v1/readiness", (c) => {
+		const health = memoryEngine.getHealth();
+		const runtime = runtimeStatusProvider?.() ?? {
+			status: health.status,
+			timestamp: health.timestamp,
+			uptimeMs: process.uptime() * 1000,
+			queue: {
+				mode: "in-process",
+				running: false,
+				processing: false,
+				pending: 0,
+				lastBatchDurationMs: 0,
+				lastProcessedAt: null,
+				lastFailedAt: null,
+				lastError: null,
+			},
+			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
+			enqueueCount: 0,
+		};
+
+		const readiness = new DefaultReadinessService().evaluate({
+			config: deps.config,
+			adapterStatuses: memoryEngine.getAdapterStatuses().map((adapter) => ({
+				name: adapter.name,
+				enabled: adapter.enabled,
+			})),
+			runtime: {
+				status: runtime.status,
+				queue: { lastError: runtime.queue.lastError },
+			},
+		});
+
+		return c.json(ok(readiness), readiness.ready ? 200 : 503);
+	});
+
+	app.get("/v1/diagnostics", (c) => {
+		const diagnostics = new DefaultSetupDiagnosticsService().run(deps.config);
+		return c.json(ok(diagnostics), diagnostics.ok ? 200 : 503);
+	});
+
+	app.get("/v1/tools/guide", (c) => {
+		return c.json(
+			ok({
+				contractVersion: CONTRACT_VERSION,
+				workflow: {
+					recommended: ["mem-find", "mem-history", "mem-get"],
+					description:
+						"Start with compact discovery, then timeline context, then full detail fetch by IDs.",
+				},
+				tools: TOOL_CONTRACTS,
+			}),
+		);
+	});
+
+	app.get("/v1/queue", (c) => {
+		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
+		const health = memoryEngine.getHealth();
+		const runtime = runtimeStatusProvider?.() ?? {
+			status: health.status,
+			timestamp: health.timestamp,
+			uptimeMs: process.uptime() * 1000,
+			queue: {
+				mode: "in-process",
+				running: false,
+				processing: false,
+				pending: 0,
+				lastBatchDurationMs: 0,
+				lastProcessedAt: null,
+				lastFailedAt: null,
+				lastError: null,
+			},
+			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
+			enqueueCount: 0,
+		};
+		return c.json(
+			ok({
+				contractVersion: CONTRACT_VERSION,
+				queue: runtime.queue,
+				batches: runtime.batches,
+				enqueueCount: runtime.enqueueCount,
+			}),
+		);
+	});
+
+	app.post("/v1/queue/process", async (c) => {
+		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
+		const processed = await memoryEngine.processPending();
+		return c.json(ok({ processed }));
 	});
 
 	app.get("/v1/metrics", (c) => {

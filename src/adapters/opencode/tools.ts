@@ -1,4 +1,4 @@
-import { fail, ok, toolSchemas } from "../../contracts/api";
+import { fail, ok, TOOL_CONTRACTS, toolSchemas } from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
 import type { SearchResult, ToolDefinition } from "../../types";
 
@@ -24,10 +24,13 @@ function mapSearchResults(results: SearchResult[], scope: "project" | "user" | "
 }
 
 export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDefinition> {
+	const descriptions = Object.fromEntries(
+		TOOL_CONTRACTS.map((tool) => [tool.name, tool.description]),
+	);
+
 	return {
 		"mem-find": {
-			description:
-				"Search past memories — decisions, discoveries, gotchas, and session history. Use to recall context from previous sessions before starting work.",
+			description: descriptions["mem-find"],
 			args: toolSchemas.find.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -47,8 +50,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-history": {
-			description:
-				"Browse session timeline and summaries. Use to understand what happened in recent sessions or drill into a specific session.",
+			description: descriptions["mem-history"],
 			args: toolSchemas.history.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -67,8 +69,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-get": {
-			description:
-				"Fetch full memory details by ID. Use after mem-find or mem-history to get complete narratives, facts, and file lists.",
+			description: descriptions["mem-get"],
 			args: toolSchemas.get.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -81,8 +82,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-create": {
-			description:
-				"Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.",
+			description: descriptions["mem-create"],
 			args: toolSchemas.create.shape,
 			execute: async (rawArgs, context) => {
 				try {
@@ -96,8 +96,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-revise": {
-			description:
-				"Update an existing memory with a new revision. Use when a previous decision changed, a gotcha was resolved, or information became outdated.",
+			description: descriptions["mem-revise"],
 			args: toolSchemas.revise.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -111,8 +110,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-remove": {
-			description:
-				"Tombstone an obsolete or incorrect memory. Use to clean up memories that are no longer accurate or relevant.",
+			description: descriptions["mem-remove"],
 			args: toolSchemas.remove.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -126,8 +124,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-export": {
-			description:
-				"Export project memories as portable JSON for backup or transfer between machines.",
+			description: descriptions["mem-export"],
 			args: toolSchemas.transferExport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -140,7 +137,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-import": {
-			description: "Import memories from a JSON export. Skips duplicates by default.",
+			description: descriptions["mem-import"],
 			args: toolSchemas.transferImport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -156,8 +153,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-maintenance": {
-			description:
-				"Run folder context maintenance — clean, rebuild, purge, or dry-run AGENTS.md files.",
+			description: descriptions["mem-maintenance"],
 			args: toolSchemas.maintenance.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -178,8 +174,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-help": {
-			description:
-				"Show detailed memory workflow guidance including when to save, what to save, and memory type reference.",
+			description: descriptions["mem-help"],
 			args: toolSchemas.help.shape,
 			execute: async () => toJson(ok({ guide: engine.guide() })),
 		},

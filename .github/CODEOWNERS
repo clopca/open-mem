@@ -1,0 +1,15 @@
+# Core architecture and contracts
+/src/core/ @clopca
+/src/contracts/ @clopca
+/src/search/ @clopca
+/src/modes/ @clopca
+/src/ai/ @clopca
+
+# Adapter surfaces
+/src/adapters/ @clopca
+
+# Governance and CI
+/.github/workflows/ @clopca
+/scripts/ @clopca
+/docs/architecture/ @clopca
+/docs/engineering/ @clopca

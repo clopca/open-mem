@@ -755,7 +755,7 @@ export class DefaultMemoryEngine implements MemoryEngine {
 
 	getHealth(): HealthStatus {
 		const runtime = this.runtimeSnapshotProvider?.();
-		const queueStatus: "ok" | "degraded" = runtime && runtime.queue.lastError ? "degraded" : "ok";
+		const queueStatus: "ok" | "degraded" = runtime?.queue.lastError ? "degraded" : "ok";
 
 		return {
 			status: runtime?.status ?? "ok",

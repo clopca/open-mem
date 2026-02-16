@@ -1,10 +1,10 @@
 # Search
 
-open-mem's search goes beyond simple keyword matching. When you call `memory.find`, it can combine full-text search, vector similarity, knowledge graph traversal, and LLM reranking to surface the most relevant observations — even when you don't remember the exact words used.
+open-mem's search goes beyond simple keyword matching. When you call `mem-find`, it can combine full-text search, vector similarity, knowledge graph traversal, and LLM reranking to surface the most relevant observations — even when you don't remember the exact words used.
 
 ## How Search Works
 
-`memory.find` runs a multi-stage pipeline:
+`mem-find` runs a multi-stage pipeline:
 
 1. **Query parsing** — extracts keywords and intent from your search query
 2. **FTS5 full-text search** — fast keyword matching against titles, narratives, concepts, and facts
@@ -89,8 +89,8 @@ The reranker respects the rate limiter and fallback chain like all other AI oper
 Best for finding specific terms, function names, or file paths:
 
 ```
-memory.find({ query: "calculateDiscount" })
-memory.find({ query: "src/pricing.ts" })
+mem-find({ query: "calculateDiscount" })
+mem-find({ query: "src/pricing.ts" })
 ```
 
 ### Concept Search
@@ -98,8 +98,8 @@ memory.find({ query: "src/pricing.ts" })
 Best for finding observations about a topic:
 
 ```
-memory.find({ query: "authentication flow" })
-memory.find({ query: "database migration strategy" })
+mem-find({ query: "authentication flow" })
+mem-find({ query: "database migration strategy" })
 ```
 
 ### Type-Filtered Search
@@ -107,8 +107,8 @@ memory.find({ query: "database migration strategy" })
 Narrow results to specific observation types:
 
 ```
-memory.find({ query: "pricing", type: "decision" })
-memory.find({ query: "login", type: "bugfix" })
+mem-find({ query: "pricing", type: "decision" })
+mem-find({ query: "login", type: "bugfix" })
 ```
 
 Available types: `decision`, `bugfix`, `feature`, `refactor`, `discovery`, `change`.
@@ -128,5 +128,5 @@ No manual configuration is needed — if your provider supports embeddings, they
 - **Be specific** — "pricing calculation bug in cart" works better than "bug"
 - **Use file paths** — searching for a file path finds all observations related to that file
 - **Filter by type** — if you know you're looking for a decision, filter to reduce noise
-- **Start broad, then narrow** — use `memory.find` with a broad query, then `memory.get` for details
-- **Combine with history** — use `memory.history` with an anchor to see temporal context around a result
+- **Start broad, then narrow** — use `mem-find` with a broad query, then `mem-get` for details
+- **Combine with history** — use `mem-history` with an anchor to see temporal context around a result

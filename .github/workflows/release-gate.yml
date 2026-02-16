@@ -6,12 +6,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  compat-gate:
+  quality-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Install
         run: bun install
-      - name: External compatibility release gate
-        run: bun run compat:gate
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Lint
+        run: bun run lint
+      - name: Architecture and Contract Checks
+        run: |
+          bun run check:boundaries
+          bun run check:contracts
+          bun run check:architecture
+          bun run check:migration
+      - name: Quality Gate
+        run: bun run quality:gate
+      - name: Test Suite
+        run: bun run test:repo

@@ -1,0 +1,22 @@
+name: architecture-health
+
+on:
+  schedule:
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install
+        run: bun install
+      - name: Generate report
+        run: bun run report:architecture > architecture-health.json
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-health
+          path: architecture-health.json

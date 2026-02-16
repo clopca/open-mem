@@ -3,8 +3,10 @@
 import { resolve } from "node:path";
 
 const checks = [
-  ["bun", "test", "search/quality-regression.test.ts"],
-  ["bun", "test", "search/latency-budget.test.ts"],
+	["bun", "run", "check:contracts"],
+	["bun", "run", "check:architecture"],
+	["bun", "test", "search/quality-regression.test.ts"],
+	["bun", "test", "search/latency-budget.test.ts"],
 ];
 const testsCwd = resolve(process.cwd(), "tests");
 
