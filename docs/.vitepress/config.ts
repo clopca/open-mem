@@ -59,7 +59,6 @@ export default defineConfig({
 					{ text: "HTTP API", link: "/api" },
 					{ text: "Dashboard", link: "/dashboard" },
 					{ text: "Platform Adapters", link: "/platforms" },
-					{ text: "MCP Compatibility", link: "/mcp-compatibility-matrix" },
 				],
 			},
 			{
@@ -67,6 +66,9 @@ export default defineConfig({
 				items: [
 					{ text: "Privacy & Security", link: "/privacy" },
 					{ text: "Troubleshooting", link: "/troubleshooting" },
+					{ text: "Quality Gates", link: "/engineering/quality-gates" },
+					{ text: "Deprecation Policy", link: "/engineering/deprecation-policy" },
+					{ text: "Technical Debt Policy", link: "/engineering/technical-debt-policy" },
 					{ text: "Changelog", link: "/changelog" },
 					{
 						text: "Contributing",

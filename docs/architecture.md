@@ -12,7 +12,7 @@ The memory lifecycle has three phases:
 
 1. **Capture** — OpenCode hooks (`tool.execute.after`, `chat.message`) intercept tool outputs and user prompts, redact sensitive content, and enqueue pending observations.
 2. **Processing** — On `session.idle`, the queue processor batches pending items and sends them to the AI compressor. Each raw capture is distilled into a typed observation with title, narrative, concepts, and importance. Embeddings and entity extraction run in parallel when configured.
-3. **Retrieval** — At session start, the context injector assembles a token-budgeted index from recent observations and injects it into the system prompt. During the session, `memory.find` performs hybrid search and `memory.get` fetches full observation details on demand.
+3. **Retrieval** — At session start, the context injector assembles a token-budgeted index from recent observations and injects it into the system prompt. During the session, `mem-find` performs hybrid search and `mem-get` fetches full observation details on demand.
 
 ## Module Structure
 
@@ -77,8 +77,8 @@ SQLite remains local and project-scoped (`.open-mem/memory.db`), with optional u
 
 Observation lineage is immutable:
 
-1. `memory.revise` creates a new revision row and marks the prior active row as superseded
-2. `memory.remove` writes a tombstone (`deleted_at`) on the active row
+1. `mem-revise` creates a new revision row and marks the prior active row as superseded
+2. `mem-remove` writes a tombstone (`deleted_at`) on the active row
 3. Default retrieval/search returns only active rows (`superseded_by IS NULL` and `deleted_at IS NULL`)
 
 Schema baseline includes v10 migration columns:
@@ -107,7 +107,7 @@ If no API key is set, a fallback compressor extracts basic metadata without AI.
 
 open-mem injects a compact index into the system prompt at session start. Each entry shows a type icon, title, token cost, and related files — giving the agent a map of what's in memory without consuming the full context window.
 
-The agent sees *what* exists and decides *what to fetch* using `memory.find` and `memory.get`. This minimizes context window usage while providing full access to all stored observations.
+The agent sees *what* exists and decides *what to fetch* using `mem-find` and `mem-get`. This minimizes context window usage while providing full access to all stored observations.
 
 ### Token ROI Tracking
 
@@ -135,11 +135,11 @@ Queue runtime controls switching between modes and liveness fallback.
 ### OpenCode
 
 - **Hooks**: `tool.execute.after`, `chat.message`, `event`, `experimental.chat.system.transform`, `experimental.session.compacting`
-- **Tools**: All 9 `memory.*` tools
+- **Tools**: All 9 `mem-*` tools
 
 ### MCP Server
 
-- Same 9 tools over stdin/stdout JSON-RPC (`memory.*` namespace)
+- Same 9 tools over stdin/stdout JSON-RPC (`mem-*` namespace)
 - Strict lifecycle support with protocol-version negotiation
 
 ### Dashboard (HTTP)

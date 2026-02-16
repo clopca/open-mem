@@ -9,7 +9,6 @@
         "@ai-sdk/google": "^3.0.22",
         "@openrouter/ai-sdk-provider": "^2.1.1",
         "ai": "^6.0.77",
-        "open-mem": "^0.9.0",
         "sqlite-vec": "^0.1.7-alpha.2",
         "zod": "^4.3.6",
       },
@@ -93,8 +92,6 @@
     "hono": ["hono@4.11.8", "", {}, "sha512-eVkB/CYCCei7K2WElZW9yYQFWssG0DhaDhVvr7wy5jJ22K+ck8fWW0EsLpB0sITUTvPnc97+rrbQqIr5iqiy9Q=="],
 
     "json-schema": ["json-schema@0.4.0", "", {}, "sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA=="],
-
-    "open-mem": ["open-mem@0.9.0", "", { "dependencies": { "@ai-sdk/amazon-bedrock": "^4.0.51", "@ai-sdk/anthropic": "^3.0.38", "@ai-sdk/google": "^3.0.22", "ai": "^6.0.77", "sqlite-vec": "^0.1.7-alpha.2", "zod": "^4.3.6" }, "bin": { "open-mem-mcp": "dist/mcp.js", "open-mem-daemon": "dist/daemon.js", "open-mem-maintenance": "dist/maintenance.js", "open-mem-claude-code": "dist/claude-code.js", "open-mem-cursor": "dist/cursor.js" } }, "sha512-PGp8X/xw14LsaWcBOKDbz6Lz665ISgAJMOT57X9Jg+jigKN56/7Dw/wRU5fxmWzSeS1t3J7xEUiMv5h1hZagDQ=="],
 
     "sqlite-vec": ["sqlite-vec@0.1.7-alpha.2", "", { "optionalDependencies": { "sqlite-vec-darwin-arm64": "0.1.7-alpha.2", "sqlite-vec-darwin-x64": "0.1.7-alpha.2", "sqlite-vec-linux-arm64": "0.1.7-alpha.2", "sqlite-vec-linux-x64": "0.1.7-alpha.2", "sqlite-vec-windows-x64": "0.1.7-alpha.2" } }, "sha512-rNgRCv+4V4Ed3yc33Qr+nNmjhtrMnnHzXfLVPeGb28Dx5mmDL3Ngw/Wk8vhCGjj76+oC6gnkmMG8y73BZWGBwQ=="],
 

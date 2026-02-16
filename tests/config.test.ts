@@ -309,14 +309,12 @@ describe("Configuration", () => {
 		expect(config.platformOpenCodeEnabled).toBe(false);
 	});
 
-	test("MCP compatibility env flags are parsed", () => {
-		process.env.OPEN_MEM_MCP_COMPAT_MODE = "legacy";
+	test("MCP protocol env flags are parsed", () => {
 		process.env.OPEN_MEM_MCP_PROTOCOL_VERSION = "2024-11-05";
 		process.env.OPEN_MEM_MCP_SUPPORTED_PROTOCOLS = "2024-11-05,2025-01-01";
 
 		const config = resolveConfig("/tmp/proj");
 
-		expect(config.mcpCompatibilityMode).toBe("legacy");
 		expect(config.mcpProtocolVersion).toBe("2024-11-05");
 		expect(config.mcpSupportedProtocolVersions).toEqual(["2024-11-05", "2025-01-01"]);
 	});

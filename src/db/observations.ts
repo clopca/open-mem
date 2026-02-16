@@ -404,7 +404,8 @@ export class ObservationRepository {
 				 ${hasProjectPath ? "AND s.project_path = ?" : ""}
 				 ORDER BY rank
 				 LIMIT ?`;
-		const params: (string | number)[] = [`concepts:${concept}`];
+		const escapedConcept = concept.replace(/"/g, '""');
+		const params: (string | number)[] = [`concepts:"${escapedConcept}"`];
 		if (hasProjectPath && projectPath) {
 			params.push(projectPath);
 		}

@@ -72,8 +72,7 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	platformClaudeCodeEnabled: false,
 	platformCursorEnabled: false,
 
-	// MCP compatibility
-	mcpCompatibilityMode: "strict",
+	// MCP protocol
 	mcpProtocolVersion: "2024-11-05",
 	mcpSupportedProtocolVersions: ["2024-11-05"],
 
@@ -154,8 +153,6 @@ function loadFromEnv(): Partial<OpenMemConfig> {
 	if (process.env.OPEN_MEM_PLATFORM_OPENCODE === "false") env.platformOpenCodeEnabled = false;
 	if (process.env.OPEN_MEM_PLATFORM_CLAUDE_CODE === "true") env.platformClaudeCodeEnabled = true;
 	if (process.env.OPEN_MEM_PLATFORM_CURSOR === "true") env.platformCursorEnabled = true;
-	if (process.env.OPEN_MEM_MCP_COMPAT_MODE)
-		env.mcpCompatibilityMode = process.env.OPEN_MEM_MCP_COMPAT_MODE as "strict" | "legacy";
 	if (process.env.OPEN_MEM_MCP_PROTOCOL_VERSION)
 		env.mcpProtocolVersion = process.env.OPEN_MEM_MCP_PROTOCOL_VERSION;
 	if (process.env.OPEN_MEM_MCP_SUPPORTED_PROTOCOLS)

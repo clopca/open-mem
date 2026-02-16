@@ -183,8 +183,7 @@ export interface OpenMemConfig {
 	platformClaudeCodeEnabled?: boolean; // Enable Claude Code adapter surface
 	platformCursorEnabled?: boolean; // Enable Cursor adapter surface
 
-	// MCP compatibility
-	mcpCompatibilityMode?: "strict" | "legacy";
+	// MCP protocol
 	mcpProtocolVersion?: string;
 	mcpSupportedProtocolVersions?: string[];
 
@@ -429,10 +428,13 @@ export interface MaintenanceHistoryItem {
 /** Workflow mode configuration loaded from JSON files. */
 export interface ModeConfig {
 	id: string;
+	extends?: string;
+	locale?: string;
 	name: string;
 	description: string;
 	observationTypes: string[];
 	conceptVocabulary: string[];
 	entityTypes: string[];
 	relationshipTypes: string[];
+	promptOverrides?: Record<string, string>;
 }

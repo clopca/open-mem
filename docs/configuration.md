@@ -72,7 +72,6 @@ Settings are resolved in this order (later sources override earlier ones):
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPEN_MEM_MCP_COMPAT_MODE` | `strict` | MCP mode: `strict` or `legacy` |
 | `OPEN_MEM_MCP_PROTOCOL_VERSION` | `2024-11-05` | Preferred MCP protocol version |
 | `OPEN_MEM_MCP_SUPPORTED_PROTOCOLS` | `2024-11-05` | Comma-separated supported versions |
 

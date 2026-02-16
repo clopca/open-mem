@@ -193,6 +193,22 @@ describe("SearchOrchestrator", () => {
 				expect(orchestratedResults[0].observation.id).toBe(directResults[0].observation.id);
 			}
 		});
+
+		test("hybrid strategy honors singular concept filter options", async () => {
+			seedProjectA();
+
+			const results = await orchestrator.search("project", {
+				strategy: "hybrid",
+				concept: "authentication",
+				projectPath: "/project/alpha",
+				limit: 10,
+			});
+
+			expect(results.length).toBeGreaterThanOrEqual(1);
+			for (const result of results) {
+				expect(result.observation.concepts).toContain("authentication");
+			}
+		});
 	});
 
 	// =========================================================================
@@ -213,6 +229,22 @@ describe("SearchOrchestrator", () => {
 			expect(results[0].observation.concepts).toContain("authentication");
 		});
 
+		test("filter-only supports combined concept and concepts filters", async () => {
+			seedProjectA();
+
+			const results = await orchestrator.search("anything", {
+				strategy: "filter-only",
+				concept: "authentication",
+				concepts: ["hooks"],
+				projectPath: "/project/alpha",
+			});
+
+			expect(results.length).toBe(2);
+			const titles = results.map((result) => result.observation.title);
+			expect(titles.some((title) => title.includes("JWT authentication"))).toBe(true);
+			expect(titles.some((title) => title.includes("React component refactoring"))).toBe(true);
+		});
+
 		test("filter-only with file uses searchByFile", async () => {
 			seedProjectA();
 
@@ -224,6 +256,22 @@ describe("SearchOrchestrator", () => {
 
 			expect(results.length).toBe(1);
 			expect(results[0].observation.filesModified).toContain("src/App.tsx");
+		});
+
+		test("filter-only supports combined file and files filters", async () => {
+			seedProjectA();
+
+			const results = await orchestrator.search("anything", {
+				strategy: "filter-only",
+				file: "src/auth.ts",
+				files: ["src/App.tsx"],
+				projectPath: "/project/alpha",
+			});
+
+			expect(results.length).toBe(2);
+			const titles = results.map((result) => result.observation.title);
+			expect(titles.some((title) => title.includes("JWT authentication"))).toBe(true);
+			expect(titles.some((title) => title.includes("React component refactoring"))).toBe(true);
 		});
 
 		test("filter-only without concept/file uses FTS5 search", async () => {

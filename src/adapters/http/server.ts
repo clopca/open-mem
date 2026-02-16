@@ -11,9 +11,17 @@ import {
 	previewConfig,
 	readProjectConfig,
 } from "../../config/store";
-import { fail, observationTypeSchema, ok } from "../../contracts/api";
-import type { MemoryEngine, RuntimeStatusSnapshot } from "../../core/contracts";
+import {
+	CONTRACT_VERSION,
+	fail,
+	observationTypeSchema,
+	ok,
+	TOOL_CONTRACTS,
+} from "../../contracts/api";
+import type { HealthStatus, MemoryEngine, RuntimeStatusSnapshot } from "../../core/contracts";
 import { getAvailableModes, loadMode } from "../../modes/loader";
+import { DefaultReadinessService } from "../../services/readiness";
+import { DefaultSetupDiagnosticsService } from "../../services/setup-diagnostics";
 import type { ObservationType, OpenMemConfig } from "../../types";
 
 export interface DashboardDeps {
@@ -60,6 +68,60 @@ function redactConfig(config: OpenMemConfig): Record<string, unknown> {
 	return result;
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function normalizeHostToken(value: string): string {
+	const token = value.trim().toLowerCase();
+	if (token.startsWith("[")) {
+		const end = token.indexOf("]");
+		return end > 0 ? token.slice(1, end) : token;
+	}
+	const colonCount = (token.match(/:/g) ?? []).length;
+	return colonCount <= 1 ? (token.split(":")[0] ?? token) : token;
+}
+
+function isLoopbackHost(value: string): boolean {
+	return LOOPBACK_HOSTS.has(normalizeHostToken(value));
+}
+
+function isLocalRequest(c: Context): boolean {
+	// Primary isolation is at the listener level (dashboard binds to 127.0.0.1).
+	// This is an additional guard for local-only operator routes.
+	const hostHeader = c.req.header("host");
+	if (!hostHeader) return false;
+	const [firstHost = ""] = hostHeader.split(",");
+	if (!isLoopbackHost(firstHost)) {
+		return false;
+	}
+	const forwardedFor = c.req.header("x-forwarded-for");
+	if (!forwardedFor) return true;
+	const forwardedChain = forwardedFor
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter((entry) => entry.length > 0);
+	return forwardedChain.every(isLoopbackHost);
+}
+
+function buildRuntimeFallback(health: HealthStatus): RuntimeStatusSnapshot {
+	return {
+		status: health.status,
+		timestamp: health.timestamp,
+		uptimeMs: process.uptime() * 1000,
+		queue: {
+			mode: "in-process",
+			running: false,
+			processing: false,
+			pending: 0,
+			lastBatchDurationMs: 0,
+			lastProcessedAt: null,
+			lastFailedAt: null,
+			lastError: null,
+		},
+		batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
+		enqueueCount: 0,
+	};
+}
+
 export function createDashboardApp(deps: DashboardDeps): Hono {
 	const {
 		projectPath,
@@ -69,6 +131,8 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	} = deps;
 
 	const app = new Hono();
+	const readinessService = new DefaultReadinessService();
+	const diagnosticsService = new DefaultSetupDiagnosticsService();
 
 	app.get("/v1/memory/observations", (c) => {
 		const limit = clampLimit(c.req.query("limit"), 50);
@@ -133,16 +197,6 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 			return c.json(fail("VALIDATION_ERROR", "Query parameter 'against' is required"), 400);
 		const diff = memoryEngine.getRevisionDiff(id, againstId);
 		if (!diff) return c.json(fail("NOT_FOUND", "One or both observations not found"), 404);
-		const version = c.req.query("version");
-		if (version === "1") {
-			return c.json(
-				ok({
-					baseId: diff.toId,
-					againstId: diff.fromId,
-					changes: diff.changedFields,
-				}),
-			);
-		}
 		return c.json(ok(diff));
 	});
 
@@ -241,24 +295,7 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		const health = memoryEngine.getHealth();
 		const metrics = memoryEngine.getMetrics();
 		const runtime = runtimeStatusProvider?.();
-		const runtimeFallback = {
-			status: health.status,
-			timestamp: health.timestamp,
-			uptimeMs: process.uptime() * 1000,
-			queue: {
-				mode: "in-process",
-				running: false,
-				processing: false,
-				pending: 0,
-				lastBatchDurationMs: 0,
-				lastProcessedAt: null,
-				lastFailedAt: null,
-				lastError: null,
-			},
-			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
-			enqueueCount: 0,
-		} satisfies RuntimeStatusSnapshot;
-		const runtimeSnapshot = runtime ?? runtimeFallback;
+		const runtimeSnapshot = runtime ?? buildRuntimeFallback(health);
 
 		return c.json(
 			ok({
@@ -274,26 +311,68 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 		);
 	});
 
+	app.get("/v1/readiness", (c) => {
+		const health = memoryEngine.getHealth();
+		const runtime = runtimeStatusProvider?.() ?? buildRuntimeFallback(health);
+
+		const readiness = readinessService.evaluate({
+			config: deps.config,
+			adapterStatuses: memoryEngine.getAdapterStatuses().map((adapter) => ({
+				name: adapter.name,
+				enabled: adapter.enabled,
+			})),
+			runtime: {
+				status: runtime.status,
+				queue: { lastError: runtime.queue.lastError },
+			},
+		});
+
+		return c.json(ok(readiness), readiness.ready ? 200 : 503);
+	});
+
+	app.get("/v1/diagnostics", (c) => {
+		const diagnostics = diagnosticsService.run(deps.config);
+		return c.json(ok(diagnostics), diagnostics.ok ? 200 : 503);
+	});
+
+	app.get("/v1/tools/guide", (c) => {
+		return c.json(
+			ok({
+				contractVersion: CONTRACT_VERSION,
+				workflow: {
+					recommended: ["mem-find", "mem-history", "mem-get"],
+					description:
+						"Start with compact discovery, then timeline context, then full detail fetch by IDs.",
+				},
+				tools: TOOL_CONTRACTS,
+			}),
+		);
+	});
+
+	app.get("/v1/queue", (c) => {
+		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
+		const health = memoryEngine.getHealth();
+		const runtime = runtimeStatusProvider?.() ?? buildRuntimeFallback(health);
+		return c.json(
+			ok({
+				contractVersion: CONTRACT_VERSION,
+				queue: runtime.queue,
+				batches: runtime.batches,
+				enqueueCount: runtime.enqueueCount,
+			}),
+		);
+	});
+
+	app.post("/v1/queue/process", async (c) => {
+		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
+		const processed = await memoryEngine.processPending();
+		return c.json(ok({ processed }));
+	});
+
 	app.get("/v1/metrics", (c) => {
 		const health = memoryEngine.getHealth();
 		const runtime = runtimeStatusProvider?.();
-		const runtimeSnapshot = runtime ?? {
-			status: health.status,
-			timestamp: health.timestamp,
-			uptimeMs: process.uptime() * 1000,
-			queue: {
-				mode: "in-process",
-				running: false,
-				processing: false,
-				pending: 0,
-				lastBatchDurationMs: 0,
-				lastProcessedAt: null,
-				lastFailedAt: null,
-				lastError: null,
-			},
-			batches: { total: 0, processedItems: 0, failedItems: 0, avgDurationMs: 0 },
-			enqueueCount: 0,
-		};
+		const runtimeSnapshot = runtime ?? buildRuntimeFallback(health);
 		return c.json(ok(runtimeSnapshot));
 	});
 

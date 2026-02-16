@@ -98,7 +98,7 @@ export OPEN_MEM_RETENTION_DAYS=0
 
 ## Observation Lineage
 
-When you use `memory.remove`, observations are **soft-deleted** (tombstoned), not hard-deleted. This preserves lineage for audit purposes while hiding them from search and recall.
+When you use `mem-remove`, observations are **soft-deleted** (tombstoned), not hard-deleted. This preserves lineage for audit purposes while hiding them from search and recall.
 
 To fully purge all data:
 

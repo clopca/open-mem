@@ -256,6 +256,69 @@ describe("HTTP v1 contract", () => {
 		expect(payload.data.memory).toHaveProperty("totalObservations");
 	});
 
+	test("GET /v1/readiness returns readiness envelope", async () => {
+		const res = await app.request("/v1/readiness");
+		expect([200, 503]).toContain(res.status);
+		const payload = parseEnvelope<{ ready: boolean; status: string; reasons: string[] }>(
+			await res.json(),
+		);
+		expect(payload.error).toBeNull();
+		expect(typeof payload.data.ready).toBe("boolean");
+	});
+
+	test("GET /v1/diagnostics returns diagnostics report", async () => {
+		const res = await app.request("/v1/diagnostics");
+		expect([200, 503]).toContain(res.status);
+		const payload = parseEnvelope<{ ok: boolean; checks: Array<{ id: string; status: string }> }>(
+			await res.json(),
+		);
+		expect(payload.error).toBeNull();
+		expect(payload.data.checks.length).toBeGreaterThan(0);
+	});
+
+	test("GET /v1/tools/guide returns canonical tool metadata", async () => {
+		const res = await app.request("/v1/tools/guide");
+		expect(res.status).toBe(200);
+		const payload = parseEnvelope<{
+			contractVersion: string;
+			tools: Array<{ name: string; description: string }>;
+		}>(await res.json());
+		expect(payload.error).toBeNull();
+		expect(payload.data.tools.some((tool) => tool.name === "mem-find")).toBe(true);
+	});
+
+	test("queue endpoints reject non-local host headers", async () => {
+		const queueRes = await app.request("/v1/queue", { headers: { host: "evil.example.com" } });
+		expect(queueRes.status).toBe(403);
+
+		const processRes = await app.request("/v1/queue/process", {
+			method: "POST",
+			headers: { host: "evil.example.com" },
+		});
+		expect(processRes.status).toBe(403);
+	});
+
+	test("queue endpoints allow explicit localhost host headers", async () => {
+		const queueRes = await app.request("/v1/queue", { headers: { host: "localhost:8787" } });
+		expect(queueRes.status).toBe(200);
+
+		const processRes = await app.request("/v1/queue/process", {
+			method: "POST",
+			headers: { host: "127.0.0.1:8787" },
+		});
+		expect(processRes.status).toBe(200);
+	});
+
+	test("queue endpoints reject forwarded non-loopback addresses", async () => {
+		const res = await app.request("/v1/queue", {
+			headers: {
+				host: "localhost:8787",
+				"x-forwarded-for": "127.0.0.1, 203.0.113.10",
+			},
+		});
+		expect(res.status).toBe(403);
+	});
+
 	test("GET /v1/metrics returns runtime metrics envelope", async () => {
 		const res = await app.request("/v1/metrics");
 		expect(res.status).toBe(200);
@@ -437,41 +500,6 @@ describe("HTTP v1 contract", () => {
 	test("GET /v1/memory/observations/:id/revision-diff requires against param", async () => {
 		const res = await app.request("/v1/memory/observations/some-id/revision-diff");
 		expect(res.status).toBe(400);
-	});
-
-	test("GET /v1/memory/observations/:id/revision-diff supports v1 compatibility response", async () => {
-		sessionRepo.create("sess-diff-v1", TEST_PROJECT_PATH);
-		const first = observationRepo.create({
-			sessionId: "sess-diff-v1",
-			type: "feature",
-			title: "Original title",
-			subtitle: "",
-			facts: [],
-			narrative: "Original narrative",
-			concepts: [],
-			filesRead: [],
-			filesModified: [],
-			rawToolOutput: "",
-			toolName: "tool",
-			tokenCount: 10,
-			discoveryTokens: 10,
-		});
-		const second = observationRepo.update(first.id, { title: "Updated title" });
-		expect(second).not.toBeNull();
-
-		const res = await app.request(
-			`/v1/memory/observations/${first.id}/revision-diff?against=${second!.id}&version=1`,
-		);
-		expect(res.status).toBe(200);
-		const payload = parseEnvelope<{
-			baseId: string;
-			againstId: string;
-			changes: Array<{ field: string; before: unknown; after: unknown }>;
-		}>(await res.json());
-		expect(payload.error).toBeNull();
-		expect(payload.data.baseId).toBe(first.id);
-		expect(payload.data.againstId).toBe(second!.id);
-		expect(payload.data.changes.length).toBeGreaterThan(0);
 	});
 
 	test("GET /v1/adapters/status returns adapter list", async () => {

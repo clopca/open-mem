@@ -5,6 +5,7 @@
 import type { LanguageModelV2, LanguageModelV3 } from "@ai-sdk/provider";
 import type { EmbeddingModel, LanguageModel } from "ai";
 import { FallbackLanguageModel } from "./fallback";
+import type { ProviderFallbackPolicy } from "./fallback-policy";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -163,6 +164,7 @@ export function buildFallbackConfigs(config: { fallbackProviders?: string[] }): 
 export function createModelWithFallback(
 	primaryConfig: ModelConfig,
 	fallbackConfigs: ModelConfig[] = [],
+	policy?: ProviderFallbackPolicy,
 ): LanguageModel {
 	const primary = createModel(primaryConfig);
 	if (fallbackConfigs.length === 0) return primary;
@@ -174,5 +176,5 @@ export function createModelWithFallback(
 			model: createModel(config) as LanguageModelV2 | LanguageModelV3,
 		})),
 	];
-	return new FallbackLanguageModel(providers) as unknown as LanguageModel;
+	return new FallbackLanguageModel(providers, policy) as unknown as LanguageModel;
 }

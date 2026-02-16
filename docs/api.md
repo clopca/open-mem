@@ -277,6 +277,56 @@ Response:
 }
 ```
 
+### Readiness
+
+```
+GET /v1/readiness
+```
+
+Returns whether the system is ready to serve memory operations, plus reasons when not ready.
+
+### Diagnostics
+
+```
+GET /v1/diagnostics
+```
+
+Runs setup diagnostics (provider config, adapter enablement, db path, dashboard config).
+
+### Tools Guide
+
+```
+GET /v1/tools/guide
+```
+
+Returns canonical tool workflow guidance and contract metadata.
+
+### Queue Status
+
+```
+GET /v1/queue
+```
+
+Operator endpoint for queue state. Localhost access only.
+
+### Trigger Queue Processing
+
+```
+POST /v1/queue/process
+```
+
+Triggers one queue processing batch. Localhost access only.
+
+Response:
+
+```json
+{
+  "data": { "processed": 4 },
+  "error": null,
+  "meta": {}
+}
+```
+
 ### Metrics
 
 ```

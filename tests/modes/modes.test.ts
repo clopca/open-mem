@@ -59,6 +59,14 @@ describe("Workflow Modes", () => {
 		]);
 	});
 
+	test("fallback mode returns a defensive copy", () => {
+		const first = loadMode("nonexistent");
+		first.observationTypes.push("temporary-test-type");
+
+		const second = loadMode("nonexistent");
+		expect(second.observationTypes).not.toContain("temporary-test-type");
+	});
+
 	test("getAvailableModes() returns ['code', 'research']", () => {
 		const modes = getAvailableModes();
 

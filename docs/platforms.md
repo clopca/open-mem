@@ -21,7 +21,7 @@ open-mem registers these OpenCode hooks:
 
 ## MCP Server Mode
 
-open-mem includes a standalone MCP (Model Context Protocol) server that exposes all 9 memory tools to any MCP-compatible AI client.
+open-mem includes a standalone MCP (Model Context Protocol) server that exposes all memory tools to any MCP-compatible AI client.
 
 ### Running the Server
 
@@ -47,10 +47,10 @@ Add to your MCP client config:
 ### Protocol Details
 
 - **Transport**: stdin/stdout, JSON-RPC 2.0
-- **Tools exposed**: `memory.find`, `memory.create`, `memory.history`, `memory.get`, `memory.transfer.export`, `memory.transfer.import`, `memory.revise`, `memory.remove`, `memory.help`
+- **Tools exposed**: `mem-find`, `mem-create`, `mem-history`, `mem-get`, `mem-export`, `mem-import`, `mem-maintenance`, `mem-revise`, `mem-remove`, `mem-help`
 - **Lifecycle**: `initialize` → `notifications/initialized` → `tools/list` / `tools/call`
 - **Protocol version**: `2024-11-05` (negotiated during initialize)
-- **Compat mode**: `strict` (requires initialize before tool calls) or `legacy`
+- **Initialization requirement**: strict (tool calls are rejected until `initialize` + `notifications/initialized`)
 
 ## Claude Code Adapter
 

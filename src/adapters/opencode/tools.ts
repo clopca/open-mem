@@ -1,4 +1,10 @@
-import { fail, ok, toolSchemas } from "../../contracts/api";
+import {
+	fail,
+	getToolContractByName,
+	ok,
+	type ToolContractName,
+	toolSchemas,
+} from "../../contracts/api";
 import type { MemoryEngine } from "../../core/contracts";
 import type { SearchResult, ToolDefinition } from "../../types";
 
@@ -24,10 +30,17 @@ function mapSearchResults(results: SearchResult[], scope: "project" | "user" | "
 }
 
 export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDefinition> {
+	const descriptionOf = (toolName: ToolContractName): string => {
+		const contract = getToolContractByName(toolName);
+		if (!contract) {
+			throw new Error(`Missing tool contract metadata for ${toolName}`);
+		}
+		return contract.description;
+	};
+
 	return {
 		"mem-find": {
-			description:
-				"Search past memories — decisions, discoveries, gotchas, and session history. Use to recall context from previous sessions before starting work.",
+			description: descriptionOf("mem-find"),
 			args: toolSchemas.find.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -47,8 +60,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-history": {
-			description:
-				"Browse session timeline and summaries. Use to understand what happened in recent sessions or drill into a specific session.",
+			description: descriptionOf("mem-history"),
 			args: toolSchemas.history.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -67,8 +79,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-get": {
-			description:
-				"Fetch full memory details by ID. Use after mem-find or mem-history to get complete narratives, facts, and file lists.",
+			description: descriptionOf("mem-get"),
 			args: toolSchemas.get.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -81,8 +92,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-create": {
-			description:
-				"Save an important observation to memory. Use for decisions + rationale, non-obvious gotchas, user preferences, or cross-session plans that auto-capture wouldn't understand the significance of.",
+			description: descriptionOf("mem-create"),
 			args: toolSchemas.create.shape,
 			execute: async (rawArgs, context) => {
 				try {
@@ -96,8 +106,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-revise": {
-			description:
-				"Update an existing memory with a new revision. Use when a previous decision changed, a gotcha was resolved, or information became outdated.",
+			description: descriptionOf("mem-revise"),
 			args: toolSchemas.revise.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -111,8 +120,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-remove": {
-			description:
-				"Tombstone an obsolete or incorrect memory. Use to clean up memories that are no longer accurate or relevant.",
+			description: descriptionOf("mem-remove"),
 			args: toolSchemas.remove.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -126,8 +134,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-export": {
-			description:
-				"Export project memories as portable JSON for backup or transfer between machines.",
+			description: descriptionOf("mem-export"),
 			args: toolSchemas.transferExport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -140,7 +147,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-import": {
-			description: "Import memories from a JSON export. Skips duplicates by default.",
+			description: descriptionOf("mem-import"),
 			args: toolSchemas.transferImport.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -156,8 +163,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-maintenance": {
-			description:
-				"Run folder context maintenance — clean, rebuild, purge, or dry-run AGENTS.md files.",
+			description: descriptionOf("mem-maintenance"),
 			args: toolSchemas.maintenance.shape,
 			execute: async (rawArgs) => {
 				try {
@@ -178,8 +184,7 @@ export function createOpenCodeTools(engine: MemoryEngine): Record<string, ToolDe
 			},
 		},
 		"mem-help": {
-			description:
-				"Show detailed memory workflow guidance including when to save, what to save, and memory type reference.",
+			description: descriptionOf("mem-help"),
 			args: toolSchemas.help.shape,
 			execute: async () => toJson(ok({ guide: engine.guide() })),
 		},
