@@ -53,4 +53,18 @@ describe("walkFiles", () => {
 			join(root, "src", "b", "z.ts"),
 		]);
 	});
+
+	test("skips ignored directories", () => {
+		const root = mkTempDir();
+		mkdirSync(join(root, "src", "node_modules"), { recursive: true });
+		mkdirSync(join(root, "src", "app"), { recursive: true });
+		writeFileSync(join(root, "src", "node_modules", "ignored.ts"), "");
+		writeFileSync(join(root, "src", "app", "kept.ts"), "");
+
+		const result = walkFiles(join(root, "src"), {
+			extensions: [".ts"],
+			ignoredDirNames: ["node_modules"],
+		});
+		expect(result).toEqual([join(root, "src", "app", "kept.ts")]);
+	});
 });

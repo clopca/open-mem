@@ -273,9 +273,10 @@ export async function runPlatformWorker(platform: PlatformName): Promise<void> {
 							{ status: 400 },
 						);
 					}
+					const envelope = parseEnvelope(body);
 					try {
-						const response = await handleEnvelope(parseEnvelope(body));
-						if ((parseEnvelope(body).command ?? "event") === "shutdown") {
+						const response = await handleEnvelope(envelope);
+						if ((envelope.command ?? "event") === "shutdown") {
 							setTimeout(() => {
 								void shutdown();
 							}, 0);

@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 
 export interface FileWalkOptions {
 	extensions?: string[];
@@ -11,7 +11,6 @@ export function walkFiles(rootDir: string, options: FileWalkOptions = {}): strin
 
 	const { extensions, ignoredDirNames = [] } = options;
 	const extensionSet = extensions ? new Set(extensions) : null;
-	const extensionList = extensionSet ? [...extensionSet] : null;
 	const ignoredDirs = new Set(ignoredDirNames);
 	const files: string[] = [];
 
@@ -25,7 +24,7 @@ export function walkFiles(rootDir: string, options: FileWalkOptions = {}): strin
 				walk(fullPath);
 				continue;
 			}
-			if (!extensionList || extensionList.some((ext) => fullPath.endsWith(ext))) {
+			if (!extensionSet || extensionSet.has(extname(fullPath))) {
 				files.push(fullPath);
 			}
 		}

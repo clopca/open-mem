@@ -311,7 +311,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 		}
 
 		if (started) {
-			console.log(`[open-mem] Dashboard available at http://127.0.0.1:${port}`);
+			console.log(`[open-mem] Dashboard available at http://${dashboardHostname}:${port}`);
 		} else {
 			console.warn(
 				`[open-mem] Could not start dashboard — ports ${basePort}-${basePort + 9} all busy`,
