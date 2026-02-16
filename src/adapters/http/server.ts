@@ -68,40 +68,6 @@ function redactConfig(config: OpenMemConfig): Record<string, unknown> {
 	return result;
 }
 
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-
-function normalizeHostToken(value: string): string {
-	const token = value.trim().toLowerCase();
-	if (token.startsWith("[")) {
-		const end = token.indexOf("]");
-		return end > 0 ? token.slice(1, end) : token;
-	}
-	const colonCount = (token.match(/:/g) ?? []).length;
-	return colonCount <= 1 ? (token.split(":")[0] ?? token) : token;
-}
-
-function isLoopbackHost(value: string): boolean {
-	return LOOPBACK_HOSTS.has(normalizeHostToken(value));
-}
-
-function isLocalRequest(c: Context): boolean {
-	// Primary isolation is at the listener level (dashboard binds to 127.0.0.1).
-	// This is an additional guard for local-only operator routes.
-	const hostHeader = c.req.header("host");
-	if (!hostHeader) return false;
-	const [firstHost = ""] = hostHeader.split(",");
-	if (!isLoopbackHost(firstHost)) {
-		return false;
-	}
-	const forwardedFor = c.req.header("x-forwarded-for");
-	if (!forwardedFor) return true;
-	const forwardedChain = forwardedFor
-		.split(",")
-		.map((entry) => entry.trim())
-		.filter((entry) => entry.length > 0);
-	return forwardedChain.every(isLoopbackHost);
-}
-
 function buildRuntimeFallback(health: HealthStatus): RuntimeStatusSnapshot {
 	return {
 		status: health.status,
@@ -350,7 +316,6 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.get("/v1/queue", (c) => {
-		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
 		const health = memoryEngine.getHealth();
 		const runtime = runtimeStatusProvider?.() ?? buildRuntimeFallback(health);
 		return c.json(
@@ -364,7 +329,6 @@ export function createDashboardApp(deps: DashboardDeps): Hono {
 	});
 
 	app.post("/v1/queue/process", async (c) => {
-		if (!isLocalRequest(c)) return c.json(fail("LOCKED_BY_ENV", "Localhost access required"), 403);
 		const processed = await memoryEngine.processPending();
 		return c.json(ok({ processed }));
 	});

@@ -16,7 +16,7 @@ The dashboard starts on port `3737` by default. Override it with `OPEN_MEM_DASHB
 export OPEN_MEM_DASHBOARD_PORT=4000
 ```
 
-Once running, open `http://localhost:3737` in your browser. The dashboard binds to localhost only — no authentication is needed since it never leaves your machine.
+Once running, open `http://localhost:3737` in your browser. The dashboard binds to loopback only (`127.0.0.1`/`::1`/`localhost`) — no authentication is needed since it never leaves your machine. Host/forwarded headers are not used as an authorization boundary.
 
 ## Pages
 

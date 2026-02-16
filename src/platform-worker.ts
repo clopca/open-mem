@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
+import { assertLoopbackHostname } from "./adapters/http/loopback";
 import {
 	createClaudeCodeAdapter,
 	createCursorAdapter,
@@ -252,9 +253,11 @@ export async function runPlatformWorker(platform: PlatformName): Promise<void> {
 	};
 
 	if (args.httpPort) {
+		const workerHostname = "127.0.0.1";
+		assertLoopbackHostname(workerHostname, "Platform worker HTTP server");
 		Bun.serve({
 			port: args.httpPort,
-			hostname: "127.0.0.1",
+			hostname: workerHostname,
 			idleTimeout: 0,
 			fetch: async (req) => {
 				if (req.method === "GET" && new URL(req.url).pathname === "/v1/health") {

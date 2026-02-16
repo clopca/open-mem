@@ -307,7 +307,7 @@ Returns canonical tool workflow guidance and contract metadata.
 GET /v1/queue
 ```
 
-Operator endpoint for queue state. Localhost access only.
+Operator endpoint for queue state. Access is constrained by loopback listener binding (`127.0.0.1` / `::1` / `localhost`).
 
 ### Trigger Queue Processing
 
@@ -315,7 +315,9 @@ Operator endpoint for queue state. Localhost access only.
 POST /v1/queue/process
 ```
 
-Triggers one queue processing batch. Localhost access only.
+Triggers one queue processing batch. Access is constrained by loopback listener binding (`127.0.0.1` / `::1` / `localhost`).
+
+Security model: these operator routes do not trust request headers (such as `Host` or `X-Forwarded-For`) for authorization decisions.
 
 Response:
 

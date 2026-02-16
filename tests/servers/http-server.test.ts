@@ -287,36 +287,25 @@ describe("HTTP v1 contract", () => {
 		expect(payload.data.tools.some((tool) => tool.name === "mem-find")).toBe(true);
 	});
 
-	test("queue endpoints reject non-local host headers", async () => {
+	test("queue endpoints do not rely on host header values", async () => {
 		const queueRes = await app.request("/v1/queue", { headers: { host: "evil.example.com" } });
-		expect(queueRes.status).toBe(403);
+		expect(queueRes.status).toBe(200);
 
 		const processRes = await app.request("/v1/queue/process", {
 			method: "POST",
 			headers: { host: "evil.example.com" },
 		});
-		expect(processRes.status).toBe(403);
-	});
-
-	test("queue endpoints allow explicit localhost host headers", async () => {
-		const queueRes = await app.request("/v1/queue", { headers: { host: "localhost:8787" } });
-		expect(queueRes.status).toBe(200);
-
-		const processRes = await app.request("/v1/queue/process", {
-			method: "POST",
-			headers: { host: "127.0.0.1:8787" },
-		});
 		expect(processRes.status).toBe(200);
 	});
 
-	test("queue endpoints reject forwarded non-loopback addresses", async () => {
+	test("queue endpoints ignore forwarded headers for authorization", async () => {
 		const res = await app.request("/v1/queue", {
 			headers: {
 				host: "localhost:8787",
 				"x-forwarded-for": "127.0.0.1, 203.0.113.10",
 			},
 		});
-		expect(res.status).toBe(403);
+		expect(res.status).toBe(200);
 	});
 
 	test("GET /v1/metrics returns runtime metrics envelope", async () => {
