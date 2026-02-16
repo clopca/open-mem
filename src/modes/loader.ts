@@ -1,13 +1,14 @@
 import { join } from "node:path";
 import type { ModeConfig } from "../types";
-import { type ModeConfigSource, ModeResolverV2 } from "./resolver";
+import { ModeResolverV2 } from "./resolver";
 
 const MODES_DIR = join(import.meta.dir, ".");
 const resolver = new ModeResolverV2(MODES_DIR);
 
-let modeCache: Map<string, ModeConfigSource> | null = null;
+type LoadedModeMap = ReturnType<ModeResolverV2["loadAllRaw"]>;
+let modeCache: LoadedModeMap | null = null;
 
-function loadAllModes(): Map<string, ModeConfigSource> {
+function loadAllModes(): LoadedModeMap {
 	if (modeCache) return modeCache;
 
 	modeCache = resolver.loadAllRaw();
