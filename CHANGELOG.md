@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-03-03
+
+### Changed
+- `AGENTS.md` folder context mode now defaults to `single`, generating one root context file instead of creating `AGENTS.md` files across touched subfolders.
+- Documentation updated to reflect `single` as the default `OPEN_MEM_FOLDER_CONTEXT_MODE` / `folderContextMode`.
+
 ## [0.14.0] - 2026-02-23
 
 ### Added

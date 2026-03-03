@@ -118,8 +118,8 @@ The context injector includes a "Memory Economics" footer showing how much conte
 On session end, open-mem auto-generates `AGENTS.md` files in project folders that were touched during the session. These files contain a managed section (between `<!-- open-mem-context -->` tags) with recent activity, key concepts, and decisions.
 
 **Modes:**
-- **Dispersed** (default): Creates `AGENTS.md` in each touched folder
-- **Single**: Creates one root file with all folder activity grouped by section headers
+- **Single** (default): Creates one root file with all folder activity grouped by section headers
+- **Dispersed**: Creates `AGENTS.md` in each touched folder
 
 User content outside the managed tags is preserved. Disable with `OPEN_MEM_FOLDER_CONTEXT=false`.
 

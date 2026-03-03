@@ -57,7 +57,7 @@ const DEFAULT_CONFIG: OpenMemConfig = {
 	// Folder context
 	folderContextEnabled: true,
 	folderContextMaxDepth: 5,
-	folderContextMode: "dispersed",
+	folderContextMode: "single",
 	folderContextFilename: "AGENTS.md",
 
 	// Daemon

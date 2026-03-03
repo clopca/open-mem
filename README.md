@@ -76,7 +76,7 @@ Also supports Anthropic, AWS Bedrock, OpenAI, and OpenRouter. Auto-detects from 
 
 **9 memory tools** — `memory.find`, `memory.create`, `memory.history`, `memory.get`, `memory.revise`, `memory.remove`, `memory.transfer.export`, `memory.transfer.import`, `memory.help`. See [Tools reference](docs/tools.md).
 
-**AGENTS.md generation** — auto-generates folder-level context files on session end so the agent has project awareness even without the plugin loaded.
+**AGENTS.md generation** — auto-generates a root `AGENTS.md` context file by default on session end (or per-folder files in `dispersed` mode) so the agent has project awareness even without the plugin loaded.
 
 **Web dashboard** — timeline, sessions, search, stats, operations, and settings. Real-time updates via SSE. Config control plane with live preview and rollback.
 

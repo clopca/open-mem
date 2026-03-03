@@ -42,6 +42,7 @@ describe("Configuration", () => {
 		expect(config.retentionDays).toBe(90);
 		expect(config.maxDatabaseSizeMb).toBe(500);
 		expect(config.logLevel).toBe("warn");
+		expect(config.folderContextMode).toBe("single");
 	});
 
 	// -------------------------------------------------------------------------

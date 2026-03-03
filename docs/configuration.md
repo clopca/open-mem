@@ -57,7 +57,7 @@ Settings are resolved in this order (later sources override earlier ones):
 |---|---|---|
 | `OPEN_MEM_FOLDER_CONTEXT` | `true` | Set to `false` to disable AGENTS.md generation |
 | `OPEN_MEM_FOLDER_CONTEXT_MAX_DEPTH` | `5` | Max folder depth for generation |
-| `OPEN_MEM_FOLDER_CONTEXT_MODE` | `dispersed` | Mode: `dispersed` (per-folder) or `single` (one root file) |
+| `OPEN_MEM_FOLDER_CONTEXT_MODE` | `single` | Mode: `single` (one root file) or `dispersed` (per-folder) |
 | `OPEN_MEM_FOLDER_CONTEXT_FILENAME` | `AGENTS.md` | Filename (e.g., `CLAUDE.md` for Claude Code) |
 
 ### Platform Settings
@@ -155,7 +155,7 @@ For testing or custom integrations, these are the full config options:
 | `logLevel` | string | `warn` | Log level |
 | `folderContextEnabled` | boolean | `true` | Auto-generate AGENTS.md |
 | `folderContextMaxDepth` | number | `5` | Max folder depth |
-| `folderContextMode` | string | `dispersed` | Mode: `dispersed` or `single` |
+| `folderContextMode` | string | `single` | Mode: `single` or `dispersed` |
 | `folderContextFilename` | string | `AGENTS.md` | Filename for context files |
 | `fallbackProviders` | string[] | — | Fallback provider chain |
 | `dashboardEnabled` | boolean | `false` | Enable web dashboard |
