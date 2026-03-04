@@ -54,7 +54,7 @@
 		"bench:search": "bun run scripts/benchmark-search.ts",
 		"bench:platform": "bun run scripts/benchmark-platform-normalization.ts",
 		"docs:dev": "cd docs && npx vitepress dev",
-		"docs:build": "cd docs && npx vitepress build",
+		"docs:build": "cd docs && bun install --frozen-lockfile && bun run build",
 		"lint": "bun x biome check src/",
 		"clean": "rm -rf dist",
 		"prepare": "test -d src && bun run build || true",
