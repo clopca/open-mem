@@ -95,8 +95,7 @@ export function getPidPath(dbPath: string): string {
 export function getPlatformWorkerPidPath(dbPath: string, kind: PlatformWorkerProcessKind): string {
 	const lastSlash = dbPath.lastIndexOf("/");
 	const pidDir = lastSlash >= 0 ? dbPath.substring(0, lastSlash) : ".";
-	const suffix = kind === "claude" ? "claude" : "cursor";
-	return `${pidDir}/platform-worker-${suffix}.pid`;
+	return `${pidDir}/platform-worker-${kind}.pid`;
 }
 
 /** Derive known process PID files associated with the database path. */

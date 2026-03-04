@@ -201,6 +201,8 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		daemonManager = new DaemonManager({
 			dbPath: config.dbPath,
 			projectPath,
+			// Platform workers observe daemon status but never start one.
+			// daemonScript is intentionally empty — start() must not be called.
 			daemonScript: "",
 		});
 		const status = daemonManager.getStatus();
@@ -216,6 +218,7 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 			});
 			daemonLivenessTimer = setInterval(() => {
 				if (!daemonManager || !daemonManager.getStatus().running) {
+					console.warn("[open-mem] Daemon died, falling back to in-process processing");
 					fallbackToInProcessLocal();
 				}
 			}, 30_000);

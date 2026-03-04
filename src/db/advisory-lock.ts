@@ -1,5 +1,6 @@
 import { closeSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
+import { isProcessAlive } from "../daemon/pid";
 
 export type ProcessRole =
 	| "plugin"
@@ -109,6 +110,38 @@ function readOwnerMetadata(lockPath: string): LockOwnerMetadata | null {
 	}
 }
 
+
+function sameOwner(a: LockOwnerMetadata | null, b: LockOwnerMetadata | null): boolean {
+	if (!a || !b) return false;
+	return (
+		a.pid === b.pid &&
+		a.role === b.role &&
+		a.hostname === b.hostname &&
+		a.acquiredAt === b.acquiredAt &&
+		a.ownerId === b.ownerId
+	);
+}
+
+function tryReapStaleLock(lockPath: string, owner: LockOwnerMetadata | null): boolean {
+	if (!owner) return false;
+	if (owner.hostname !== hostname()) return false;
+	if (isProcessAlive(owner.pid)) return false;
+
+	// Re-read owner metadata before deletion to avoid deleting a lock that was
+	// replaced between reads.
+	const currentOwner = readOwnerMetadata(lockPath);
+	if (!sameOwner(currentOwner, owner)) return false;
+
+	try {
+		unlinkSync(lockPath);
+		return true;
+	} catch (error) {
+		const code = (error as { code?: string }).code;
+		if (code === "ENOENT") return false;
+		throw error;
+	}
+}
+
 function releaseLockPath(lockPath: string, fd: number): void {
 	closeSync(fd);
 	try {
@@ -203,6 +236,9 @@ export function acquireWriteLock(
 			}
 
 			observedOwner = readOwnerMetadata(lockPath);
+			if (tryReapStaleLock(lockPath, observedOwner)) {
+				continue;
+			}
 			const elapsedMs = now() - startedAt;
 			if (elapsedMs >= timeoutMs) {
 				throw new AdvisoryLockTimeoutError({
@@ -229,19 +265,4 @@ export function withWriteLock<T>(
 	} finally {
 		lock.release();
 	}
-}
-
-export function acquireDatabaseWriteLock(
-	dbPath: string,
-	options: AcquireWriteLockOptions,
-): WriteLockHandle {
-	return acquireWriteLock(getAdvisoryWriteLockPath(dbPath), options);
-}
-
-export function withDatabaseWriteLock<T>(
-	dbPath: string,
-	options: AcquireWriteLockOptions,
-	operation: () => T,
-): T {
-	return withWriteLock(getAdvisoryWriteLockPath(dbPath), options, operation);
 }

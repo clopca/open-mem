@@ -368,7 +368,7 @@ describe("Database Setup", () => {
 		db.exec("CREATE TABLE txn_contention (id INTEGER PRIMARY KEY, value TEXT)");
 
 		const holdMs = 250;
-		const databaseModulePath = resolve("/Users/clopca/dev/github/open-mem/src/db/database.ts");
+		const databaseModulePath = resolve(import.meta.dir, "../../src/db/database.ts");
 		const script = `
 import { createDatabase } from ${JSON.stringify(databaseModulePath)};
 import { writeFileSync } from "node:fs";

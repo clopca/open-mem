@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { hostname } from "node:os";
 import {
 	AdvisoryLockTimeoutError,
 	acquireWriteLock,
@@ -33,9 +34,7 @@ describe("Advisory lock", () => {
 			retryIntervalMs: 10,
 		});
 
-		const advisoryLockModulePath = resolve(
-			"/Users/clopca/dev/github/open-mem/src/db/advisory-lock.ts",
-		);
+		const advisoryLockModulePath = resolve(import.meta.dir, "../../src/db/advisory-lock.ts");
 		const script = `
 import { acquireWriteLock } from ${JSON.stringify(advisoryLockModulePath)};
 import { writeFileSync } from "node:fs";
@@ -86,6 +85,34 @@ lock.release();
 		const reacquired = acquireWriteLock(lockPath, { role: "plugin" });
 		expect(reacquired.reentrant).toBe(false);
 		reacquired.release();
+		expect(existsSync(lockPath)).toBe(false);
+	});
+
+
+
+	test("test_lock_reaps_stale_owner", () => {
+		const lockPath = `/tmp/open-mem-test-${randomUUID()}.write.lock`;
+		cleanupPaths.push(lockPath);
+
+		writeFileSync(
+			lockPath,
+			JSON.stringify({
+				pid: 999_999,
+				role: "daemon" as ProcessRole,
+				hostname: hostname(),
+				acquiredAt: "2026-01-01T00:00:00.000Z",
+			}),
+			"utf8",
+		);
+
+		const lock = acquireWriteLock(lockPath, {
+			role: "plugin",
+			timeoutMs: 250,
+			retryIntervalMs: 5,
+		});
+
+		expect(lock.reentrant).toBe(false);
+		lock.release();
 		expect(existsSync(lockPath)).toBe(false);
 	});
 

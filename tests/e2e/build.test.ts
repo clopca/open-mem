@@ -74,6 +74,6 @@ describe("Build verification", () => {
 		]);
 
 		expect(exitCode).toBe(0);
-		expect(`${stdout}\n${stderr}`).not.toContain("error");
+		expect(`${stdout}\n${stderr}`.toLowerCase()).not.toContain("error");
 	});
 });

@@ -150,6 +150,17 @@ describe("QueueProcessor dual-mode", () => {
 		expect(onEnqueue).toHaveBeenCalledTimes(1);
 	});
 
+	test("in-process mode does not invoke onEnqueue callback", () => {
+		const processor = buildProcessor();
+		const onEnqueue = mock(() => {});
+		sessionRepo.create("sess-1", "/tmp/proj");
+		processor.setMode("in-process");
+		processor.setOnEnqueue(onEnqueue);
+		processor.enqueue("sess-1", "Read", "output", "call-1");
+		expect(onEnqueue).toHaveBeenCalledTimes(0);
+	});
+
+
 	// -------------------------------------------------------------------------
 	// enqueue-only mode: summarizeSession() still works
 	// -------------------------------------------------------------------------

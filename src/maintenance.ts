@@ -83,16 +83,22 @@ async function main() {
 		rmSync(config.dbPath, { force: true });
 		rmSync(`${config.dbPath}-wal`, { force: true });
 		rmSync(`${config.dbPath}-shm`, { force: true });
-		console.log(`Removed database files for ${config.dbPath}`);
+		rmSync(`${config.dbPath}.write.lock`, { force: true });
+		console.log(
+			`Removed database files for ${config.dbPath} (${config.dbPath}, ${config.dbPath}-wal, ${config.dbPath}-shm, ${config.dbPath}.write.lock)`,
+		);
 		return;
 	}
 
 	if (command === "sqlite" && (sub === "checkpoint" || sub === "integrity")) {
-		const config = resolveConfig(projectPath);
-		Database.enableExtensionSupport();
-		const db = createDatabase(config.dbPath, { processRole: "maintenance" });
+		let db: Database | null = null;
+		let config: ReturnType<typeof resolveConfig> | null = null;
 
 		try {
+			config = resolveConfig(projectPath);
+			Database.enableExtensionSupport();
+			db = createDatabase(config.dbPath, { processRole: "maintenance" });
+
 			if (sub === "checkpoint") {
 				const rawMode = typeof values.mode === "string" ? values.mode.toUpperCase() : "PASSIVE";
 				if (!CHECKPOINT_MODES.has(rawMode as WalCheckpointMode)) {
@@ -172,7 +178,7 @@ async function main() {
 			});
 			return;
 		} finally {
-			db.close();
+			db?.close();
 		}
 	}
 
@@ -189,28 +195,31 @@ async function main() {
 
 		Database.enableExtensionSupport();
 		const db = createDatabase(config.dbPath, { processRole: "maintenance" });
-		initializeSchema(db, {
-			hasVectorExtension: db.hasVectorExtension,
-			embeddingDimension: config.embeddingDimension,
-		});
-		const sessions = new SessionRepository(db);
-		const observations = new ObservationRepository(db);
-		const result = await rebuildFolderContext(
-			projectPath,
-			sessions,
-			observations,
-			{
-				maxDepth: config.folderContextMaxDepth,
-				mode: config.folderContextMode,
-				filename: config.folderContextFilename,
-			},
-			dryRun,
-		);
-		db.close();
-		console.log(
-			`${dryRun ? "[dry-run] " : ""}Rebuilt context from ${result.observations} observations, touched ${result.filesTouched} files.`,
-		);
-		return;
+		try {
+			initializeSchema(db, {
+				hasVectorExtension: db.hasVectorExtension,
+				embeddingDimension: config.embeddingDimension,
+			});
+			const sessions = new SessionRepository(db);
+			const observations = new ObservationRepository(db);
+			const result = await rebuildFolderContext(
+				projectPath,
+				sessions,
+				observations,
+				{
+					maxDepth: config.folderContextMaxDepth,
+					mode: config.folderContextMode,
+					filename: config.folderContextFilename,
+				},
+				dryRun,
+			);
+			console.log(
+				`${dryRun ? "[dry-run] " : ""}Rebuilt context from ${result.observations} observations, touched ${result.filesTouched} files.`,
+			);
+			return;
+		} finally {
+			db.close();
+		}
 	}
 
 	printUsage();

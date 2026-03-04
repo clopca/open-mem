@@ -69,7 +69,7 @@ function hasMutatingIntent(sql: string): boolean {
 	if (!normalized) return false;
 
 	const upper = normalized.toUpperCase();
-	if (upper.includes("RETURNING")) {
+	if (/\bRETURNING\b/.test(upper)) {
 		return true;
 	}
 
@@ -214,6 +214,12 @@ export class Database {
 
 	private throwConfigureFailure(stage: ConfigureStage, error: unknown): never {
 		const details = getSqliteErrorDetails(error);
+		try {
+			this.db.close();
+		} catch {
+			// Preserve original configure failure details
+		}
+
 		console.error("[open-mem] Database configure failed (non-destructive fail-safe)", {
 			stage,
 			dbPath: this.dbPath,
@@ -396,24 +402,22 @@ export class Database {
 	/** Wrap a function in a SQLite transaction — auto-commits or rolls back */
 	public transaction<T>(fn: () => T): T {
 		return this.withAdvisoryWriteLock(this.processRole, () => {
-			return this.withRetry("transaction", () => {
-				const wrapped = this.db.transaction(fn) as (() => T) & {
-					immediate?: () => T;
-				};
-				if (typeof wrapped.immediate === "function") {
-					return wrapped.immediate();
-				}
+			const wrapped = this.db.transaction(fn) as (() => T) & {
+				immediate?: () => T;
+			};
+			if (typeof wrapped.immediate === "function") {
+				return wrapped.immediate();
+			}
 
-				this.db.exec("BEGIN IMMEDIATE");
-				try {
-					const result = fn();
-					this.db.exec("COMMIT");
-					return result;
-				} catch (error) {
-					this.db.exec("ROLLBACK");
-					throw error;
-				}
-			});
+			this.db.exec("BEGIN IMMEDIATE");
+			try {
+				const result = fn();
+				this.db.exec("COMMIT");
+				return result;
+			} catch (error) {
+				this.db.exec("ROLLBACK");
+				throw error;
+			}
 		});
 	}
 
