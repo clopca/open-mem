@@ -580,12 +580,32 @@ export class Database {
 				this.db.exec("COMMIT");
 				return result;
 			} catch (error) {
+				const originalError = error;
 				try {
 					this.db.exec("ROLLBACK");
-				} catch {
-					// Preserve original transactional failure; rollback is best-effort.
+				} catch (rollbackError) {
+					if (originalError instanceof Error) {
+						const originalWithCause = originalError as Error & {
+							cause?: unknown;
+							suppressed?: unknown[];
+						};
+						if (originalWithCause.cause === undefined) {
+							originalWithCause.cause = rollbackError;
+						} else {
+							originalWithCause.suppressed = [
+								...(originalWithCause.suppressed ?? []),
+								rollbackError,
+							];
+						}
+					}
+
+					console.warn("[open-mem] Transaction rollback failed after transaction error", {
+						dbPath: this.dbPath,
+						originalError: getSqliteErrorDetails(originalError),
+						rollbackError: getSqliteErrorDetails(rollbackError),
+					});
 				}
-				throw error;
+				throw originalError;
 			} finally {
 				this.transactionDepth -= 1;
 			}

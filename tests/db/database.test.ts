@@ -397,7 +397,7 @@ describe("Database Setup", () => {
 		db.close();
 	});
 
-	test("mutating PRAGMA calls without parentheses take write lock", () => {
+	test("mutating PRAGMA calls with/without parentheses take write lock", () => {
 		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
 		cleanupPaths.push(dbPath);
 		const db = createDatabase(dbPath);
@@ -415,7 +415,8 @@ describe("Database Setup", () => {
 
 		db.exec("PRAGMA optimize");
 		db.exec("PRAGMA shrink_memory");
-		db.exec("PRAGMA incremental_vacuum");
+		db.exec("PRAGMA wal_checkpoint(PASSIVE)");
+		db.get("PRAGMA foreign_keys");
 
 		expect(lockCalls).toBe(3);
 		db.close();
@@ -600,6 +601,7 @@ describe("Database Setup", () => {
 		const originalTransaction = raw.transaction;
 		const originalExec = raw.exec.bind(raw);
 		let rollbackAttempts = 0;
+		const rollbackError = new Error("simulated rollback failure");
 
 		raw.transaction = <T>(fn: () => T): WrappedTransaction<T> => {
 			return (() => fn()) as WrappedTransaction<T>;
@@ -608,12 +610,17 @@ describe("Database Setup", () => {
 		raw.exec = (sql: string) => {
 			if (sql === "ROLLBACK") {
 				rollbackAttempts += 1;
-				throw new Error("simulated rollback failure");
+				throw rollbackError;
 			}
 			return originalExec(sql);
 		};
 
 		const fnError = new Error("simulated function failure");
+		const originalWarn = console.warn;
+		const warnings: unknown[][] = [];
+		console.warn = (...args: unknown[]) => {
+			warnings.push(args);
+		};
 
 		try {
 			try {
@@ -623,10 +630,17 @@ describe("Database Setup", () => {
 				expect.unreachable("expected transaction to throw");
 			} catch (error) {
 				expect(error).toBe(fnError);
+				expect((error as Error & { cause?: unknown }).cause).toBe(rollbackError);
 			}
 
 			expect(rollbackAttempts).toBe(1);
+			expect(
+				warnings.some(
+					(entry) => entry[0] === "[open-mem] Transaction rollback failed after transaction error",
+				),
+			).toBe(true);
 		} finally {
+			console.warn = originalWarn;
 			raw.transaction = originalTransaction;
 			raw.exec = originalExec;
 			db.close();
