@@ -397,6 +397,30 @@ describe("Database Setup", () => {
 		db.close();
 	});
 
+	test("mutating PRAGMA calls without parentheses take write lock", () => {
+		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
+		cleanupPaths.push(dbPath);
+		const db = createDatabase(dbPath);
+
+		let lockCalls = 0;
+		const originalWithAdvisoryWriteLock = db.withAdvisoryWriteLock.bind(db);
+		(
+			db as unknown as {
+				withAdvisoryWriteLock: Database["withAdvisoryWriteLock"];
+			}
+		).withAdvisoryWriteLock = (role, fn, options) => {
+			lockCalls += 1;
+			return originalWithAdvisoryWriteLock(role, fn, options);
+		};
+
+		db.exec("PRAGMA optimize");
+		db.exec("PRAGMA shrink_memory");
+		db.exec("PRAGMA incremental_vacuum");
+
+		expect(lockCalls).toBe(3);
+		db.close();
+	});
+
 	test("multi-statement exec locks when any statement mutates", () => {
 		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
 		cleanupPaths.push(dbPath);
@@ -557,6 +581,54 @@ describe("Database Setup", () => {
 			expect(rows.map((row) => row.value)).toEqual(["outer", "inner"]);
 		} finally {
 			raw.transaction = originalTransaction;
+			db.close();
+		}
+	});
+
+	test("transaction fallback preserves original function error when rollback fails", () => {
+		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
+		cleanupPaths.push(dbPath);
+		const db = createDatabase(dbPath);
+
+		type WrappedTransaction<T> = (() => T) & { immediate?: () => T };
+		type RawTransactionDatabase = {
+			transaction: <T>(fn: () => T) => WrappedTransaction<T>;
+			exec: (sql: string) => unknown;
+		};
+
+		const raw = db.raw as unknown as RawTransactionDatabase;
+		const originalTransaction = raw.transaction;
+		const originalExec = raw.exec.bind(raw);
+		let rollbackAttempts = 0;
+
+		raw.transaction = <T>(fn: () => T): WrappedTransaction<T> => {
+			return (() => fn()) as WrappedTransaction<T>;
+		};
+
+		raw.exec = (sql: string) => {
+			if (sql === "ROLLBACK") {
+				rollbackAttempts += 1;
+				throw new Error("simulated rollback failure");
+			}
+			return originalExec(sql);
+		};
+
+		const fnError = new Error("simulated function failure");
+
+		try {
+			try {
+				db.transaction(() => {
+					throw fnError;
+				});
+				expect.unreachable("expected transaction to throw");
+			} catch (error) {
+				expect(error).toBe(fnError);
+			}
+
+			expect(rollbackAttempts).toBe(1);
+		} finally {
+			raw.transaction = originalTransaction;
+			raw.exec = originalExec;
 			db.close();
 		}
 	});

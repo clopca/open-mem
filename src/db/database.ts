@@ -204,11 +204,7 @@ function hasMutatingStatementIntent(sql: string): boolean {
 			return false;
 		}
 
-		if (/^PRAGMA\b[\s\S]*\(/.test(upper)) {
-			return MUTATING_PRAGMA_CALLS.has(pragmaName);
-		}
-
-		return false;
+		return MUTATING_PRAGMA_CALLS.has(pragmaName);
 	}
 
 	const leadingToken = /^[A-Z]+/.exec(upper)?.[0];
@@ -584,7 +580,11 @@ export class Database {
 				this.db.exec("COMMIT");
 				return result;
 			} catch (error) {
-				this.db.exec("ROLLBACK");
+				try {
+					this.db.exec("ROLLBACK");
+				} catch {
+					// Preserve original transactional failure; rollback is best-effort.
+				}
 				throw error;
 			} finally {
 				this.transactionDepth -= 1;
