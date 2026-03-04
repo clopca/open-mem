@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonManager, getMaintenancePreflightStatus } from "../../src/daemon/manager";
@@ -445,6 +445,42 @@ describe("platform workers", () => {
 
 	test("cursor worker creates and removes role-specific PID file", async () => {
 		await assertWorkerPidLifecycle("cursor");
+	});
+
+	test("worker shutdown preserves pid file ownership when pid changes", async () => {
+		const project = createTempProject();
+		const dbPath = join(project, ".open-mem", "memory.db");
+		const pidPath = getPlatformWorkerPidPath(dbPath, "claude");
+
+		const proc = Bun.spawn([process.execPath, "run", "src/claude-code.ts", "--project", project], {
+			cwd: join(import.meta.dir, "../.."),
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "pipe",
+			env: {
+				...process.env,
+				OPEN_MEM_COMPRESSION: "false",
+				OPEN_MEM_PLATFORM_CLAUDE_CODE: "true",
+				OPEN_MEM_PLATFORM_CURSOR: "true",
+			},
+		});
+		tempPids.push(proc.pid);
+
+		await waitForFile(pidPath, 2000);
+		const foreign = await createSignalTrapProcess(project);
+		writeFileSync(pidPath, String(foreign.pid), "utf-8");
+
+		proc.stdin.write(`${JSON.stringify({ command: "shutdown" })}\n`);
+		proc.stdin.end();
+
+		const code = await proc.exited;
+		if (code !== 0) {
+			const stderr = await new Response(proc.stderr).text();
+			throw new Error(`worker failed (claude-code): ${stderr}`);
+		}
+
+		expect(existsSync(pidPath)).toBe(true);
+		expect(readFileSync(pidPath, "utf-8").trim()).toBe(String(foreign.pid));
 	});
 
 	test("stale worker pid is cleaned by maintenance preflight liveness checks", () => {

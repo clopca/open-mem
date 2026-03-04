@@ -156,6 +156,7 @@ export class Database {
 	private dbPath: string;
 	private advisoryWriteLockPath: string;
 	private processRole: ProcessRole;
+	private transactionDepth = 0;
 	private _hasVectorExtension = false;
 
 	static enableExtensionSupport(): boolean {
@@ -317,13 +318,14 @@ export class Database {
 	 * up to MAX_RETRIES times; all other errors propagate immediately.
 	 */
 	private withRetry<T>(operationName: string, operation: () => T): T {
+		const maxRetries = this.transactionDepth > 0 ? 0 : MAX_RETRIES;
 		let lastError: unknown;
-		for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			try {
 				return operation();
 			} catch (err) {
 				lastError = err;
-				if (!isRetryable(err) || attempt === MAX_RETRIES) {
+				if (!isRetryable(err) || attempt === maxRetries) {
 					throw err;
 				}
 				// Synchronous busy-wait (Bun SQLite is synchronous, so async sleep
@@ -334,7 +336,7 @@ export class Database {
 				const details = getSqliteErrorDetails(err);
 				console.warn("[open-mem] Retrying after transient SQLite error", {
 					attempt: attempt + 1,
-					maxRetries: MAX_RETRIES,
+					maxRetries,
 					operation: operationName,
 					role: this.processRole,
 					dbPath: this.dbPath,
@@ -406,10 +408,16 @@ export class Database {
 				immediate?: () => T;
 			};
 			if (typeof wrapped.immediate === "function") {
-				return wrapped.immediate();
+				this.transactionDepth += 1;
+				try {
+					return wrapped.immediate();
+				} finally {
+					this.transactionDepth -= 1;
+				}
 			}
 
 			this.db.exec("BEGIN IMMEDIATE");
+			this.transactionDepth += 1;
 			try {
 				const result = fn();
 				this.db.exec("COMMIT");
@@ -417,6 +425,8 @@ export class Database {
 			} catch (error) {
 				this.db.exec("ROLLBACK");
 				throw error;
+			} finally {
+				this.transactionDepth -= 1;
 			}
 		});
 	}

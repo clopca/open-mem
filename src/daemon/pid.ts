@@ -82,6 +82,24 @@ export function removePid(pidPath: string): void {
 	}
 }
 
+/**
+ * Remove a PID file only when it still belongs to the expected PID.
+ * Returns true only when a matching PID file was removed.
+ */
+export function removePidIfMatches(pidPath: string, expectedPid: number): boolean {
+	const currentPid = readPid(pidPath);
+	if (currentPid === null || currentPid !== expectedPid) {
+		return false;
+	}
+
+	try {
+		unlinkSync(pidPath);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /** Derive the PID file path from the database path. */
 export function getPidPath(dbPath: string): string {
 	const lastSlash = dbPath.lastIndexOf("/");

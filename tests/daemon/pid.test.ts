@@ -11,6 +11,7 @@ import {
 	isProcessAlive,
 	readPid,
 	removePid,
+	removePidIfMatches,
 	writePid,
 } from "../../src/daemon/pid";
 
@@ -118,6 +119,28 @@ describe("PID File Manager", () => {
 		const pidPath = `/tmp/open-mem-test-${randomUUID()}.pid`;
 
 		expect(() => removePid(pidPath)).not.toThrow();
+	});
+
+	test("removePidIfMatches removes file when PID matches", () => {
+		const pidPath = `/tmp/open-mem-test-${randomUUID()}.pid`;
+		writeFileSync(pidPath, String(process.pid), "utf-8");
+		expect(existsSync(pidPath)).toBe(true);
+
+		const removed = removePidIfMatches(pidPath, process.pid);
+
+		expect(removed).toBe(true);
+		expect(existsSync(pidPath)).toBe(false);
+	});
+
+	test("removePidIfMatches keeps file when PID does not match", () => {
+		const pidPath = `/tmp/open-mem-test-${randomUUID()}.pid`;
+		writeFileSync(pidPath, "12345", "utf-8");
+		expect(existsSync(pidPath)).toBe(true);
+
+		const removed = removePidIfMatches(pidPath, process.pid);
+
+		expect(removed).toBe(false);
+		expect(existsSync(pidPath)).toBe(true);
 	});
 
 	// -------------------------------------------------------------------------

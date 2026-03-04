@@ -1,4 +1,4 @@
-import { closeSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, fsyncSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { isProcessAlive } from "../daemon/pid";
 
@@ -110,7 +110,6 @@ function readOwnerMetadata(lockPath: string): LockOwnerMetadata | null {
 	}
 }
 
-
 function sameOwner(a: LockOwnerMetadata | null, b: LockOwnerMetadata | null): boolean {
 	if (!a || !b) return false;
 	return (
@@ -204,7 +203,8 @@ export function acquireWriteLock(
 		try {
 			const fd = openSync(lockPath, "wx");
 			try {
-				writeFileSync(lockPath, JSON.stringify(owner), "utf8");
+				writeFileSync(fd, JSON.stringify(owner), "utf8");
+				fsyncSync(fd);
 			} catch (writeError) {
 				releaseLockPath(lockPath, fd);
 				throw writeError;

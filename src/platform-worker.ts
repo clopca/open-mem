@@ -14,7 +14,7 @@ import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
 import { DaemonManager } from "./daemon/manager";
-import { getPlatformWorkerPidPath, removePid, writePid } from "./daemon/pid";
+import { getPlatformWorkerPidPath, removePidIfMatches, writePid } from "./daemon/pid";
 import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
@@ -187,48 +187,6 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		entityRepo,
 	);
 	const queueRuntime = createQueueRuntime(queue);
-
-	let daemonManager: DaemonManager | null = null;
-	let daemonLivenessTimer: ReturnType<typeof setInterval> | null = null;
-	const fallbackToInProcessLocal = (): void => {
-		queueRuntime.setInProcess();
-		if (daemonLivenessTimer) {
-			clearInterval(daemonLivenessTimer);
-			daemonLivenessTimer = null;
-		}
-	};
-	if (config.daemonEnabled) {
-		daemonManager = new DaemonManager({
-			dbPath: config.dbPath,
-			projectPath,
-			// Platform workers observe daemon status but never start one.
-			// daemonScript is intentionally empty — start() must not be called.
-			daemonScript: "",
-		});
-		const status = daemonManager.getStatus();
-		if (status.running) {
-			queueRuntime.setEnqueueOnly(() => {
-				const result = daemonManager?.signal("PROCESS_NOW");
-				if (!result?.ok) {
-					console.warn(
-						`[open-mem] Daemon signal failed (${result?.state ?? "no-daemon"}), falling back to in-process processing`,
-					);
-					fallbackToInProcessLocal();
-				}
-			});
-			daemonLivenessTimer = setInterval(() => {
-				if (!daemonManager || !daemonManager.getStatus().running) {
-					console.warn("[open-mem] Daemon died, falling back to in-process processing");
-					fallbackToInProcessLocal();
-				}
-			}, 30_000);
-		} else {
-			queueRuntime.setInProcess();
-		}
-	} else {
-		queueRuntime.setInProcess();
-	}
-
 	const adapter = platform === "claude-code" ? createClaudeCodeAdapter() : createCursorAdapter();
 	const runtime = new PlatformIngestionRuntime({
 		adapter,
@@ -239,18 +197,53 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		projectPath,
 		config,
 	});
-	return {
+
+	const state: WorkerState = {
 		db,
 		queue,
 		queueRuntime,
 		runtime,
 		platform,
 		projectPath,
-		daemonManager,
-		daemonLivenessTimer,
+		daemonManager: null,
+		daemonLivenessTimer: null,
 		daemonConfigured: config.daemonEnabled,
 		workerPidPath,
 	};
+
+	if (config.daemonEnabled) {
+		state.daemonManager = new DaemonManager({
+			dbPath: config.dbPath,
+			projectPath,
+			// Platform workers observe daemon status but never start one.
+			// daemonScript is intentionally empty — start() must not be called.
+			daemonScript: "",
+		});
+		const status = state.daemonManager.getStatus();
+		if (status.running) {
+			queueRuntime.setEnqueueOnly(() => {
+				const result = state.daemonManager?.signal("PROCESS_NOW");
+				if (!result?.ok) {
+					console.warn(
+						`[open-mem] Daemon signal failed (${result?.state ?? "no-daemon"}), falling back to in-process processing`,
+					);
+					fallbackToInProcess(state);
+				}
+			});
+			state.daemonLivenessTimer = setInterval(() => {
+				if (!state.daemonManager || !state.daemonManager.getStatus().running) {
+					console.warn("[open-mem] Daemon died, falling back to in-process processing");
+					fallbackToInProcess(state);
+				}
+			}, 30_000);
+		} else {
+			queueRuntime.setInProcess();
+		}
+	} else {
+		queueRuntime.setInProcess();
+	}
+
+	return state;
 }
 
 function healthResponse(state: WorkerState, id?: string | number): BridgeResponse {
@@ -309,7 +302,7 @@ export async function runPlatformWorker(platform: PlatformName): Promise<void> {
 
 	let shuttingDown = false;
 	const cleanupPid = (): void => {
-		removePid(state.workerPidPath);
+		removePidIfMatches(state.workerPidPath, process.pid);
 	};
 	const shutdown = async () => {
 		if (shuttingDown) return;

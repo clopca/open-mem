@@ -428,6 +428,55 @@ db.close();
 		db.close();
 	});
 
+	test("transaction write operations do not retry on transient errors", () => {
+		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
+		cleanupPaths.push(dbPath);
+		const db = createDatabase(dbPath);
+		db.exec("CREATE TABLE retry_guard_probe (id INTEGER PRIMARY KEY, value TEXT)");
+
+		type RawQueryDatabase = {
+			query: (sql: string) => {
+				run: (...params: unknown[]) => unknown;
+				get: (...params: unknown[]) => unknown;
+				all: (...params: unknown[]) => unknown;
+			};
+		};
+
+		const raw = db.raw as unknown as RawQueryDatabase;
+		const originalQuery = raw.query.bind(raw);
+		let insertAttempts = 0;
+		raw.query = (sql: string) => {
+			const stmt = originalQuery(sql);
+			if (!sql.includes("INSERT INTO retry_guard_probe")) {
+				return stmt;
+			}
+
+			return {
+				...stmt,
+				run: (..._params: unknown[]) => {
+					insertAttempts += 1;
+					const error = new Error("simulated busy in transaction") as Error & { code: string };
+					error.code = "SQLITE_BUSY";
+					throw error;
+				},
+			};
+		};
+
+		try {
+			expect(() =>
+				db.transaction(() => {
+					db.run("INSERT INTO retry_guard_probe (value) VALUES (?)", ["x"]);
+				}),
+			).toThrow("simulated busy in transaction");
+			const rows = db.all<{ id: number }>("SELECT id FROM retry_guard_probe");
+			expect(rows).toHaveLength(0);
+			expect(insertAttempts).toBe(1);
+		} finally {
+			raw.query = originalQuery;
+			db.close();
+		}
+	});
+
 	test("transaction rolls back on error", () => {
 		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
 		cleanupPaths.push(dbPath);
