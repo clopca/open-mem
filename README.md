@@ -104,6 +104,63 @@ export OPEN_MEM_DASHBOARD=true
 
 Six pages: Timeline, Sessions, Search, Stats, Operations, Settings. The Settings page doubles as a config control plane — preview changes, apply them, roll back if needed.
 
+## SQLite resiliency contracts
+
+open-mem now uses a fail-safe multi-process model for SQLite. Startup and routine operations are non-destructive by default.
+
+- **No destructive startup recovery**: if DB setup or pragma initialization fails, open-mem returns an error and does not delete `.db`, `-wal`, or `-shm` files.
+- **Coordinated writes**: mutating operations use advisory lock coordination plus SQLite write-lock semantics to reduce cross-process contention.
+- **Daemon-aware workers**: platform workers check daemon liveness on startup. With a healthy daemon they run in `enqueue-only` mode and signal `PROCESS_NOW`; if daemon is unavailable they automatically fall back to `in-process` mode.
+- **Safe maintenance defaults**: `reset-db` runs a preflight process check and is blocked when daemon/workers are active unless explicit `--force` is provided.
+
+### Maintenance safety workflow
+
+Use SQLite-native maintenance first:
+
+```bash
+# Non-destructive WAL checkpoint
+bunx open-mem-maintenance sqlite checkpoint --project /path/to/project --mode PASSIVE
+
+# Non-destructive integrity check
+bunx open-mem-maintenance sqlite integrity --project /path/to/project --max-errors 10
+```
+
+If a full reset is required:
+
+```bash
+# Safe-by-default reset (blocked when active processes are detected)
+bunx open-mem-maintenance reset-db --project /path/to/project
+
+# If blocked, follow CLI remediation exactly:
+# 1) Stop daemon and platform workers for this project.
+# 2) Retry reset-db after processes exit.
+# 3) To override (destructive), rerun with --force.
+
+# Project-scoped stop sequence (PID file based)
+PROJECT=/path/to/project
+for pid_file in \
+  "$PROJECT/.open-mem/worker.pid" \
+  "$PROJECT/.open-mem/platform-worker-claude.pid" \
+  "$PROJECT/.open-mem/platform-worker-cursor.pid"; do
+  if [ -f "$pid_file" ]; then
+    kill "$(cat "$pid_file")" 2>/dev/null || true
+  fi
+done
+
+# Retry safe reset after processes exit
+bunx open-mem-maintenance reset-db --project "$PROJECT"
+
+# Explicit destructive override (only after stopping daemon/workers)
+bunx open-mem-maintenance reset-db --project /path/to/project --force
+```
+
+For platform workers, `{"command":"health"}` (or HTTP `GET /v1/health`) reports `status.queue.mode`:
+
+- `enqueue-only`: daemon is healthy; worker enqueues and signals `PROCESS_NOW`.
+- `in-process`: local fallback mode when daemon is unavailable, dies, or signaling fails.
+
+Migration note: previous workflows that relied on destructive reset during startup or ad-hoc `rm -rf .open-mem/` should move to the maintenance CLI flow above so active process checks and force intent are explicit.
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) — installation and first steps

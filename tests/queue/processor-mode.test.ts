@@ -2,7 +2,7 @@
 // open-mem — Queue Processor Dual-Mode Tests
 // =============================================================================
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ObservationCompressor } from "../../src/ai/compressor";
 import { SessionSummarizer } from "../../src/ai/summarizer";
 import type { Database } from "../../src/db/database";
@@ -139,6 +139,27 @@ describe("QueueProcessor dual-mode", () => {
 		processor.enqueue("sess-1", "Read", "output", "call-1");
 		expect(pendingRepo.getPending()).toHaveLength(1);
 	});
+
+	test("enqueue-only mode invokes onEnqueue callback", () => {
+		const processor = buildProcessor();
+		const onEnqueue = mock(() => {});
+		sessionRepo.create("sess-1", "/tmp/proj");
+		processor.setMode("enqueue-only");
+		processor.setOnEnqueue(onEnqueue);
+		processor.enqueue("sess-1", "Read", "output", "call-1");
+		expect(onEnqueue).toHaveBeenCalledTimes(1);
+	});
+
+	test("in-process mode does not invoke onEnqueue callback", () => {
+		const processor = buildProcessor();
+		const onEnqueue = mock(() => {});
+		sessionRepo.create("sess-1", "/tmp/proj");
+		processor.setMode("in-process");
+		processor.setOnEnqueue(onEnqueue);
+		processor.enqueue("sess-1", "Read", "output", "call-1");
+		expect(onEnqueue).toHaveBeenCalledTimes(0);
+	});
+
 
 	// -------------------------------------------------------------------------
 	// enqueue-only mode: summarizeSession() still works

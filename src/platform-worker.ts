@@ -13,6 +13,8 @@ import { EntityExtractor } from "./ai/entity-extractor";
 import { createEmbeddingModel } from "./ai/provider";
 import { SessionSummarizer } from "./ai/summarizer";
 import { resolveConfig } from "./config";
+import { DaemonManager } from "./daemon/manager";
+import { getPlatformWorkerPidPath, removePidIfMatches, writePid } from "./daemon/pid";
 import { createDatabase, Database } from "./db/database";
 import { EntityRepository } from "./db/entities";
 import { ObservationRepository } from "./db/observations";
@@ -21,14 +23,20 @@ import { initializeSchema } from "./db/schema";
 import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
 import { QueueProcessor } from "./queue/processor";
+import { createQueueRuntime, type QueueRuntime } from "./runtime/queue-runtime";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
 interface WorkerState {
 	db: Database;
 	queue: QueueProcessor;
+	queueRuntime: QueueRuntime;
 	runtime: PlatformIngestionRuntime;
 	platform: PlatformName;
 	projectPath: string;
+	daemonManager: DaemonManager | null;
+	daemonLivenessTimer: ReturnType<typeof setInterval> | null;
+	daemonConfigured: boolean;
+	workerPidPath: string;
 }
 
 interface WorkerArgs {
@@ -60,7 +68,23 @@ interface BridgeResponse {
 			processing: boolean;
 			pending: number;
 		};
+		daemon: {
+			enabled: boolean;
+			running: boolean;
+			pid: number | null;
+		};
 	};
+}
+
+function fallbackToInProcess(state: WorkerState, reason?: string): void {
+	if (reason) {
+		console.warn(`[open-mem] ${reason}`);
+	}
+	state.queueRuntime.setInProcess();
+	if (state.daemonLivenessTimer) {
+		clearInterval(state.daemonLivenessTimer);
+		state.daemonLivenessTimer = null;
+	}
 }
 
 function writeResponse(resp: BridgeResponse): void {
@@ -100,9 +124,15 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 	const projectPath = getCanonicalProjectPath(projectDir);
 	const config = resolveConfig(projectPath);
 	assertAdapterEnabled(platform, config);
+	const processRole =
+		platform === "claude-code" ? "platform-worker-claude" : "platform-worker-cursor";
+	const workerPidPath = getPlatformWorkerPidPath(
+		config.dbPath,
+		platform === "claude-code" ? "claude" : "cursor",
+	);
 
 	Database.enableExtensionSupport();
-	const db = createDatabase(config.dbPath);
+	const db = createDatabase(config.dbPath, { processRole });
 	initializeSchema(db, {
 		hasVectorExtension: db.hasVectorExtension,
 		embeddingDimension: config.embeddingDimension,
@@ -156,7 +186,7 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		entityExtractor,
 		entityRepo,
 	);
-
+	const queueRuntime = createQueueRuntime(queue);
 	const adapter = platform === "claude-code" ? createClaudeCodeAdapter() : createCursorAdapter();
 	const runtime = new PlatformIngestionRuntime({
 		adapter,
@@ -167,11 +197,58 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		projectPath,
 		config,
 	});
-	return { db, queue, runtime, platform, projectPath };
+
+	const state: WorkerState = {
+		db,
+		queue,
+		queueRuntime,
+		runtime,
+		platform,
+		projectPath,
+		daemonManager: null,
+		daemonLivenessTimer: null,
+		daemonConfigured: config.daemonEnabled,
+		workerPidPath,
+	};
+
+	if (config.daemonEnabled) {
+		state.daemonManager = new DaemonManager({
+			dbPath: config.dbPath,
+			projectPath,
+			// Platform workers observe daemon status but never start one.
+			// daemonScript is intentionally empty — start() must not be called.
+			daemonScript: "",
+		});
+		const status = state.daemonManager.getStatus();
+		if (status.running) {
+			queueRuntime.setEnqueueOnly(() => {
+				const result = state.daemonManager?.signal("PROCESS_NOW");
+				if (!result?.ok) {
+					console.warn(
+						`[open-mem] Daemon signal failed (${result?.state ?? "no-daemon"}), falling back to in-process processing`,
+					);
+					fallbackToInProcess(state);
+				}
+			});
+			state.daemonLivenessTimer = setInterval(() => {
+				if (!state.daemonManager || !state.daemonManager.getStatus().running) {
+					console.warn("[open-mem] Daemon died, falling back to in-process processing");
+					fallbackToInProcess(state);
+				}
+			}, 30_000);
+		} else {
+			queueRuntime.setInProcess();
+		}
+	} else {
+		queueRuntime.setInProcess();
+	}
+
+	return state;
 }
 
 function healthResponse(state: WorkerState, id?: string | number): BridgeResponse {
 	const queueStats = state.queue.getStats();
+	const daemonStatus = state.daemonManager?.getStatus() ?? null;
 	return {
 		id,
 		ok: true,
@@ -184,6 +261,11 @@ function healthResponse(state: WorkerState, id?: string | number): BridgeRespons
 				running: state.queue.isRunning,
 				processing: queueStats.processing,
 				pending: queueStats.pending,
+			},
+			daemon: {
+				enabled: state.daemonConfigured,
+				running: daemonStatus?.running ?? false,
+				pid: daemonStatus?.pid ?? null,
 			},
 		},
 	};
@@ -216,24 +298,52 @@ function parseEnvelope(value: unknown): BridgeEnvelope {
 export async function runPlatformWorker(platform: PlatformName): Promise<void> {
 	const args = parseWorkerArgs();
 	const state = initialize(platform, args.projectDir);
-	state.queue.start();
+	writePid(state.workerPidPath);
 
 	let shuttingDown = false;
+	const cleanupPid = (): void => {
+		removePidIfMatches(state.workerPidPath, process.pid);
+	};
 	const shutdown = async () => {
 		if (shuttingDown) return;
 		shuttingDown = true;
 		try {
 			await state.queue.processBatch();
 		} catch {}
-		state.queue.stop();
-		state.db.close();
-		process.exit(0);
+		try {
+			if (state.daemonLivenessTimer) {
+				clearInterval(state.daemonLivenessTimer);
+				state.daemonLivenessTimer = null;
+			}
+			state.queueRuntime.stop();
+			state.db.close();
+		} finally {
+			cleanupPid();
+			process.exit(0);
+		}
 	};
 
 	const handleEnvelope = async (envelope: BridgeEnvelope): Promise<BridgeResponse> => {
 		const command = envelope.command ?? "event";
 		if (command === "health") return healthResponse(state, envelope.id);
 		if (command === "flush") {
+			const isEnqueueOnly = state.queue.getMode() === "enqueue-only";
+			if (isEnqueueOnly && state.daemonManager) {
+				const result = state.daemonManager.signal("PROCESS_NOW");
+				if (!result.ok) {
+					fallbackToInProcess(
+						state,
+						`Daemon signal failed (${result.state}), falling back to in-process processing`,
+					);
+				} else {
+					return {
+						id: envelope.id,
+						ok: true,
+						code: "ENQUEUED",
+						message: "Daemon signaled; flush is asynchronous in enqueue-only mode",
+					};
+				}
+			}
 			const processed = await state.queue.processBatch();
 			return { id: envelope.id, ok: true, code: "OK", processed };
 		}

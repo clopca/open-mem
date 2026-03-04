@@ -15,6 +15,7 @@ export function createQueueRuntime(queue: QueueProcessor): QueueRuntime {
 			queue.stop();
 		},
 		setInProcess: () => {
+			queue.setOnEnqueue(null);
 			queue.setMode("in-process");
 			queue.start();
 		},

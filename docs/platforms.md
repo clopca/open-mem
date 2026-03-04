@@ -83,6 +83,26 @@ Each line on stdin must be one JSON event. The worker normalizes Claude Code eve
 | `{"command":"health"}` | Get worker queue status |
 | `{"command":"shutdown"}` | Request graceful shutdown |
 
+### Daemon-aware Queue Modes
+
+Platform workers report queue mode in health output:
+
+```json
+{
+  "ok": true,
+  "code": "OK",
+  "status": {
+    "queue": { "mode": "enqueue-only" },
+    "daemon": { "enabled": true, "running": true, "pid": 12345 }
+  }
+}
+```
+
+- `enqueue-only`: daemon is enabled and running, so the worker enqueues work and signals `PROCESS_NOW` to the daemon.
+- `in-process`: worker processes batches locally.
+
+Workers start in `enqueue-only` only when daemon liveness is confirmed at startup. Workers run in `in-process` when daemon mode is disabled, daemon startup/liveness is unavailable, or daemon signaling fails. On signal/liveness failure, the worker falls back to `in-process` automatically to keep ingestion available.
+
 ## Cursor Adapter
 
 A dedicated adapter worker for ingesting events from Cursor.

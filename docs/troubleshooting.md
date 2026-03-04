@@ -22,18 +22,19 @@ export OPEN_MEM_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 
 ## Database Errors
 
-If you encounter SQLite errors, the database may be corrupted. Remove it and let open-mem recreate:
+Avoid deleting `.open-mem/` as a first response. open-mem is fail-safe by default and does not rely on destructive startup recovery.
+
+Start with SQLite-native diagnostics:
 
 ```bash
-rm -rf .open-mem/
+# Check WAL state without deleting files
+bunx open-mem-maintenance sqlite checkpoint --project /path/to/project --mode PASSIVE
+
+# Check database integrity (returns structured JSON output)
+bunx open-mem-maintenance sqlite integrity --project /path/to/project --max-errors 10
 ```
 
-::: tip
-This deletes all stored observations. If you want to preserve data first, export it:
-```
-mem-export({ format: "json" })
-```
-:::
+If you must reset the database, use `reset-db` (with preflight safety checks) instead of manual file deletion. See [Maintenance CLI](#maintenance-cli).
 
 ## Context Not Appearing in Sessions
 
@@ -121,13 +122,24 @@ bunx open-mem-maintenance reset-db --project /path/to/your/project
 This resets the database schema. Export your data first if you want to preserve it.
 :::
 
+If `reset-db` reports active processes, stop daemon/platform workers first and rerun. Use `--force` only when you intentionally need destructive deletion despite active process detection.
+
 ## Maintenance CLI
 
 open-mem ships a maintenance tool for database and folder-context operations:
 
 ```bash
-# Reset the database (deletes all observations)
+# Safe-by-default reset (blocked if daemon/workers are active)
 bunx open-mem-maintenance reset-db --project /path/to/project
+
+# Explicit destructive override when preflight is blocked
+bunx open-mem-maintenance reset-db --project /path/to/project --force
+
+# SQLite-native checkpoint (non-destructive)
+bunx open-mem-maintenance sqlite checkpoint --project /path/to/project --mode PASSIVE
+
+# SQLite integrity check (non-destructive)
+bunx open-mem-maintenance sqlite integrity --project /path/to/project --max-errors 10
 
 # Remove managed sections from all AGENTS.md files
 bunx open-mem-maintenance folder-context clean --project /path/to/project
@@ -138,6 +150,69 @@ bunx open-mem-maintenance folder-context rebuild --project /path/to/project
 # Preview changes without applying (works with clean and rebuild)
 bunx open-mem-maintenance folder-context rebuild --project /path/to/project --dry-run
 ```
+
+When `reset-db` is blocked, follow the remediation printed by the CLI:
+
+1. Stop daemon and platform workers for this project.
+2. Retry `reset-db` after processes exit.
+3. To override (destructive), rerun with `--force`.
+
+Copy/paste remediation sequence:
+
+```bash
+PROJECT=/path/to/project
+
+# 1) Stop daemon + platform workers for this project (uses project-scoped PID files)
+for pid_file in \
+  "$PROJECT/.open-mem/worker.pid" \
+  "$PROJECT/.open-mem/platform-worker-claude.pid" \
+  "$PROJECT/.open-mem/platform-worker-cursor.pid"; do
+  if [ -f "$pid_file" ]; then
+    kill "$(cat "$pid_file")" 2>/dev/null || true
+  fi
+done
+
+# 2) Retry safe reset (matches CLI default behavior)
+bunx open-mem-maintenance reset-db --project "$PROJECT"
+
+# 3) Only if you intentionally need destructive override despite active process checks
+bunx open-mem-maintenance reset-db --project "$PROJECT" --force
+```
+
+If you run workers with an HTTP bridge, verify queue mode before retrying:
+
+```bash
+curl -s http://127.0.0.1:37877/v1/health
+```
+
+Expected daemon-aware semantics:
+
+- `status.queue.mode: "enqueue-only"` means the daemon is expected to process queued work.
+- `status.queue.mode: "in-process"` means the worker is in local fallback mode.
+
+## Lock Contention and SQLITE_IOERR Playbook
+
+Use this sequence for `SQLITE_BUSY`, `SQLITE_LOCKED`, or `SQLITE_IOERR_*` failures.
+
+1. Confirm process topology for the same project:
+   - Plugin + daemon + platform worker can all touch one DB; avoid running extra manual writers.
+2. Check worker mode and daemon handoff:
+   - Worker health (`{"command":"health"}` on stdin or `/v1/health` over HTTP) should report queue mode.
+   - `enqueue-only` means daemon is expected to process; `in-process` means local fallback is active.
+3. Run non-destructive maintenance checks:
+
+```bash
+bunx open-mem-maintenance sqlite checkpoint --project /path/to/project --mode PASSIVE
+bunx open-mem-maintenance sqlite integrity --project /path/to/project --max-errors 10
+```
+
+4. If contention persists, reduce concurrent write pressure:
+   - Stop duplicate worker/daemon instances for the same project.
+   - Retry the failed operation after active writes settle.
+5. For repeated `SQLITE_IOERR_*` failures:
+   - Treat as infrastructure/storage issue first (disk health, permissions, filesystem behavior).
+   - Prefer backup + restore or controlled reset via maintenance CLI.
+   - Do not rely on deleting DB/WAL/SHM files while processes are active.
 
 ## Uninstalling
 

@@ -59,7 +59,7 @@ const projectPath = getCanonicalProjectPath(projectDir);
 const config = resolveConfig(projectPath);
 
 Database.enableExtensionSupport();
-const db = createDatabase(config.dbPath);
+const db = createDatabase(config.dbPath, { processRole: "daemon" });
 initializeSchema(db, {
 	hasVectorExtension: db.hasVectorExtension,
 	embeddingDimension: config.embeddingDimension,
@@ -132,6 +132,9 @@ if (process.send) {
 		worker.handleMessage(msg);
 	});
 }
+process.on("SIGUSR1", () => {
+	worker.handleMessage("PROCESS_NOW");
+});
 
 // -----------------------------------------------------------------------------
 // Shutdown handlers

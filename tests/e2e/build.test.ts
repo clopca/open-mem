@@ -7,6 +7,7 @@ import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const DIST = resolve(import.meta.dir, "../../dist");
+const ROOT = resolve(import.meta.dir, "../..");
 
 describe("Build verification", () => {
 	test("build produces dist/index.js", () => {
@@ -59,4 +60,19 @@ describe("Build verification", () => {
 		const content = await Bun.file(path).text();
 		expect(content).toContain("resolveConfig");
 	});
+
+	test("docs build command succeeds after documentation updates", async () => {
+		const proc = Bun.spawn([process.execPath, "run", "docs:build"], {
+			cwd: ROOT,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+
+		expect(exitCode).toBe(0);
+	}, 30_000);
 });
