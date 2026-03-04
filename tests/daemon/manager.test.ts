@@ -366,6 +366,36 @@ describe("DaemonManager", () => {
 		expect(result.via).toBe("ipc");
 	});
 
+	test("signal catch path preserves structured result when status lookup throws", () => {
+		const dir = tmpDir();
+		const manager = new DaemonManager({
+			dbPath: `${dir}/memory.db`,
+			projectPath: dir,
+			daemonScript: "nonexistent.ts",
+		});
+
+		(manager as unknown as Record<string, unknown>).subprocess = {
+			send() {
+				throw new Error("ipc send failed");
+			},
+		};
+
+		(manager as unknown as { getStatus: () => ReturnType<DaemonManager["getStatus"]> }).getStatus =
+			() => {
+				throw new Error("status unavailable");
+			};
+
+		const result = manager.signal("PROCESS_NOW");
+		expect(result).toEqual({
+			ok: false,
+			state: "delivery-failed",
+			via: "none",
+			pid: null,
+			message: "PROCESS_NOW",
+			error: "Error: ipc send failed",
+		});
+	});
+
 	test("signal returns delivered via os-signal when daemon is running", () => {
 		const dir = tmpDir();
 		const pidPath = `${dir}/worker.pid`;

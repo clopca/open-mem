@@ -321,6 +321,31 @@ describe("Database Setup", () => {
 		db.close();
 	});
 
+	test("read-only PRAGMA calls with parentheses avoid write lock", () => {
+		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
+		cleanupPaths.push(dbPath);
+		const db = createDatabase(dbPath);
+
+		db.exec("CREATE TABLE pragma_probe (id INTEGER PRIMARY KEY, value TEXT)");
+
+		let lockCalls = 0;
+		const originalWithAdvisoryWriteLock = db.withAdvisoryWriteLock.bind(db);
+		(
+			db as unknown as {
+				withAdvisoryWriteLock: Database["withAdvisoryWriteLock"];
+			}
+		).withAdvisoryWriteLock = (role, fn, options) => {
+			lockCalls += 1;
+			return originalWithAdvisoryWriteLock(role, fn, options);
+		};
+
+		db.get("PRAGMA table_info(pragma_probe)");
+		db.all("PRAGMA index_list(pragma_probe)");
+
+		expect(lockCalls).toBe(0);
+		db.close();
+	});
+
 	test("transaction uses BEGIN IMMEDIATE strategy", () => {
 		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
 		cleanupPaths.push(dbPath);
@@ -356,6 +381,50 @@ describe("Database Setup", () => {
 
 		expect(immediateCalls).toBe(1);
 		expect(db.all<{ id: number }>("SELECT id FROM txn_probe")).toHaveLength(1);
+		db.close();
+	});
+
+	test("nested transaction does not re-enter immediate strategy", () => {
+		const dbPath = `/tmp/open-mem-test-${randomUUID()}.db`;
+		cleanupPaths.push(dbPath);
+		const db = createDatabase(dbPath);
+
+		db.exec("CREATE TABLE txn_nested_immediate_probe (id INTEGER PRIMARY KEY, value TEXT)");
+
+		type WrappedTransaction<T> = (() => T) & { immediate?: () => T };
+		type RawDatabase = {
+			transaction: <T>(fn: () => T) => WrappedTransaction<T>;
+		};
+
+		const raw = db.raw as unknown as RawDatabase;
+		const originalTransaction = raw.transaction;
+		let immediateCalls = 0;
+
+		raw.transaction = <T>(fn: () => T): WrappedTransaction<T> => {
+			const wrapped = (() => fn()) as WrappedTransaction<T>;
+			wrapped.immediate = () => {
+				immediateCalls += 1;
+				return fn();
+			};
+			return wrapped;
+		};
+
+		try {
+			db.transaction(() => {
+				db.run("INSERT INTO txn_nested_immediate_probe (value) VALUES (?)", ["outer"]);
+				db.transaction(() => {
+					db.run("INSERT INTO txn_nested_immediate_probe (value) VALUES (?)", ["inner"]);
+				});
+			});
+		} finally {
+			raw.transaction = originalTransaction;
+		}
+
+		expect(immediateCalls).toBe(1);
+		const rows = db.all<{ value: string }>(
+			"SELECT value FROM txn_nested_immediate_probe ORDER BY id",
+		);
+		expect(rows.map((row) => row.value)).toEqual(["outer", "inner"]);
 		db.close();
 	});
 

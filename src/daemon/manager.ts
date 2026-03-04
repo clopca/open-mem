@@ -156,15 +156,23 @@ export class DaemonManager {
 	}
 
 	signal(message: string): DaemonSignalResult {
+		const readStatusSafely = (): DaemonStatus | null => {
+			try {
+				return this.getStatus();
+			} catch {
+				return null;
+			}
+		};
+
 		try {
 			if (this.subprocess) {
 				this.subprocess.send(message);
-				const status = this.getStatus();
+				const status = readStatusSafely();
 				return {
 					ok: true,
 					state: "delivered",
 					via: "ipc",
-					pid: status.pid,
+					pid: status?.pid ?? null,
 					message,
 				};
 			}
@@ -215,11 +223,12 @@ export class DaemonManager {
 				error: "Daemon was reported running but did not expose a PID",
 			};
 		} catch (error: unknown) {
+			const status = readStatusSafely();
 			return {
 				ok: false,
 				state: "delivery-failed",
 				via: "none",
-				pid: this.getStatus().pid,
+				pid: status?.pid ?? null,
 				message,
 				error: String(error),
 			};

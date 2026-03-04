@@ -335,6 +335,13 @@ export async function runPlatformWorker(platform: PlatformName): Promise<void> {
 						state,
 						`Daemon signal failed (${result.state}), falling back to in-process processing`,
 					);
+				} else {
+					return {
+						id: envelope.id,
+						ok: true,
+						code: "ENQUEUED",
+						message: "Daemon signaled; flush is asynchronous in enqueue-only mode",
+					};
 				}
 			}
 			const processed = await state.queue.processBatch();

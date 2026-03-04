@@ -313,8 +313,10 @@ describe("platform workers", () => {
 			{ OPEN_MEM_DAEMON: "true" },
 		);
 
-		const flush = responses.find((resp) => typeof resp.processed === "number");
-		expect(flush?.processed).toBe(0);
+		const flush = responses.find((resp) => resp.code === "ENQUEUED");
+		expect(flush?.ok).toBe(true);
+		expect(flush?.processed).toBeUndefined();
+		expect(flush?.message).toContain("asynchronous");
 		const health = responses.find((resp) => resp.status);
 		expect(health?.status?.queue).toBeDefined();
 		expect((health?.status?.queue as Record<string, unknown>)?.mode).toBe("enqueue-only");

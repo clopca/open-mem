@@ -51,6 +51,13 @@ const WRITE_INTENT_LEADING_TOKENS = new Set([
 	"DETACH",
 ]);
 
+const MUTATING_PRAGMA_CALLS = new Set([
+	"WAL_CHECKPOINT",
+	"OPTIMIZE",
+	"INCREMENTAL_VACUUM",
+	"SHRINK_MEMORY",
+]);
+
 const LEADING_SQL_NOISE = /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/;
 
 function stripLeadingSqlNoise(sql: string): string {
@@ -74,7 +81,20 @@ function hasMutatingIntent(sql: string): boolean {
 	}
 
 	if (upper.startsWith("PRAGMA")) {
-		return /^PRAGMA\b[\s\S]*(=|\()/.test(upper);
+		if (/^PRAGMA\b[\s\S]*=/.test(upper)) {
+			return true;
+		}
+
+		const pragmaName = /^PRAGMA\s+(?:[A-Z0-9_]+\.)?([A-Z0-9_]+)/.exec(upper)?.[1];
+		if (!pragmaName) {
+			return false;
+		}
+
+		if (/^PRAGMA\b[\s\S]*\(/.test(upper)) {
+			return MUTATING_PRAGMA_CALLS.has(pragmaName);
+		}
+
+		return false;
 	}
 
 	const leadingToken = /^[A-Z]+/.exec(upper)?.[0];
@@ -405,6 +425,10 @@ export class Database {
 	/** Wrap a function in a SQLite transaction — auto-commits or rolls back */
 	public transaction<T>(fn: () => T): T {
 		return this.withAdvisoryWriteLock(this.processRole, () => {
+			if (this.transactionDepth > 0) {
+				return fn();
+			}
+
 			const wrapped = this.db.transaction(fn) as (() => T) & {
 				immediate?: () => T;
 			};
@@ -415,10 +439,6 @@ export class Database {
 				} finally {
 					this.transactionDepth -= 1;
 				}
-			}
-
-			if (this.transactionDepth > 0) {
-				return fn();
 			}
 
 			this.db.exec("BEGIN IMMEDIATE");
