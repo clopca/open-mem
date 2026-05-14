@@ -10,6 +10,7 @@ import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
 import type { UserObservationRepository } from "../db/user-memory";
 import type { Observation, OpenMemConfig } from "../types";
+import type { Logger } from "../utils/logger";
 
 // -----------------------------------------------------------------------------
 // Decision Section Builder
@@ -58,6 +59,7 @@ export function createCompactionHook(
 	summaries: SummaryRepository,
 	projectPath: string,
 	userObservationRepo?: UserObservationRepository | null,
+	logger?: Logger,
 ) {
 	return async (
 		_input: { sessionID: string },
@@ -150,7 +152,7 @@ export function createCompactionHook(
 
 			output.context.push(contextStr);
 		} catch (error) {
-			console.error("[open-mem] Compaction hook error:", error);
+			logger?.warn("Compaction hook error:", error);
 		}
 	};
 }

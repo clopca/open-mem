@@ -3,11 +3,16 @@
 // =============================================================================
 
 import { describe, expect, test } from "bun:test";
+import { Logger } from "../../src/utils/logger";
 import { createChatCaptureHook } from "../../src/hooks/chat-capture";
 
 // ---------------------------------------------------------------------------
 // Lightweight mocks (matching capture.test.ts pattern)
 // ---------------------------------------------------------------------------
+
+function makeTestLogger(): Logger {
+	return new Logger("debug");
+}
 
 function makeMockObservations() {
 	const calls: Array<{ method: string; args: unknown[] }> = [];
@@ -39,7 +44,7 @@ describe("createChatCaptureHook", () => {
 	test("captures user messages with string parts", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1" },
@@ -53,7 +58,7 @@ describe("createChatCaptureHook", () => {
 	test("captures user messages with object-style parts", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1" },
@@ -72,7 +77,7 @@ describe("createChatCaptureHook", () => {
 	test("filters out short messages (< 20 chars)", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook({ sessionID: "s1" }, { message: {}, parts: ["short msg"] });
 
@@ -82,7 +87,7 @@ describe("createChatCaptureHook", () => {
 	test("filters out assistant messages (agent set to model name)", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1", agent: "claude-sonnet-4-20250514" },
@@ -98,7 +103,7 @@ describe("createChatCaptureHook", () => {
 	test("allows messages with agent='user'", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1", agent: "user" },
@@ -114,7 +119,7 @@ describe("createChatCaptureHook", () => {
 	test("truncates title at 60 chars with ellipsis", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		const longMessage = "A".repeat(100);
 		await hook({ sessionID: "s1" }, { message: {}, parts: [longMessage] });
@@ -132,7 +137,7 @@ describe("createChatCaptureHook", () => {
 	test("does not truncate short titles", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		const shortMessage = "This is exactly a short message";
 		await hook({ sessionID: "s1" }, { message: {}, parts: [shortMessage] });
@@ -147,7 +152,7 @@ describe("createChatCaptureHook", () => {
 	test("truncates narrative at 2000 chars", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		const longMessage = "B".repeat(3000);
 		await hook({ sessionID: "s1" }, { message: {}, parts: [longMessage] });
@@ -162,7 +167,7 @@ describe("createChatCaptureHook", () => {
 	test("extracts concepts (words > 4 chars, max 5)", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1" },
@@ -192,11 +197,7 @@ describe("createChatCaptureHook", () => {
 			},
 		};
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(
-			throwingObservations as never,
-			sessions as never,
-			"/tmp/proj",
-		);
+		const hook = createChatCaptureHook(throwingObservations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		// Should not throw
 		await hook(
@@ -211,7 +212,7 @@ describe("createChatCaptureHook", () => {
 	test("sets correct observation fields", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1" },
@@ -235,7 +236,7 @@ describe("createChatCaptureHook", () => {
 	test("handles mixed string and object parts", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
-		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj", [], makeTestLogger());
 
 		await hook(
 			{ sessionID: "s1" },

@@ -13,6 +13,7 @@ import type { SessionRepository } from "../db/sessions";
 import type { SummaryRepository } from "../db/summaries";
 import type { UserObservationRepository } from "../db/user-memory";
 import type { Observation, OpenMemConfig } from "../types";
+import type { Logger } from "../utils/logger";
 
 /**
  * Factory for the `experimental.chat.system.transform` hook.
@@ -29,6 +30,7 @@ export function createContextInjectionHook(
 	summaries: SummaryRepository,
 	projectPath: string,
 	userObservationRepo?: UserObservationRepository | null,
+	logger?: Logger,
 ) {
 	return async (
 		_input: { sessionID?: string; model: string },
@@ -84,7 +86,7 @@ export function createContextInjectionHook(
 
 			output.system.push(contextStr);
 		} catch (error) {
-			console.error("[open-mem] Context injection error:", error);
+			logger?.warn("Context injection error:", error);
 		}
 	};
 }

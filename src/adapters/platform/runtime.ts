@@ -2,6 +2,7 @@ import { persistChatMessage } from "../../hooks/chat-capture";
 import { handleSessionLifecycleEvent, type SessionLifecycleDeps } from "../../hooks/session-events";
 import { enqueueToolCapture } from "../../hooks/tool-capture";
 import type { OpenMemConfig } from "../../types";
+import type { Logger } from "../../utils/logger";
 import type { NormalizedPlatformEvent, PlatformAdapter, PlatformName } from "./types";
 
 export interface PlatformIngestionRuntimeDeps {
@@ -12,6 +13,7 @@ export interface PlatformIngestionRuntimeDeps {
 	pendingMessages: SessionLifecycleDeps["pendingMessages"];
 	projectPath: string;
 	config: OpenMemConfig;
+	logger: Logger;
 }
 
 export class PlatformIngestionRuntime {
@@ -37,6 +39,7 @@ export class PlatformIngestionRuntime {
 			config: deps.config,
 			observations: deps.observations,
 			pendingMessages: deps.pendingMessages,
+			logger: deps.logger,
 		};
 	}
 

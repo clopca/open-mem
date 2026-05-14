@@ -47,6 +47,7 @@ import {
 	createUserObservationStore,
 } from "./store/sqlite/adapters";
 import type { Hooks, PluginInput } from "./types";
+import { Logger } from "./utils/logger";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
 // -----------------------------------------------------------------------------
@@ -139,6 +140,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 	// 1. Configuration
 	const config = resolveConfig(projectPath);
 	const warnings = validateConfig(config);
+	const logger = new Logger(config.logLevel);
 	for (const w of warnings) {
 		console.warn(`[open-mem] ${w}`);
 	}
@@ -419,12 +421,13 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 
 	// 9. Build hooks
 	return {
-		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath),
+		"tool.execute.after": createToolCaptureHook(config, queue, sessionRepo, projectPath, logger),
 		"chat.message": createChatCaptureHook(
 			observationRepo,
 			sessionRepo,
 			projectPath,
 			config.sensitivePatterns,
+			logger,
 		),
 		event: createEventHandler(
 			queue,
@@ -433,6 +436,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			config,
 			observationRepo,
 			pendingRepo,
+			logger,
 		),
 		"experimental.chat.system.transform": createContextInjectionHook(
 			config,
@@ -441,6 +445,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			summaryRepo,
 			projectPath,
 			userObservationRepo,
+			logger,
 		),
 		"experimental.session.compacting": createCompactionHook(
 			config,
@@ -449,6 +454,7 @@ export default async function plugin(input: PluginInput): Promise<Hooks> {
 			summaryRepo,
 			projectPath,
 			userObservationRepo,
+			logger,
 		),
 		tool: {
 			...openCodeTools,

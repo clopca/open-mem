@@ -24,6 +24,7 @@ import { SessionRepository } from "./db/sessions";
 import { SummaryRepository } from "./db/summaries";
 import { QueueProcessor } from "./queue/processor";
 import { createQueueRuntime, type QueueRuntime } from "./runtime/queue-runtime";
+import { Logger } from "./utils/logger";
 import { getCanonicalProjectPath } from "./utils/worktree";
 
 interface WorkerState {
@@ -196,6 +197,7 @@ function initialize(platform: PlatformName, projectDir: string): WorkerState {
 		pendingMessages: pending,
 		projectPath,
 		config,
+		logger: new Logger(config.logLevel),
 	});
 
 	const state: WorkerState = {

@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { getDefaultConfig } from "../../src/config";
+import { Logger } from "../../src/utils/logger";
 import { createEventHandler } from "../../src/hooks/session-events";
 import { createToolCaptureHook } from "../../src/hooks/tool-capture";
 import type { OpenMemConfig } from "../../src/types";
@@ -50,6 +51,11 @@ function makeConfig(overrides?: Partial<OpenMemConfig>): OpenMemConfig {
 	return { ...getDefaultConfig(), minOutputLength: 10, ...overrides };
 }
 
+/** Create a Logger for tests that captures output at debug level. */
+function makeTestLogger(): Logger {
+	return new Logger("debug");
+}
+
 // =============================================================================
 // Tool Capture Hook
 // =============================================================================
@@ -63,6 +69,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -82,6 +89,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -100,6 +108,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -118,6 +127,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -144,6 +154,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -163,6 +174,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -191,6 +203,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -217,6 +230,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		await hook(
@@ -244,6 +258,7 @@ describe("createToolCaptureHook", () => {
 			queue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		const normalOutput = "this is normal output without any private tags at all";
@@ -270,6 +285,7 @@ describe("createToolCaptureHook", () => {
 			throwingQueue as never,
 			sessions as never,
 			"/tmp/proj",
+			makeTestLogger(),
 		);
 
 		// Should not throw
@@ -297,6 +313,7 @@ describe("createEventHandler", () => {
 			makeConfig(),
 			mockObs as never,
 			mockPending as never,
+			makeTestLogger(),
 		);
 
 		await handler({
@@ -321,6 +338,7 @@ describe("createEventHandler", () => {
 			makeConfig(),
 			mockObs as never,
 			mockPending as never,
+			makeTestLogger(),
 		);
 
 		await handler({
@@ -346,6 +364,7 @@ describe("createEventHandler", () => {
 			makeConfig(),
 			mockObs as never,
 			mockPending as never,
+			makeTestLogger(),
 		);
 
 		await handler({
@@ -372,6 +391,7 @@ describe("createEventHandler", () => {
 			makeConfig(),
 			mockObs as never,
 			mockPending as never,
+			makeTestLogger(),
 		);
 
 		await handler({

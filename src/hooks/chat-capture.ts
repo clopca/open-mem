@@ -4,6 +4,7 @@
 
 import type { ObservationRepository } from "../db/observations";
 import type { SessionRepository } from "../db/sessions";
+import type { Logger } from "../utils/logger";
 import { redactSensitive, stripPrivateBlocks } from "../utils/privacy";
 
 const MIN_MESSAGE_LENGTH = 20;
@@ -122,6 +123,7 @@ export function createChatCaptureHook(
 	sessions: SessionRepository,
 	projectPath: string,
 	sensitivePatterns: string[] = [],
+	logger: Logger,
 ) {
 	return async (
 		input: {
@@ -150,7 +152,7 @@ export function createChatCaptureHook(
 				sensitivePatterns,
 			});
 		} catch (error) {
-			console.error("[open-mem] Chat capture error:", error);
+			logger.warn("Chat capture error:", error);
 		}
 	};
 }

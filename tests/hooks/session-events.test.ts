@@ -4,6 +4,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { getDefaultConfig } from "../../src/config";
+import { Logger } from "../../src/utils/logger";
 import { createEventHandler } from "../../src/hooks/session-events";
 import type { OpenMemConfig } from "../../src/types";
 
@@ -80,6 +81,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		await handler({
@@ -113,6 +115,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		setTimeout(() => {
@@ -147,6 +150,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		// Should NOT throw
@@ -194,6 +198,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: true }),
 			mockObs as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		// Should NOT throw
@@ -229,6 +234,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		await handler({
@@ -258,6 +264,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		const start = Date.now();
