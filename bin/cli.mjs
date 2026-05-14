@@ -597,6 +597,7 @@ function detectAIProviders() {
 		{ key: "AWS_ACCESS_KEY_ID", name: "AWS Bedrock" },
 		{ key: "OPENAI_API_KEY", name: "OpenAI" },
 		{ key: "OPENROUTER_API_KEY", name: "OpenRouter" },
+		{ key: "ZHIPU_API_KEY", name: "Zhipu (智谱)" },
 	];
 	return providers.filter((p) => process.env[p.key]);
 }
@@ -623,7 +624,7 @@ ${BOLD}Next steps:${RESET}
 		process.stdout.write(
 			`${BOLD}Optional — enable AI compression:${RESET}\n` +
 				`  ${DIM}export GOOGLE_GENERATIVE_AI_API_KEY=...${RESET}\n` +
-				`  ${DIM}# Also supports: Anthropic, AWS Bedrock, OpenAI, OpenRouter${RESET}\n`,
+				`  ${DIM}# Also supports: Anthropic, AWS Bedrock, OpenAI, OpenRouter, Zhipu (智谱)${RESET}\n`,
 		);
 	}
 
@@ -672,6 +673,7 @@ async function runWizard() {
 				{ value: "bedrock", label: "AWS Bedrock", hint: "uses AWS credentials" },
 				{ value: "openai", label: "OpenAI", hint: "GPT models" },
 				{ value: "openrouter", label: "OpenRouter", hint: "100+ models" },
+				{ value: "zhipu", label: "Zhipu (智谱)", hint: "free tier with glm-4.7-flash" },
 				{ value: "none", label: "None", hint: "basic metadata only, no AI key needed" },
 			],
 		}),
@@ -785,6 +787,7 @@ async function runWizard() {
 		bedrock: "AWS Bedrock",
 		openai: "OpenAI",
 		openrouter: "OpenRouter",
+		zhipu: "Zhipu (智谱)",
 		none: "None (basic extractor)",
 	};
 

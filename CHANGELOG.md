@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-05-14
+
+### Added
+- **Zhipu (智谱) provider** — new AI provider supporting Zhipu's GLM models via OpenAI-compatible API. Free tier available with `glm-4.7-flash`. Supports both text generation (compression/summarization) and embeddings (`embedding-3`, 2048 dimensions). Auto-detects from `ZHIPU_API_KEY` environment variable.
+- Zhipu added to setup wizard provider selection and CLI detection.
+
 ## [0.14.1] - 2026-03-03
 
 ### Changed

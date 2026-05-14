@@ -56,7 +56,7 @@ const FIELD_SCHEMA: ConfigFieldSchema[] = [
 		group: "AI",
 		liveApply: false,
 		restartRequired: true,
-		enum: ["google", "anthropic", "openai", "bedrock"],
+		enum: ["google", "anthropic", "openai", "bedrock", "openrouter", "zhipu"],
 	},
 	{
 		key: "model",

@@ -60,13 +60,13 @@ By default, open-mem uses a basic metadata extractor. For semantic compression, 
 export GOOGLE_GENERATIVE_AI_API_KEY=...
 ```
 
-Also supports Anthropic, AWS Bedrock, OpenAI, and OpenRouter. Auto-detects from environment variables. See [Configuration](docs/configuration.md) for all providers.
+Also supports Anthropic, AWS Bedrock, OpenAI, OpenRouter, and Zhipu (智谱). Auto-detects from environment variables. See [Configuration](docs/configuration.md) for all providers.
 
 ## Features
 
 **Search & retrieval** — hybrid search combining FTS5 full-text, vector embeddings (via sqlite-vec), knowledge graph traversal, and Reciprocal Rank Fusion. No external vector database needed.
 
-**AI compression** — raw tool outputs distilled into typed observations (decision, bugfix, feature, refactor, discovery, change) with titles, narratives, concepts, and importance scores. 5 providers with automatic fallback chain.
+**AI compression** — raw tool outputs distilled into typed observations (decision, bugfix, feature, refactor, discovery, change) with titles, narratives, concepts, and importance scores. 6 providers with automatic fallback chain.
 
 **Progressive disclosure** — a token-budgeted index is injected into the system prompt. The agent sees *what* exists and decides *what to fetch*. Typical compression ratio: ~96%.
 

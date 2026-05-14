@@ -38,6 +38,7 @@ When an AI provider with embedding support is configured, open-mem generates vec
 | Google Gemini | `text-embedding-004` | Supported |
 | OpenAI | `text-embedding-3-small` | Supported |
 | AWS Bedrock | `amazon.titan-embed-text-v2:0` | Supported |
+| Zhipu (智谱) | `embedding-3` | Supported |
 | Anthropic | — | No embedding model (FTS5-only) |
 | OpenRouter | — | No embedding model (FTS5-only) |
 

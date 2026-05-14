@@ -12,7 +12,7 @@ import type { ProviderFallbackPolicy } from "./fallback-policy";
 // -----------------------------------------------------------------------------
 
 /** Supported AI provider identifiers. */
-export type ProviderType = "anthropic" | "bedrock" | "openai" | "google" | string;
+export type ProviderType = "anthropic" | "bedrock" | "openai" | "google" | "zhipu" | string;
 
 /** Configuration for creating an AI model instance. */
 export interface ModelConfig {
@@ -79,9 +79,18 @@ export function createModel(config: ModelConfig): LanguageModel {
 			const openrouter = createOpenRouter({ apiKey: config.apiKey });
 			return openrouter(config.model);
 		}
+		case "zhipu": {
+			const { createOpenAICompatible } = require("@ai-sdk/openai-compatible");
+			const zhipu = createOpenAICompatible({
+				name: "zhipu",
+				baseURL: "https://open.bigmodel.cn/api/paas/v4",
+				apiKey: config.apiKey,
+			});
+			return zhipu(config.model);
+		}
 		default:
 			throw new Error(
-				`Unknown provider: ${config.provider}. Supported: anthropic, bedrock, openai, google, openrouter`,
+				`Unknown provider: ${config.provider}. Supported: anthropic, bedrock, openai, google, openrouter, zhipu`,
 			);
 	}
 }
@@ -112,6 +121,15 @@ export function createEmbeddingModel(config: ModelConfig): EmbeddingModel | null
 				return null;
 			case "openrouter":
 				return null;
+			case "zhipu": {
+				const { createOpenAICompatible } = require("@ai-sdk/openai-compatible");
+				const zhipu = createOpenAICompatible({
+					name: "zhipu",
+					baseURL: "https://open.bigmodel.cn/api/paas/v4",
+					apiKey: config.apiKey,
+				});
+				return zhipu.embeddingModel("embedding-3");
+			}
 			default:
 				return null;
 		}
@@ -130,6 +148,7 @@ const DEFAULT_FALLBACK_MODELS: Record<string, string> = {
 	openai: "gpt-4o-mini",
 	bedrock: "us.anthropic.claude-3-5-haiku-20241022-v1:0",
 	openrouter: "google/gemini-2.5-flash-lite",
+	zhipu: "glm-4.7-flash",
 };
 
 function resolveApiKeyForProvider(provider: string): string | undefined {
@@ -142,6 +161,8 @@ function resolveApiKeyForProvider(provider: string): string | undefined {
 			return process.env.OPENAI_API_KEY;
 		case "openrouter":
 			return process.env.OPENROUTER_API_KEY;
+		case "zhipu":
+			return process.env.ZHIPU_API_KEY;
 		case "bedrock":
 			return undefined;
 		default:
