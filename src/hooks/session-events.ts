@@ -40,6 +40,7 @@ export async function handleSessionLifecycleEvent(
 		case "session.created": {
 			if (sessionId) {
 				sessions.getOrCreate(sessionId, projectPath);
+				pendingMessages.deleteBySessionId(sessionId);
 			}
 			try {
 				enforceRetention(config, observations, pendingMessages);
@@ -60,6 +61,7 @@ export async function handleSessionLifecycleEvent(
 			});
 			if (sessionId) {
 				sessions.updateStatus(sessionId, "idle");
+				pendingMessages.deleteBySessionId(sessionId);
 				void triggerFolderContext(sessionId, projectPath, config, observations, logger).catch(
 					(error) => {
 						logger.debug("Folder context error:", error);
@@ -76,6 +78,7 @@ export async function handleSessionLifecycleEvent(
 				await queue.summarizeSession(sessionId);
 				sessions.markCompleted(sessionId);
 				await triggerFolderContext(sessionId, projectPath, config, observations, logger);
+				pendingMessages.deleteBySessionId(sessionId);
 			}
 			break;
 		}

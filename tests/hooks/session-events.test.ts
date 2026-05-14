@@ -38,7 +38,10 @@ function makeMockObs() {
 }
 
 function makeMockPending() {
-	return { deleteCompletedOlderThan: () => 0 };
+	return { 
+		deleteCompletedOlderThan: () => 0,
+		deleteBySessionId: () => 0,
+	};
 }
 
 function makeGate() {
