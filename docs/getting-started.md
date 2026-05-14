@@ -92,6 +92,15 @@ export OPENROUTER_API_KEY=sk-or-...
 export OPEN_MEM_MODEL=google/gemini-2.5-flash-lite
 ```
 
+### Zhipu (智谱 — Free Tier)
+
+```bash
+# Get a key at https://open.bigmodel.cn/ — glm-4.7-flash is free
+export OPEN_MEM_PROVIDER=zhipu
+export ZHIPU_API_KEY=...
+export OPEN_MEM_MODEL=glm-4.7-flash
+```
+
 ### Auto-Detection
 
 open-mem detects your provider from environment variables:
@@ -102,6 +111,7 @@ open-mem detects your provider from environment variables:
 | `ANTHROPIC_API_KEY` | Anthropic |
 | AWS credentials (`AWS_ACCESS_KEY_ID` / `AWS_PROFILE`) | Bedrock |
 | `OPENROUTER_API_KEY` | OpenRouter |
+| `ZHIPU_API_KEY` | Zhipu (智谱) |
 
 ## First Session
 

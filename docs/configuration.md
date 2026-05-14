@@ -17,11 +17,12 @@ Settings are resolved in this order (later sources override earlier ones):
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPEN_MEM_PROVIDER` | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai`, `openrouter` |
+| `OPEN_MEM_PROVIDER` | `google` | AI provider: `google`, `anthropic`, `bedrock`, `openai`, `openrouter`, `zhipu` |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | — | API key for Google Gemini ([free](https://aistudio.google.com/apikey)) |
 | `ANTHROPIC_API_KEY` | — | API key for Anthropic |
 | `OPENAI_API_KEY` | — | API key for OpenAI |
 | `OPENROUTER_API_KEY` | — | API key for OpenRouter |
+| `ZHIPU_API_KEY` | — | API key for Zhipu (智谱) ([free tier with glm-4.7-flash](https://open.bigmodel.cn/)) |
 | `OPEN_MEM_MODEL` | `gemini-2.5-flash-lite` | Model for AI compression |
 | `OPEN_MEM_FALLBACK_PROVIDERS` | — | Comma-separated fallback providers (e.g., `google,anthropic,openai`) |
 

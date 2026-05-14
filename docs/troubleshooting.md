@@ -75,6 +75,7 @@ Authentication errors are not retried. Check that your API key is valid:
 # Verify your key is set
 echo $GOOGLE_GENERATIVE_AI_API_KEY
 echo $ANTHROPIC_API_KEY
+echo $ZHIPU_API_KEY
 ```
 
 ## MCP Server Issues

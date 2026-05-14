@@ -221,6 +221,8 @@ export function getDefaultDimension(provider: string): number {
 			return 0;
 		case "openrouter":
 			return 0;
+		case "zhipu":
+			return 2048;
 		default:
 			return 768;
 	}
@@ -267,6 +269,8 @@ export function resolveConfig(
 			config.provider = "bedrock";
 		} else if (process.env.OPENROUTER_API_KEY) {
 			config.provider = "openrouter";
+		} else if (process.env.ZHIPU_API_KEY) {
+			config.provider = "zhipu";
 		}
 		// else: keep default ("google")
 	}
@@ -286,6 +290,9 @@ export function resolveConfig(
 			case "openrouter":
 				config.apiKey = process.env.OPENROUTER_API_KEY;
 				break;
+			case "zhipu":
+				config.apiKey = process.env.ZHIPU_API_KEY;
+				break;
 			case "bedrock":
 				break;
 		}
@@ -294,6 +301,11 @@ export function resolveConfig(
 	// Set default model for openrouter if still using the google default
 	if (config.provider === "openrouter" && config.model === "gemini-2.5-flash-lite") {
 		config.model = "google/gemini-2.5-flash-lite";
+	}
+
+	// Set default model for zhipu if still using the google default
+	if (config.provider === "zhipu" && config.model === "gemini-2.5-flash-lite") {
+		config.model = "glm-4.7-flash";
 	}
 
 	if (config.embeddingDimension === undefined) {
