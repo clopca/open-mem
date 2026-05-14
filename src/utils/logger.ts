@@ -14,8 +14,12 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 /**
  * Lightweight logger that respects the configured log level.
  *
- * All methods output via `console.error` (matching existing open-mem convention)
- * but are gated by the configured level. At the default `warn` level,
+ * Each level routes to the semantically appropriate console method:
+ * - `debug` / `info` → `console.log` (stdout)
+ * - `warn` → `console.warn` (stderr, but distinct from error)
+ * - `error` → `console.error` (stderr)
+ *
+ * All messages are gated by the configured level. At the default `warn` level,
  * `debug` and `info` messages are suppressed.
  */
 export class Logger {
@@ -39,19 +43,19 @@ export class Logger {
 
 	debug(message: string, ...args: unknown[]): void {
 		if (this.shouldLog("debug")) {
-			console.error(`[open-mem] ${message}`, ...args);
+			console.log(`[open-mem] ${message}`, ...args);
 		}
 	}
 
 	info(message: string, ...args: unknown[]): void {
 		if (this.shouldLog("info")) {
-			console.error(`[open-mem] ${message}`, ...args);
+			console.log(`[open-mem] ${message}`, ...args);
 		}
 	}
 
 	warn(message: string, ...args: unknown[]): void {
 		if (this.shouldLog("warn")) {
-			console.error(`[open-mem] ${message}`, ...args);
+			console.warn(`[open-mem] ${message}`, ...args);
 		}
 	}
 

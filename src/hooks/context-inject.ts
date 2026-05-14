@@ -29,8 +29,8 @@ export function createContextInjectionHook(
 	sessions: SessionRepository,
 	summaries: SummaryRepository,
 	projectPath: string,
-	userObservationRepo?: UserObservationRepository | null,
-	logger?: Logger,
+	userObservationRepo: UserObservationRepository | null | undefined,
+	logger: Logger,
 ) {
 	return async (
 		_input: { sessionID?: string; model: string },
@@ -86,7 +86,7 @@ export function createContextInjectionHook(
 
 			output.system.push(contextStr);
 		} catch (error) {
-			logger?.warn("Context injection error:", error);
+			logger.warn("Context injection error:", error);
 		}
 	};
 }

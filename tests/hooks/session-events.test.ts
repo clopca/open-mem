@@ -55,9 +55,13 @@ function makeGate() {
 
 describe("session.idle non-blocking behavior", () => {
 	const originalError = console.error;
+	const originalWarn = console.warn;
+	const originalLog = console.log;
 
 	afterEach(() => {
 		console.error = originalError;
+		console.warn = originalWarn;
+		console.log = originalLog;
 	});
 
 	test("session.idle returns immediately without awaiting processBatch", async () => {
@@ -134,6 +138,9 @@ describe("session.idle non-blocking behavior", () => {
 		console.error = (...args: unknown[]) => {
 			logged.push(args);
 		};
+		console.warn = (...args: unknown[]) => {
+			logged.push(args);
+		};
 
 		const queue = {
 			async processBatch() {
@@ -172,6 +179,12 @@ describe("session.idle non-blocking behavior", () => {
 	test("errors in non-blocking session.idle triggerFolderContext are logged, not thrown", async () => {
 		const logged: unknown[] = [];
 		console.error = (...args: unknown[]) => {
+			logged.push(args);
+		};
+		console.warn = (...args: unknown[]) => {
+			logged.push(args);
+		};
+		console.log = (...args: unknown[]) => {
 			logged.push(args);
 		};
 

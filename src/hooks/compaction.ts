@@ -58,8 +58,8 @@ export function createCompactionHook(
 	sessions: SessionRepository,
 	summaries: SummaryRepository,
 	projectPath: string,
-	userObservationRepo?: UserObservationRepository | null,
-	logger?: Logger,
+	userObservationRepo: UserObservationRepository | null | undefined,
+	logger: Logger,
 ) {
 	return async (
 		_input: { sessionID: string },
@@ -152,7 +152,7 @@ export function createCompactionHook(
 
 			output.context.push(contextStr);
 		} catch (error) {
-			logger?.warn("Compaction hook error:", error);
+			logger.warn("Compaction hook error:", error);
 		}
 	};
 }
