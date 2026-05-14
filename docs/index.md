@@ -17,7 +17,7 @@ features:
   - title: Automatic Capture
     details: Observes tool executions and user prompts in the background. No manual effort required.
   - title: AI Compression
-    details: Distills raw tool outputs into structured observations using Gemini, Claude, GPT, Bedrock, or Zhipu (智谱).
+    details: Distills raw tool outputs into structured observations using Gemini, Claude, GPT, Bedrock, OpenRouter, or Zhipu (智谱).
   - title: Hybrid Search
     details: FTS5 full-text search combined with vector embeddings and Reciprocal Rank Fusion for high-relevance recall.
   - title: Progressive Disclosure

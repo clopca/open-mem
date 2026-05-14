@@ -818,6 +818,7 @@ async function runWizard() {
 		bedrock: "# Configure AWS credentials (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY or AWS_PROFILE)",
 		openai: "export OPENAI_API_KEY=sk-...",
 		openrouter: "export OPENROUTER_API_KEY=sk-or-...",
+		zhipu: "export ZHIPU_API_KEY=...  # free key: https://open.bigmodel.cn/",
 		none: null,
 	};
 

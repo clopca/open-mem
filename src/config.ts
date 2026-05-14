@@ -303,6 +303,11 @@ export function resolveConfig(
 		config.model = "google/gemini-2.5-flash-lite";
 	}
 
+	// Set default model for zhipu if still using the google default
+	if (config.provider === "zhipu" && config.model === "gemini-2.5-flash-lite") {
+		config.model = "glm-4.7-flash";
+	}
+
 	if (config.embeddingDimension === undefined) {
 		config.embeddingDimension = getDefaultDimension(config.provider);
 	}
