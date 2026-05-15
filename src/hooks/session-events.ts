@@ -61,7 +61,6 @@ export async function handleSessionLifecycleEvent(
 			});
 			if (sessionId) {
 				sessions.updateStatus(sessionId, "idle");
-				pendingMessages.deleteBySessionId(sessionId);
 				void triggerFolderContext(sessionId, projectPath, config, observations, logger).catch(
 					(error) => {
 						logger.debug("Folder context error:", error);
@@ -110,7 +109,16 @@ export function createEventHandler(
 			const { event } = input;
 			const rawSessionId = event.properties.sessionID;
 			const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
-			if (
+			if (event.type === "message.removed") {
+				const rawMessageId = event.properties.messageID;
+				const messageId = typeof rawMessageId === "string" ? rawMessageId : undefined;
+				if (sessionId && messageId) {
+					const count = observations.softDeleteByMessageId(sessionId, messageId);
+					if (count > 0) {
+						logger.debug(`Soft-deleted ${count} observation(s) for removed message ${messageId}`);
+					}
+				}
+			} else if (
 				event.type === "session.created" ||
 				event.type === "session.idle" ||
 				event.type === "session.completed" ||

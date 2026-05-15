@@ -57,6 +57,7 @@ export interface ChatCaptureInput {
 	text: string;
 	agent?: string;
 	sensitivePatterns?: string[];
+	messageId?: string;
 }
 
 /** Shared capture path for chat messages across platforms. */
@@ -69,6 +70,7 @@ export function persistChatMessage(input: ChatCaptureInput): boolean {
 		text,
 		agent,
 		sensitivePatterns = [],
+		messageId,
 	} = input;
 
 	// User messages have agent=undefined; assistant messages have agent set to model name
@@ -106,6 +108,7 @@ export function persistChatMessage(input: ChatCaptureInput): boolean {
 		tokenCount: Math.ceil(narrative.length / 4),
 		discoveryTokens: 0,
 		importance: 3,
+		messageId,
 	});
 	return true;
 }
@@ -136,7 +139,7 @@ export function createChatCaptureHook(
 		output: { message: unknown; parts: unknown[] },
 	): Promise<void> => {
 		try {
-			const { sessionID, agent } = input;
+			const { sessionID, agent, messageID } = input;
 
 			// User messages have agent=undefined; assistant messages have agent set to model name
 			if (agent !== undefined && agent !== "user") return;
@@ -150,6 +153,7 @@ export function createChatCaptureHook(
 				text,
 				agent,
 				sensitivePatterns,
+				messageId: messageID,
 			});
 		} catch (error) {
 			logger.warn("Chat capture error:", error);
