@@ -5,6 +5,7 @@
 import type { SessionRepository } from "../db/sessions";
 import type { QueueProcessor } from "../queue/processor";
 import type { OpenMemConfig } from "../types";
+import type { Logger } from "../utils/logger";
 import { redactSensitive, stripPrivateBlocks } from "../utils/privacy";
 
 export interface ToolCaptureInput {
@@ -57,6 +58,7 @@ export function createToolCaptureHook(
 	queue: QueueProcessor,
 	sessions: SessionRepository,
 	projectPath: string,
+	logger: Logger,
 ) {
 	return async (
 		input: { tool: string; sessionID: string; callID: string },
@@ -81,7 +83,7 @@ export function createToolCaptureHook(
 			});
 		} catch (error) {
 			// Never let hook errors propagate to OpenCode
-			console.error("[open-mem] Tool capture error:", error);
+			logger.warn("Tool capture error:", error);
 		}
 	};
 }

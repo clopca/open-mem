@@ -331,6 +331,15 @@ export const MIGRATIONS: Migration[] = [
 			END;
 		`,
 	},
+	{
+		version: 2,
+		name: "add-message-id",
+		up: `
+			ALTER TABLE observations ADD COLUMN message_id TEXT;
+			CREATE INDEX IF NOT EXISTS idx_observations_message_id
+				ON observations(message_id);
+		`,
+	},
 ];
 
 // -----------------------------------------------------------------------------

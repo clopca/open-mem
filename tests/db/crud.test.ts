@@ -689,4 +689,92 @@ describe("PendingMessageRepository", () => {
 		expect(pending).toHaveLength(1);
 		expect(pending[0].id).toBe(msg.id);
 	});
+
+	test("deleteBySessionId removes only pending and failed messages", () => {
+		const sessions = new SessionRepository(db);
+		sessions.create("sess-1", "/tmp/project");
+		const repo = new PendingMessageRepository(db);
+
+		// Create messages in all 4 statuses
+		const pending = repo.create({
+			sessionId: "sess-1",
+			toolName: "Read",
+			toolOutput: "pending output",
+			callId: "call-1",
+		});
+		const failed = repo.create({
+			sessionId: "sess-1",
+			toolName: "Read",
+			toolOutput: "failed output",
+			callId: "call-2",
+		});
+		repo.markProcessing(failed.id);
+		repo.markFailed(failed.id, "test error");
+
+		const processing = repo.create({
+			sessionId: "sess-1",
+			toolName: "Read",
+			toolOutput: "processing output",
+			callId: "call-3",
+		});
+		repo.markProcessing(processing.id);
+
+		const completed = repo.create({
+			sessionId: "sess-1",
+			toolName: "Read",
+			toolOutput: "completed output",
+			callId: "call-4",
+		});
+		repo.markProcessing(completed.id);
+		repo.markCompleted(completed.id);
+
+		const deletedCount = repo.deleteBySessionId("sess-1");
+		expect(deletedCount).toBe(2);
+
+		// Verify processing and completed remain
+		const processingMsgs = repo.getByStatus("processing");
+		expect(processingMsgs).toHaveLength(1);
+		expect(processingMsgs[0].id).toBe(processing.id);
+
+		const completedMsgs = repo.getByStatus("completed");
+		expect(completedMsgs).toHaveLength(1);
+		expect(completedMsgs[0].id).toBe(completed.id);
+
+		// Verify pending and failed are gone
+		expect(repo.getPending()).toHaveLength(0);
+		expect(repo.getByStatus("failed")).toHaveLength(0);
+	});
+
+	test("deleteBySessionId returns 0 for nonexistent session", () => {
+		const repo = new PendingMessageRepository(db);
+		expect(repo.deleteBySessionId("nonexistent")).toBe(0);
+	});
+
+	test("deleteBySessionId does not affect other sessions", () => {
+		const sessions = new SessionRepository(db);
+		sessions.create("sess-1", "/tmp/project");
+		sessions.create("sess-2", "/tmp/project");
+		const repo = new PendingMessageRepository(db);
+
+		repo.create({
+			sessionId: "sess-1",
+			toolName: "Read",
+			toolOutput: "output1",
+			callId: "call-1",
+		});
+		repo.create({
+			sessionId: "sess-2",
+			toolName: "Read",
+			toolOutput: "output2",
+			callId: "call-2",
+		});
+
+		const deletedCount = repo.deleteBySessionId("sess-1");
+		expect(deletedCount).toBe(1);
+
+		// sess-2 should still have its pending message
+		const pending = repo.getPending();
+		expect(pending).toHaveLength(1);
+		expect(pending[0].sessionId).toBe("sess-2");
+	});
 });

@@ -13,6 +13,7 @@ import {
 import { buildProgressiveContext, type ProgressiveContext } from "../../src/context/progressive";
 import { createCompactionHook } from "../../src/hooks/compaction";
 import { createContextInjectionHook } from "../../src/hooks/context-inject";
+import { Logger } from "../../src/utils/logger";
 import type { ObservationIndex, OpenMemConfig, Session, SessionSummary } from "../../src/types";
 
 // ---------------------------------------------------------------------------
@@ -209,6 +210,7 @@ describe("createContextInjectionHook", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { system: ["existing prompt"] };
@@ -229,6 +231,7 @@ describe("createContextInjectionHook", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { system: ["existing"] };
@@ -244,6 +247,7 @@ describe("createContextInjectionHook", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { system: ["existing"] };
@@ -269,6 +273,7 @@ describe("createContextInjectionHook", () => {
 			brokenRepos.sessions as never,
 			brokenRepos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { system: ["existing"] };
@@ -306,6 +311,7 @@ describe("createCompactionHook", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -441,6 +447,7 @@ describe("createContextInjectionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			userRepo as never,
+		new Logger("warn"),
 		);
 
 		const output = { system: ["existing prompt"] };
@@ -469,6 +476,7 @@ describe("createContextInjectionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			userRepo as never,
+		new Logger("warn"),
 		);
 
 		const output = { system: ["existing prompt"] };
@@ -492,6 +500,7 @@ describe("createContextInjectionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			null,
+		new Logger("warn"),
 		);
 
 		const output = { system: ["existing prompt"] };
@@ -515,6 +524,7 @@ describe("createContextInjectionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			userRepo as never,
+		new Logger("warn"),
 		);
 
 		const output = { system: ["existing prompt"] };
@@ -553,6 +563,7 @@ describe("createCompactionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			userRepo as never,
+		new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -585,6 +596,7 @@ describe("createCompactionHook — user-level memory", () => {
 			repos.summaries as never,
 			"/tmp/proj",
 			userRepo as never,
+		new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };

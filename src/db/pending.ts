@@ -115,6 +115,24 @@ export class PendingMessageRepository {
 		return result.length;
 	}
 
+	/**
+	 * Delete all pending and failed messages for a given session.
+	 * Used for cleanup after /undo — removes orphaned items that would
+	 * otherwise be compressed into observations tied to an undone message.
+	 * Never deletes items in "processing" or "completed" status.
+	 * Returns the number of items deleted.
+	 */
+	deleteBySessionId(sessionId: string): number {
+		const result = this.db.all<{ id: string }>(
+			`DELETE FROM pending_messages
+			 WHERE session_id = ?
+			 AND status IN ('pending', 'failed')
+			 RETURNING id`,
+			[sessionId],
+		);
+		return result.length;
+	}
+
 	// ---------------------------------------------------------------------------
 	// Row Mapping
 	// ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { getDefaultConfig } from "../../src/config";
+import { Logger } from "../../src/utils/logger";
 import { createEventHandler } from "../../src/hooks/session-events";
 import type { OpenMemConfig } from "../../src/types";
 
@@ -37,7 +38,10 @@ function makeMockObs() {
 }
 
 function makeMockPending() {
-	return { deleteCompletedOlderThan: () => 0 };
+	return { 
+		deleteCompletedOlderThan: () => 0,
+		deleteBySessionId: () => 0,
+	};
 }
 
 function makeGate() {
@@ -54,9 +58,13 @@ function makeGate() {
 
 describe("session.idle non-blocking behavior", () => {
 	const originalError = console.error;
+	const originalWarn = console.warn;
+	const originalLog = console.log;
 
 	afterEach(() => {
 		console.error = originalError;
+		console.warn = originalWarn;
+		console.log = originalLog;
 	});
 
 	test("session.idle returns immediately without awaiting processBatch", async () => {
@@ -80,6 +88,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		await handler({
@@ -113,6 +122,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		setTimeout(() => {
@@ -131,6 +141,9 @@ describe("session.idle non-blocking behavior", () => {
 		console.error = (...args: unknown[]) => {
 			logged.push(args);
 		};
+		console.warn = (...args: unknown[]) => {
+			logged.push(args);
+		};
 
 		const queue = {
 			async processBatch() {
@@ -147,6 +160,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		// Should NOT throw
@@ -168,6 +182,12 @@ describe("session.idle non-blocking behavior", () => {
 	test("errors in non-blocking session.idle triggerFolderContext are logged, not thrown", async () => {
 		const logged: unknown[] = [];
 		console.error = (...args: unknown[]) => {
+			logged.push(args);
+		};
+		console.warn = (...args: unknown[]) => {
+			logged.push(args);
+		};
+		console.log = (...args: unknown[]) => {
 			logged.push(args);
 		};
 
@@ -194,6 +214,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: true }),
 			mockObs as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		// Should NOT throw
@@ -229,6 +250,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		await handler({
@@ -258,6 +280,7 @@ describe("session.idle non-blocking behavior", () => {
 			makeConfig({ folderContextEnabled: false }),
 			makeMockObs() as never,
 			makeMockPending() as never,
+			new Logger("debug"),
 		);
 
 		const start = Date.now();

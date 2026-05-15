@@ -11,6 +11,7 @@ import type { SessionRepository } from "../db/sessions";
 import type { QueueProcessor } from "../queue/processor";
 import type { OpenCodeEvent, OpenMemConfig } from "../types";
 import { updateFolderContext } from "../utils/agents-md";
+import type { Logger } from "../utils/logger";
 import { enforceRetention } from "../utils/retention";
 
 export interface SessionLifecycleDeps {
@@ -20,6 +21,7 @@ export interface SessionLifecycleDeps {
 	config: OpenMemConfig;
 	observations: ObservationRepository;
 	pendingMessages: PendingMessageRepository;
+	logger: Logger;
 }
 
 export type SessionLifecycleEventType =
@@ -33,34 +35,37 @@ export async function handleSessionLifecycleEvent(
 	eventType: SessionLifecycleEventType,
 	sessionId?: string,
 ): Promise<void> {
-	const { queue, sessions, projectPath, config, observations, pendingMessages } = deps;
+	const { queue, sessions, projectPath, config, observations, pendingMessages, logger } = deps;
 	switch (eventType) {
 		case "session.created": {
 			if (sessionId) {
 				sessions.getOrCreate(sessionId, projectPath);
+				pendingMessages.deleteBySessionId(sessionId);
 			}
 			try {
 				enforceRetention(config, observations, pendingMessages);
 			} catch (error) {
-				console.error("[open-mem] Retention enforcement error:", error);
+				logger.warn("Retention enforcement error:", error);
 			}
 			try {
 				await maybeAddGitignoreEntry(projectPath);
 			} catch (error) {
-				console.error("[open-mem] Gitignore entry error:", error);
+				logger.debug("Gitignore entry error:", error);
 			}
 			break;
 		}
 
 		case "session.idle": {
 			void queue.processBatch().catch((error) => {
-				console.error("[open-mem] Background processing error:", error);
+				logger.warn("Background processing error:", error);
 			});
 			if (sessionId) {
 				sessions.updateStatus(sessionId, "idle");
-				void triggerFolderContext(sessionId, projectPath, config, observations).catch((error) => {
-					console.error("[open-mem] Folder context error:", error);
-				});
+				void triggerFolderContext(sessionId, projectPath, config, observations, logger).catch(
+					(error) => {
+						logger.debug("Folder context error:", error);
+					},
+				);
 			}
 			break;
 		}
@@ -71,7 +76,8 @@ export async function handleSessionLifecycleEvent(
 				await queue.processBatch();
 				await queue.summarizeSession(sessionId);
 				sessions.markCompleted(sessionId);
-				await triggerFolderContext(sessionId, projectPath, config, observations);
+				await triggerFolderContext(sessionId, projectPath, config, observations, logger);
+				pendingMessages.deleteBySessionId(sessionId);
 			}
 			break;
 		}
@@ -96,26 +102,36 @@ export function createEventHandler(
 	config: OpenMemConfig,
 	observations: ObservationRepository,
 	pendingMessages: PendingMessageRepository,
+	logger: Logger,
 ) {
 	return async (input: { event: OpenCodeEvent }): Promise<void> => {
 		try {
 			const { event } = input;
 			const rawSessionId = event.properties.sessionID;
 			const sessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
-			if (
+			if (event.type === "message.removed") {
+				const rawMessageId = event.properties.messageID;
+				const messageId = typeof rawMessageId === "string" ? rawMessageId : undefined;
+				if (sessionId && messageId) {
+					const count = observations.softDeleteByMessageId(sessionId, messageId);
+					if (count > 0) {
+						logger.debug(`Soft-deleted ${count} observation(s) for removed message ${messageId}`);
+					}
+				}
+			} else if (
 				event.type === "session.created" ||
 				event.type === "session.idle" ||
 				event.type === "session.completed" ||
 				event.type === "session.ended"
 			) {
 				await handleSessionLifecycleEvent(
-					{ queue, sessions, projectPath, config, observations, pendingMessages },
+					{ queue, sessions, projectPath, config, observations, pendingMessages, logger },
 					event.type,
 					sessionId,
 				);
 			}
 		} catch (error) {
-			console.error("[open-mem] Event handler error:", error);
+			logger.warn("Event handler error:", error);
 		}
 	};
 }
@@ -125,6 +141,7 @@ async function triggerFolderContext(
 	projectPath: string,
 	config: OpenMemConfig,
 	observationRepo: ObservationRepository,
+	logger: Logger,
 ): Promise<void> {
 	if (!config.folderContextEnabled) return;
 
@@ -138,7 +155,7 @@ async function triggerFolderContext(
 			});
 		}
 	} catch (error) {
-		console.error("[open-mem] Folder context update error:", error);
+		logger.debug("Folder context update error:", error);
 	}
 }
 

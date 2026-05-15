@@ -38,6 +38,7 @@ export interface Observation {
 	deletedAt?: string | null;
 	supersededBy?: string | null;
 	supersededAt?: string | null;
+	messageId?: string | null;
 }
 
 /** Lightweight index entry for progressive disclosure */

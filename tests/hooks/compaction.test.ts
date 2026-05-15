@@ -9,6 +9,7 @@ import {
 	buildFullObservationsSection,
 	createCompactionHook,
 } from "../../src/hooks/compaction";
+import { Logger } from "../../src/utils/logger";
 import type {
 	Observation,
 	ObservationIndex,
@@ -132,6 +133,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -154,6 +156,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -180,6 +183,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -216,6 +220,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -247,6 +252,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -273,6 +279,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -300,6 +307,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			brokenRepos.sessions as never,
 			brokenRepos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };
@@ -325,6 +333,7 @@ describe("createCompactionHook — enhanced observations", () => {
 			repos.sessions as never,
 			repos.summaries as never,
 			"/tmp/proj",
+		null, new Logger("warn"),
 		);
 
 		const output = { context: [] as string[] };

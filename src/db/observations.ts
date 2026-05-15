@@ -48,6 +48,7 @@ interface ObservationRow {
 	deleted_at: string | null;
 	superseded_by: string | null;
 	superseded_at: string | null;
+	message_id: string | null;
 }
 
 interface ObservationIndexRow {
@@ -95,8 +96,8 @@ export class ObservationRepository {
 			`INSERT INTO observations
 				(id, session_id, scope, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at, message_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				id,
 				data.sessionId,
@@ -117,6 +118,7 @@ export class ObservationRepository {
 				importance,
 				null,
 				null,
+				data.messageId ?? null,
 			],
 		);
 		return {
@@ -139,8 +141,8 @@ export class ObservationRepository {
 			`INSERT INTO observations
 				(id, session_id, scope, type, title, subtitle, facts, narrative,
 				 concepts, files_read, files_modified, raw_tool_output,
-				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 tool_name, created_at, token_count, discovery_tokens, importance, revision_of, deleted_at, message_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				data.id,
 				data.sessionId,
@@ -161,6 +163,7 @@ export class ObservationRepository {
 				data.importance ?? 3,
 				data.revisionOf ?? null,
 				data.deletedAt ?? null,
+				data.messageId ?? null,
 			],
 		);
 	}
@@ -686,6 +689,21 @@ export class ObservationRepository {
 		return true;
 	}
 
+	/** Soft-delete all observations tied to a specific message (for /undo handling). */
+	softDeleteByMessageId(sessionId: string, messageId: string): number {
+		const now = new Date().toISOString();
+		const result = this.db.all<{ id: string }>(
+			`UPDATE observations 
+			 SET deleted_at = ? 
+			 WHERE session_id = ? AND message_id = ? AND deleted_at IS NULL
+			 RETURNING id`,
+			[now, sessionId, messageId],
+		);
+		const ids = result.map((r) => r.id);
+		this.deleteEmbeddingsForObservations(ids);
+		return ids.length;
+	}
+
 	/** Return full revision/tombstone lineage from oldest known revision to newest. */
 	getLineage(id: string): Observation[] {
 		const anchor = this.getByIdIncludingArchived(id);
@@ -772,6 +790,7 @@ export class ObservationRepository {
 			deletedAt: row.deleted_at ?? null,
 			supersededBy: row.superseded_by ?? null,
 			supersededAt: row.superseded_at ?? null,
+			messageId: row.message_id ?? null,
 		};
 	}
 }
