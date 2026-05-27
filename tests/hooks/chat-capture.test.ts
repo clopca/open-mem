@@ -308,6 +308,53 @@ Summarize the following coding session based on its observations.
 		expect(observations.calls).toHaveLength(0);
 	});
 
+	test("filters out internal entity extraction prompts", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					`<entity_extraction>
+<observation>
+  <title>Some title</title>
+  <type>discovery</type>
+  <narrative>Some narrative text about entities and relationships</narrative>
+</observation>
+</entity_extraction>`,
+				],
+			},
+		);
+
+		expect(observations.calls).toHaveLength(0);
+	});
+
+	test("filters out internal reranking prompts", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					`<rerank_request>
+<query>some search query about authentication patterns</query>
+<candidates>
+  <candidate index="0"><title>Auth middleware</title></candidate>
+</candidates>
+</rerank_request>`,
+				],
+			},
+		);
+
+		expect(observations.calls).toHaveLength(0);
+	});
+
 	test("does not filter normal user messages that happen to contain XML-like tags", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
