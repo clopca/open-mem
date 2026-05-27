@@ -11,6 +11,24 @@ const MAX_NARRATIVE_LENGTH = 2000;
 const MAX_TITLE_CONTENT_LENGTH = 60;
 
 /**
+ * Patterns that identify internal open-mem prompts injected into the chat
+ * stream. These should NOT be captured as user observations because they are
+ * implementation artifacts, not user intent.
+ */
+const INTERNAL_PROMPT_PATTERNS: RegExp[] = [
+	// The observation extraction prompt (compressor → chat.message)
+	/^\s*<task>\s*\n?\s*Analyze the following tool output and extract a structured observation/i,
+	// The session summarization prompt
+	/^\s*<task>\s*\n?\s*Summarize the following coding session based on its observations/i,
+	// The conflict evaluation prompt
+	/^\s*<conflict_evaluation>/i,
+	// The entity extraction prompt
+	/^\s*<entity_extraction>/i,
+	// The reranking prompt
+	/^\s*<rerank_request>/i,
+];
+
+/**
  * Type guard: checks whether a value is an object with a string `text` property.
  */
 function hasTextProperty(value: unknown): value is { text: string } {
@@ -76,6 +94,9 @@ export function persistChatMessage(input: ChatCaptureInput): boolean {
 	// Strip private blocks and redact sensitive content before any processing
 	const processedText = redactSensitive(stripPrivateBlocks(text), sensitivePatterns);
 	if (processedText.length < MIN_MESSAGE_LENGTH) return false;
+
+	// Filter out internal open-mem prompts that leak into the chat stream
+	if (INTERNAL_PROMPT_PATTERNS.some((p) => p.test(processedText))) return false;
 
 	sessions.getOrCreate(sessionId, projectPath);
 

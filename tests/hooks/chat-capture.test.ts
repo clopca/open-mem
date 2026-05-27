@@ -232,6 +232,100 @@ describe("createChatCaptureHook", () => {
 		expect((data.filesModified as string[]).length).toBe(0);
 	});
 
+	test("filters out internal observation extraction prompts", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					`<task>
+Analyze the following tool output and extract a structured observation.
+</task>
+
+<tool_name>bash</tool_name>
+
+<tool_output>
+Some tool output here that is definitely long enough to pass the length check
+</tool_output>`,
+				],
+			},
+		);
+
+		expect(observations.calls).toHaveLength(0);
+	});
+
+	test("filters out internal summarization prompts", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					`<task>
+Summarize the following coding session based on its observations.
+</task>
+
+<session_id>ses_abc123</session_id>
+
+<observations>
+  <obs index="1">
+    <title>Some observation</title>
+  </obs>
+</observations>`,
+				],
+			},
+		);
+
+		expect(observations.calls).toHaveLength(0);
+	});
+
+	test("filters out internal conflict evaluation prompts", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					`<conflict_evaluation>
+<new_observation>
+  <title>Some title</title>
+</new_observation>
+</conflict_evaluation>`,
+				],
+			},
+		);
+
+		expect(observations.calls).toHaveLength(0);
+	});
+
+	test("does not filter normal user messages that happen to contain XML-like tags", async () => {
+		const observations = makeMockObservations();
+		const sessions = makeMockSessions();
+		const hook = createChatCaptureHook(observations as never, sessions as never, "/tmp/proj");
+
+		await hook(
+			{ sessionID: "s1" },
+			{
+				message: {},
+				parts: [
+					"Please help me debug this HTML issue with <div> tags and also fix the layout",
+				],
+			},
+		);
+
+		expect(observations.calls.find((c) => c.method === "create")).toBeDefined();
+	});
+
 	test("handles mixed string and object parts", async () => {
 		const observations = makeMockObservations();
 		const sessions = makeMockSessions();
